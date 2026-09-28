@@ -316,14 +316,19 @@ release cadence is unaffected.
 ### Phase B -- ade, in this repository
 
 B1-B8 are the "first versions" list above, in that order. ade gets the
-libraries as a pak, so **pak is built before phase B**: B1 (the proof) starts
-once aed's libraries can be packaged. A7 has landed, so pak is now what phase B
-waits on.
+libraries from an aed release (see the decisions below), so phase B needs an aed
+release that carries `aed-libs-<version>.tar.gz`; until one exists, B1 builds
+against a package made locally with aed's `mklibs.sh`.
 
 ## Decisions made
 
-- **How ade gets the libraries**: as a **pak**. pak is built first; no
-  submodule, vendored copy or path into `~/code/aed` in the meantime.
+- **How ade gets the libraries**: from **aed's GitHub release assets**. Each aed
+  release carries `aed-libs-<version>.tar.gz` (made by aed's `mklibs.sh`:
+  `lib/libedcore.a`, `lib/libedui.a`, `include/core/*.h`, `include/ui/*.h`,
+  `VERSION`). ade pins a version and its sha256 and downloads it at build time;
+  `AED_LIBS=<dir>` points the build at an unpacked package instead, for working
+  against an unreleased aed. **pak is postponed** (decided 2026-09-28): it was
+  the first choice, and would replace this download when it exists.
 - **Library names**: **`libedcore`** and **`libedui`**.
 - **Grammars and themes are shared**: ade reads `/config/aed/syntax` and
   `/config/aed/themes`. One copy serves both programs, so ade's install depends
