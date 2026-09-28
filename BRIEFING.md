@@ -30,7 +30,7 @@ dig -- and now ade.
 | **hub** -- resident shell/scheduler | `~/code/devel`; design: https://claude.ai/code/artifact/2284d613-0e89-40fc-bf85-5e81dd591918 | runs acc/zap/the program for ade and brings ade back; keeps ade's session in a hub block; `include/hub.h` + `libhub.a` |
 | **zap** -- assembler | `~/code/zap`; `-e <file>` on branch `error-file`, PR avalonbits/zap#163 | assembling; its error file |
 | **acc** -- C compiler | `~/code/acc` (another agent works there; read only); `-errors <file>` with columns on branch `error-file`, worktree `~/code/acc-diag` | compiling; its error file |
-| **pak** -- library packaging (designed, not built) | https://claude.ai/code/artifact/ddf7e7fe-e8eb-4e6e-b4a4-6c79aae6962a | how ade gets `libedcore`/`libedui`; built before phase B |
+| **pak** -- library packaging (designed, not built) | https://claude.ai/code/artifact/ddf7e7fe-e8eb-4e6e-b4a4-6c79aae6962a | postponed; would later replace downloading the libraries from aed releases |
 | **dig** -- debugger (briefing only) | `~/code/dig/BRIEFING.md` | a later integration: breakpoints in ade, stop and come back |
 
 Both tools write errors as `file:line:column: error: text`, one per line
