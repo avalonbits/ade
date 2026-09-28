@@ -30,7 +30,7 @@ dig -- and now ade.
 | **hub** -- resident shell/scheduler | `~/code/devel`; design: https://claude.ai/code/artifact/2284d613-0e89-40fc-bf85-5e81dd591918 | runs acc/zap/the program for ade and brings ade back; keeps ade's session in a hub block; `include/hub.h` + `libhub.a` |
 | **zap** -- assembler | `~/code/zap`; `-e <file>` on branch `error-file`, PR avalonbits/zap#163 | assembling; its error file |
 | **acc** -- C compiler | `~/code/acc` (another agent works there; read only); `-errors <file>` with columns on branch `error-file`, worktree `~/code/acc-diag` | compiling; its error file |
-| **pak** -- library packaging (designed, not built) | https://claude.ai/code/artifact/ddf7e7fe-e8eb-4e6e-b4a4-6c79aae6962a | a possible way to ship AED's core library later |
+| **pak** -- library packaging (designed, not built) | https://claude.ai/code/artifact/ddf7e7fe-e8eb-4e6e-b4a4-6c79aae6962a | how ade gets `libedcore`/`libedui`; built before phase B |
 | **dig** -- debugger (briefing only) | `~/code/dig/BRIEFING.md` | a later integration: breakpoints in ade, stop and come back |
 
 Both tools write errors as `file:line:column: error: text`, one per line
@@ -121,13 +121,13 @@ Three layers, two programs:
 ```
    aed (main, keymap, help, settings, header/footer)     ade (menus, documents, build, errors, hub)
                      \                                        /
-                      +------------ libaedui -----------------+
+                      +------------- libedui ------------------+
                       |  view (a rectangle + cursor + scroll), |
                       |  screen device, widgets, key source,   |
                       |  editing commands, key translation     |
                       +----------------------------------------+
                                         |
-                      +------------ libaedcore ---------------+
+                      +------------ libedcore -----------------+
                       |  document = buffer + undo + syntax     |
                       |  state; paging, find, clipboard,       |
                       |  lexer, theme, ini, config engine      |
@@ -135,7 +135,7 @@ Three layers, two programs:
                       +----------------------------------------+
 ```
 
-### libaedcore -- the model, no VDP
+### libedcore -- the model, no VDP
 
 - **A `document`** in core: `text_buffer` + `undo` + `syntax`/`theme` + the
   syntax-state cache (`lineSyn_`, `synFirst_`, `synKnown_`) + the selection
@@ -144,7 +144,8 @@ Three layers, two programs:
 - **An application context passed in, never baked in**: the app name (for
   scratch-file fallbacks, today the literal `"aed"`), the config directory,
   the syntax and theme directories. aed passes `aed`, `/config/aed/...`; ade
-  its own (see open questions on sharing).
+  passes `ade` for its name but the same `/config/aed/syntax` and
+  `/config/aed/themes` (grammars and themes are shared).
 - **The config engine made schema-driven**: `ini` + a settings table and field
   pointers passed in. AED's `SETTINGS[]` and `/config/aed.ini` move to the aed
   front end; ade brings its own table.
@@ -156,7 +157,7 @@ Three layers, two programs:
   not call into another). Only fix what ade actually hits.
 - **What leaves core**: `bootfont` and `conv` belong with the screen.
 
-### libaedui -- the view and the editing machinery, shared
+### libedui -- the view and the editing machinery, shared
 
 - **A `view`**: the text rectangle (x, y, width, height), cursor row and
   column, horizontal origin, `synTop_`, bound to one `document`. The fields
@@ -233,29 +234,29 @@ release cadence is unaffected.
 | A4 | `ed_translate`/`ed_handle`; the data-driven keymap with flags; sentinels gone; aed's loop in aed | aed's behaviour identical; a test drives a key through translate+handle |
 | A5 | A polling key source; widgets take it | a test runs a prompt from a scripted, non-blocking source |
 | A6 | The schema-driven config engine; AED's schema in aed | aed.ini round-trips byte for byte |
-| A7 | The build: `core/` and `ui/` (or equivalent) producing `libaedcore.a` and `libaedui.a`; core-only tests linked against core objects only; `frames.sh` and `build_deps.sh` updated | aed links the two libraries; size within a few hundred bytes of before; the core-only test binary proves the layering |
+| A7 | The build: `core/` and `ui/` (or equivalent) producing `libedcore.a` and `libedui.a`; core-only tests linked against core objects only; `frames.sh` and `build_deps.sh` updated | aed links the two libraries; size within a few hundred bytes of before; the core-only test binary proves the layering |
 
 ### Phase B -- ade, in this repository
 
-B1-B8 are the "first versions" list above, in that order. B1 (the proof) can
-start as soon as A7 lands; nothing before it needs ade's repository.
+B1-B8 are the "first versions" list above, in that order. ade gets the
+libraries as a pak, so **pak is built before phase B**: B1 (the proof) starts
+once A7 has landed and aed's libraries can be packaged. Phase A does not wait
+for pak.
 
-## Decisions still open -- ask the user
+## Decisions made
 
-- **How ade gets the libraries**: a git submodule of aed pinned to a tag, a
-  vendored copy of released archives, or (later) a pak. Recommended to start:
-  a submodule, pinned, built by ade's Makefile.
-- **Library names**: `libaedcore` / `libaedui` are working names.
-- **Sharing grammars and themes**: ade reading `/config/aed/syntax` and
-  `/config/aed/themes` directly avoids two copies, but couples the programs'
-  installs. The alternative is `/config/ade/...`.
-- **ade's firmware floor**: hub needs MOS 3.0.2, so ade's build/run features
-  do; aed's floor stays 2.3.3, and **the libraries must keep working there**.
-  Does ade refuse to start on older MOS, or run as an editor without the
-  build menu?
-- **ade without hub**: an editor-only mode when hub isn't running, or refuse?
-- **Where ade's session lives**: a hub block is the design; a file fallback
-  would let ade restore its session without hub too.
+- **How ade gets the libraries**: as a **pak**. pak is built first; no
+  submodule, vendored copy or path into `~/code/aed` in the meantime.
+- **Library names**: **`libedcore`** and **`libedui`**.
+- **Grammars and themes are shared**: ade reads `/config/aed/syntax` and
+  `/config/aed/themes`. One copy serves both programs, so ade's install depends
+  on aed's config directory.
+- **ade needs hub and refuses to start without it**: on MOS older than 3.0.2,
+  or when hub is not running, ade prints why and exits. There is no
+  editor-only mode. aed's floor stays MOS 2.3.3, and **the libraries must keep
+  working there**.
+- **ade's session lives only in a hub block**: there's no file fallback. hub is
+  always present when ade runs.
 
 ## Working rules
 
