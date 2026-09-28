@@ -263,16 +263,48 @@ release cadence is unaffected.
   all its views after one closes**, not just the current one. A font or mode
   change re-lays `whole_` only; other views are their owner's to re-lay. A
   screen must not be copied (`v_` may point into its own `whole_`).
-- **A4** -- avalonbits/aed#183, in review. Keys through a keymap
-  (`key_binding` table: vkey, mods, flags, cmd; `AED_KEYS` is aed's, the
-  editor reads `keys_`). Flags: `KC_OWNS_SEL` (binding), `KC_EDITS` (the key),
-  `KC_PUTC` (typed character). `ed_translate(keymap, key_press)` is pure;
+- **A4** -- avalonbits/aed#183, merged. Keys through a keymap (`key_binding`
+  table: vkey, mods, flags, cmd; `AED_KEYS` is aed's, the editor reads
+  `keys_`). Flags: `KC_OWNS_SEL` (binding), `KC_EDITS` (the key), `KC_PUTC`
+  (typed character). `ed_translate(keymap, key_press)` is pure;
   `ed_handle(editor, key_command)` runs a key and returns false once a command
   set `leaving_`. Quit/save are ordinary bindings (`ed_cmd_quit`,
-  `ed_cmd_save`). ade brings its own table for F9, menus and so on.
-- **Review loop**: each Phase A PR is reviewed by the aed session (in
-  `~/code/aed`), fixed until it is satisfied, and merged by it; the user
-  cleared it to merge A2-A7.
+  `ed_cmd_save`). **ade puts its own table in front of AED's through the
+  keymap's `next`** rather than copying it; a NULL keymap binds nothing.
+- **A5** -- avalonbits/aed#184, merged. `keys_poll` is non-blocking; a
+  `key_source` is `{ poll, idle, ctx }` (`KEYS_MOS` is the keyboard) and
+  `ks_wait` runs `idle` between polls. Prompts read `ui_.keys_`
+  (`ui_set_keys`), and so does `ed_run`. **An idle runs while a prompt owns the
+  screen: it must not paint or change the document** -- counting, polling hub,
+  noting things for later.
+- **A6** -- avalonbits/aed#185, merged. `config.c` is a schema engine
+  (`cfg_schema`: settings table by `offsetof`, plus a render); AED's schema is
+  `AED_CONFIG` in `aed_config.c`. ade brings its own schema for `ade.ini`.
+  AED's file is pinned byte for byte by `test_config_golden`.
+- **A7a** -- avalonbits/aed#186, merged. AED's help, banner, settings modal,
+  help/settings commands, `AED_APP` and `AED_KEYS` live in `aed.c`/`aed_ui.c`.
+  The modal helpers are exported (`ui_modal_fill`, `ui_modal_title`,
+  `ui_modal_move`, `ui_put_at`, `ui_pad_to`, `ui_put_num`, `ui_font_picker`)
+  for ade's menus and lists. **An editor starts with
+  `ed_init_for(ed, kb, fname, prog)`**, where `ed_program` is `{ app, keys,
+  settings, banner }`: settings runs once the screen exists and returns a
+  message to report (or NULL); banner shows when starting with nothing. No
+  program state lives outside the editor. `ed_init` is AED's wrapper.
+- **A7b** -- avalonbits/aed#187, merged: **Phase A is done.** `src/core` builds
+  `libedcore.a`, `src/ui` builds `libedui.a` (`make libs`), and `src` is AED,
+  linked `-ledui -ledcore`. The host suite compiles each layer with only the
+  layers below it on the include path and links core-only and UI-only tests
+  against those layers alone, so a layering violation fails the build.
+- **Follow-ups from the A7b review** (small, not yet done; each needs the
+  user's go-ahead for the aed session to merge): assert from `bin/aed.map`
+  that the link really comes from both archives and nothing loose; make
+  `make lib` (which now archives only AED's objects) point at `libs`, or
+  document `libs`; guard `test/run.sh` against a `core/x.c` and `ui/x.c`
+  sharing a basename.
+- **Review loop**: each Phase A PR was reviewed by the aed session (in
+  `~/code/aed`), fixed until it was satisfied, and merged by it; the user's
+  clearance covered A2-A7 and has ended. Anything after Phase A needs the
+  user's go-ahead before it is merged.
 - **Device checks for aed PRs**: there is no Xvfb here, so the full emulator
   runs with `SDL_VIDEODRIVER=dummy` and results are read from the card. A
   probe -- the real `src/*.c` with `main.c` swapped for a driver that writes
@@ -285,8 +317,8 @@ release cadence is unaffected.
 
 B1-B8 are the "first versions" list above, in that order. ade gets the
 libraries as a pak, so **pak is built before phase B**: B1 (the proof) starts
-once A7 has landed and aed's libraries can be packaged. Phase A does not wait
-for pak.
+once aed's libraries can be packaged. A7 has landed, so pak is now what phase B
+waits on.
 
 ## Decisions made
 
