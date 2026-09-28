@@ -238,7 +238,7 @@ release cadence is unaffected.
 
 ### Phase A progress
 
-- **A1** -- avalonbits/aed#180, open. The core's `app_context` (`src/app.h`)
+- **A1** -- avalonbits/aed#180, merged. The core's `app_context` (`src/app.h`)
   holds the program's name, settings file and its old name, and its syntax,
   theme and font directories. The front end hands it over once with `app_set`;
   aed's is `AED_APP` in `editor.c`, set first thing in `ed_init`. With no
@@ -248,6 +248,31 @@ release cadence is unaffected.
   they are the core's scratch format, shared by both programs. ade will pass
   `ade` as its name and the `/config/aed/...` directories (grammars and themes
   are shared).
+- **A2** -- avalonbits/aed#181, merged. `document` (`src/document.h`, core):
+  buffer, undo log, grammar (`syn_`), syntax window, selection. The editor
+  holds one as `doc_`. **The theme is the screen's, not the document's**: it is
+  picked by the background, so a background change must re-pick it for every
+  document on screen -- it stays in `editor` beside `scr_`. **The selection is
+  per document on purpose**: two views of one file share it.
+- **A3** -- avalonbits/aed#182, merged. `view` (`src/view.h`, UI): rectangle,
+  cursor, `originX_`, `synTop_`. `screen` is the device and paints through
+  `v_`; it lays out `whole_` (the whole text area) and starts pointed at it;
+  `scr_set_view` switches, NULL returns to `whole_`. The footer is on the
+  screen's last row. Help, banner and settings draw on `whole_` and restore
+  the caller's view -- **but they paint over every pane, so ade must repaint
+  all its views after one closes**, not just the current one. A font or mode
+  change re-lays `whole_` only; other views are their owner's to re-lay. A
+  screen must not be copied (`v_` may point into its own `whole_`).
+- **A4** -- avalonbits/aed#183, in review. Keys through a keymap
+  (`key_binding` table: vkey, mods, flags, cmd; `AED_KEYS` is aed's, the
+  editor reads `keys_`). Flags: `KC_OWNS_SEL` (binding), `KC_EDITS` (the key),
+  `KC_PUTC` (typed character). `ed_translate(keymap, key_press)` is pure;
+  `ed_handle(editor, key_command)` runs a key and returns false once a command
+  set `leaving_`. Quit/save are ordinary bindings (`ed_cmd_quit`,
+  `ed_cmd_save`). ade brings its own table for F9, menus and so on.
+- **Review loop**: each Phase A PR is reviewed by the aed session (in
+  `~/code/aed`), fixed until it is satisfied, and merged by it; the user
+  cleared it to merge A2-A7.
 - **Device checks for aed PRs**: there is no Xvfb here, so the full emulator
   runs with `SDL_VIDEODRIVER=dummy` and results are read from the card. A
   probe -- the real `src/*.c` with `main.c` swapped for a driver that writes
