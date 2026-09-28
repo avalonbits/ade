@@ -233,8 +233,28 @@ release cadence is unaffected.
 | A3 | The `view` struct; `screen` becomes the device | a view can be drawn into a rectangle other than the full screen (a host test paints two) |
 | A4 | `ed_translate`/`ed_handle`; the data-driven keymap with flags; sentinels gone; aed's loop in aed | aed's behaviour identical; a test drives a key through translate+handle |
 | A5 | A polling key source; widgets take it | a test runs a prompt from a scripted, non-blocking source |
-| A6 | The schema-driven config engine; AED's schema in aed | aed.ini round-trips byte for byte |
+| A6 | The schema-driven config engine; AED's schema in aed, including the text `cfg_render` writes at the top of a new settings file (it says "AED" and names `/config/aed/unscii8x9.bin` -- left in core by A1) | aed.ini round-trips byte for byte |
 | A7 | The build: `core/` and `ui/` (or equivalent) producing `libedcore.a` and `libedui.a`; core-only tests linked against core objects only; `frames.sh` and `build_deps.sh` updated | aed links the two libraries; size within a few hundred bytes of before; the core-only test binary proves the layering |
+
+### Phase A progress
+
+- **A1** -- avalonbits/aed#180, open. The core's `app_context` (`src/app.h`)
+  holds the program's name, settings file and its old name, and its syntax,
+  theme and font directories. The front end hands it over once with `app_set`;
+  aed's is `AED_APP` in `editor.c`, set first thing in `ed_init`. With no
+  context, an unnamed document's store and clipboard spill fail rather than
+  guess a name. `cfg_migrate(old, path)` takes its paths. `AED_DOC_KB` is now
+  `TB_DOC_KB` in `text_buffer.h`. The `.aedh`/`.aedt`/`.aeds` suffixes stay:
+  they are the core's scratch format, shared by both programs. ade will pass
+  `ade` as its name and the `/config/aed/...` directories (grammars and themes
+  are shared).
+- **Device checks for aed PRs**: there is no Xvfb here, so the full emulator
+  runs with `SDL_VIDEODRIVER=dummy` and results are read from the card. A
+  probe -- the real `src/*.c` with `main.c` swapped for a driver that writes
+  `/probe.out` -- built against the branch and against main as a control, run
+  on MOS 3.0.2 / VDP 2.16 and on MOS 2.3.3 (downloaded with `gh api`, with
+  `MOS.map` beside it) / VDP 1.04 (`--firmware quark`). Only the first line of
+  `autoexec.txt` runs.
 
 ### Phase B -- ade, in this repository
 
