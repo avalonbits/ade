@@ -326,8 +326,8 @@ against a package made locally with aed's `mklibs.sh`.
 - **aed v1.3.2** is the first release carrying `aed-libs-1.3.2.tar.gz`; ade pins
   it (`aed-libs.pin`, sha256 `e68fcb2c...d1e9`) and `tools/fetch-aed-libs.sh`
   downloads, checks and unpacks it into `third_party/`.
-- **aed#190** (base keymap, reviewed, awaiting the user's merge go-ahead in the
-  aed session): `ED_KEYS` in libedui holds the 51 editing bindings;
+- **aed#190** (base keymap) is merged as `2002679`, after v1.3.2.
+  `ED_KEYS` in libedui holds the 51 editing bindings;
   `AED_KEYS` is aed's own six keys chained in front. ade's keys chain in front
   of `ED_KEYS` the same way, so **ade needs a release after v1.3.2**; until
   then it builds with `AED_LIBS=<package made by aed's mklibs.sh from #190>`.
