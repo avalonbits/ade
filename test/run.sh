@@ -83,6 +83,7 @@ check "  linking the core from libedcore.a" \
       "$(grep -q 'libedcore\.a(' bin/ade.map && echo yes)" yes
 check "  and the editor from libedui.a" \
       "$(grep -q 'libedui\.a(editor\.o)' bin/ade.map && echo yes)" yes
+AED_LIBS="$LIBS_DIR" test/frames.sh || status=1
 
 # --- 3. on the emulator ---
 EMU=${AGON_EMU:-$HOME/fab-agon-emulator-1.2.4}
