@@ -131,4 +131,66 @@ for fw in newest oldest; do
           "$([ -f "$card/big.txt.aedh" ] && [ -f "$card/big.txt.aedt" ] && echo opened)" opened
 done
 
+# --- 4. ade's windows, played on the emulator ---
+# The test build of ade, with test/script in place of the keyboard -- see
+# test/script/script.c for the keys and what they do -- as a project of its
+# own, so the real build is left as it is.
+case "$LIBS_DIR" in /*) LIBS_ABS=$LIBS_DIR ;; *) LIBS_ABS=$PWD/$LIBS_DIR ;; esac
+proj="$W/scripted"
+mkdir -p "$proj/src"
+cp src/*.c src/*.h test/script/*.c test/script/*.h "$proj/src/"
+cat > "$proj/Makefile" <<MK
+NAME=ade
+include \$(shell agondev-config --makefile)
+CFLAGS += -DADE_SCRIPT -I$LIBS_ABS/include/core -I$LIBS_ABS/include/ui
+PROJECTLIBDIR := $LIBS_ABS/lib
+LIBS := -ledui -ledcore
+MK
+(cd "$proj" && make >/dev/null 2>&1)
+check "the scripted ade builds" "$([ -f "$proj/bin/ade.bin" ] && echo built)" built
+
+WANT="keys 41 of 41
+current 2
+window 1 a.txt xzalpha
+window 2 b.txt y2#bravo
+window 3 closed"
+
+for fw in newest oldest; do
+    card="$W/win-$fw"
+    mkdir -p "$card/bin"
+    cp -r "$EMU/sdcard/mos" "$card/"
+    cp "$EMU/sdcard/MOS.bin" "$EMU/sdcard/firmware.bin" "$card/"
+    cp "$proj/bin/ade.bin" "$card/bin/"
+    printf 'alpha\r\n' > "$card/a.txt"
+    printf 'bravo\r\n' > "$card/b.txt"
+    printf 'charlie\r\n' > "$card/c.txt"
+    printf 'ade a.txt\r\n' > "$card/autoexec.txt"
+    chmod -R u+w "$card"
+
+    flags=()
+    [ "$fw" = oldest ] && flags=(--firmware quark --mos "$PWD/$MOS233/MOS.bin")
+    fifo="$W/wfifo-$fw"
+    mkfifo "$fifo"
+    tail -f /dev/null > "$fifo" &
+    hold=$!
+    (cd "$EMU" && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy \
+        timeout 40 ./fab-agon-emulator "${flags[@]}" --sdcard "$card" \
+        < "$fifo" > /dev/null 2>&1)
+    kill "$hold" 2>/dev/null
+    wait "$hold" 2>/dev/null
+
+    got=$(tr -d '\r' < "$card/ade.out" 2>/dev/null)
+    if [ "$got" = "$WANT" ]; then
+        printf 'PASS  %-56s %s\n' "three windows, opened, moved between, closed ($fw)" "as played"
+    else
+        printf 'FAIL  %-56s\n' "three windows, opened, moved between, closed ($fw)"
+        echo "      want: $(echo "$WANT" | tr '\n' '|')"
+        echo "      got:  $(echo "${got:-nothing}" | tr '\n' '|')"
+        status=1
+    fi
+    check "  and nothing was saved, as answered ($fw)" \
+          "$(cat "$card/a.txt" "$card/b.txt" "$card/c.txt" | tr -d '\r' | tr '\n' ' ')" \
+          "alpha bravo charlie "
+done
+
 exit $status

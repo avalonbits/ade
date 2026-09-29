@@ -20,9 +20,10 @@
  * ade, the Agon Development Environment: aed's editor, built from aed's core
  * and UI libraries, as the start of an IDE.
  *
- * This is the first step -- ade opens the file named on the command line and
- * edits it exactly as aed does. Its own keys are its files and leaving; every
- * other key is the editor's own, from ED_KEYS behind them.
+ * ade opens the file named on the command line and edits it as aed does, with
+ * up to three files open in windows of their own -- see windows.h. Its own
+ * keys are its files, its windows and leaving; every other key is the
+ * editor's, from ED_KEYS behind them.
  */
 
 #include <stddef.h>
@@ -30,6 +31,11 @@
 #include "app.h"
 #include "editor.h"
 #include "text_buffer.h"
+#include "windows.h"
+
+#ifdef ADE_SCRIPT
+#include "script.h"
+#endif
 
 // Where ade keeps its files. Grammars, themes and fonts are aed's, shared
 // rather than copied: one set on the card serves both programs.
@@ -43,20 +49,31 @@ static const app_context ADE_APP = {
 };
 
 #define C MOD_CTRL
+#define A MOD_ALT
 
 // Both cases of a letter: MOS reports the shifted one when SHIFT is held.
 #define LETTER(lo, up, mods, cmd) \
     { lo, mods, 0, cmd }, { up, mods, 0, cmd }
 
-// ade's own keys, the same ones aed uses for the same things.
+/*
+ * ade's own keys: its files and leaving, the same as aed's, and its windows,
+ * on the keys Turbo Pascal gave them -- F3 opens a file in a new window, F6
+ * goes to the next, ALT+F3 closes the one on screen, and ALT+F6 lists them.
+ * ALT+F3 and ALT+F6 come before F3 and F6, which would match them too.
+ */
 static const key_binding ADE_BINDINGS[] = {
     LETTER(VK_o, VK_O, C, cmd_open),
-    LETTER(VK_s, VK_S, C | MOD_ALT, cmd_save_as),
+    LETTER(VK_s, VK_S, C | A, cmd_save_as),
     LETTER(VK_s, VK_S, C, ed_cmd_save),
-    LETTER(VK_q, VK_Q, C, ed_cmd_quit),
+    LETTER(VK_q, VK_Q, C, win_quit),
+    { VK_F3, A, 0, win_close },
+    { VK_F6, A, 0, win_list },
+    { VK_F3, 0, 0, win_open },
+    { VK_F6, 0, 0, win_next },
 };
 
 #undef LETTER
+#undef A
 #undef C
 
 static const keymap ADE_KEYS = {
@@ -71,10 +88,18 @@ int main(int argc, char** argv) {
     static editor ed;
 
     const char* fname = argc > 1 ? argv[1] : NULL;
-    if (ed_init_for(&ed, TB_DOC_KB, fname, &ADE) == NULL) {
+    if (ed_init_for(&ed, ADE_DOC_KB, fname, &ADE) == NULL) {
         return 1;
     }
+    win_start(&ed);
+#ifdef ADE_SCRIPT
+    ui_set_keys(&ed.ui_, script_keys());
+#endif
     ed_run(&ed);
+#ifdef ADE_SCRIPT
+    script_report(&ed);
+#endif
+    win_finish(&ed);
     ed_destroy(&ed);
 
     return 0;
