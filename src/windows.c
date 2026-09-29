@@ -164,7 +164,24 @@ static void show(editor* ed, int i) {
     ed_doc_show(ed, win_doc(ed, i), win_view(ed, i));
 }
 
-void win_open(editor* ed) {
+int win_find(editor* ed, const char* fname) {
+    for (int i = 0; i < ADE_WINDOWS; i++) {
+        document* d = win_doc(ed, i);
+        if (d != NULL && same_file(tb_fname(&d->buf_), fname)) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+void win_go(editor* ed, int i) {
+    if (win_doc(ed, i) != NULL) {
+        show(ed, i);
+    }
+}
+
+int win_open_named(editor* ed, const char* fname) {
     int slot = -1;
     for (int i = 1; i < ADE_WINDOWS; i++) {
         if (!open_[i]) {
@@ -173,6 +190,44 @@ void win_open(editor* ed) {
         }
     }
     if (slot < 0) {
+        ui_message(&ed->ui_, &ed->scr_,
+                   "Three windows are open: close one to open another");
+        return -1;
+    }
+
+    // One window per file. Two would each hold a copy, and whichever saved
+    // last would write over the other's work; for a file too big for memory
+    // the libraries refuse it anyway (TB_IN_USE), but a small one they allow.
+    const int already = win_find(ed, fname);
+    if (already >= 0) {
+        static char msg[] = "Already open in window 1";
+        msg[sizeof(msg) - 2] = (char) ('1' + already);
+        ui_message(&ed->ui_, &ed->scr_, msg);
+        return -1;
+    }
+
+    switch (ed_doc_open(ed, &docs[slot], &views[slot], ADE_DOC_KB, fname)) {
+        case TB_OK:
+            open_[slot] = true;
+            current = slot;
+            return slot;
+        case TB_TOO_LARGE:
+            ui_message(&ed->ui_, &ed->scr_, "File too large, or no room for it");
+            break;
+        case TB_NO_FILE:
+            ui_message(&ed->ui_, &ed->scr_, "Cannot open file");
+            break;
+        case TB_IN_USE:
+            ui_message(&ed->ui_, &ed->scr_, "Already open in another window");
+            break;
+    }
+
+    return -1;
+}
+
+void win_open(editor* ed) {
+    // Said before asking for a name that could not be used anyway.
+    if (win_doc(ed, 1) != NULL && win_doc(ed, 2) != NULL) {
         ui_message(&ed->ui_, &ed->scr_,
                    "Three windows are open: close one to open another");
         return;
@@ -192,35 +247,7 @@ void win_open(editor* ed) {
     }
     memcpy(fname, typed, (size_t) sz);
     fname[sz] = 0;
-
-    // One window per file. Two would each hold a copy, and whichever saved
-    // last would write over the other's work; for a file too big for memory
-    // the libraries refuse it anyway (TB_IN_USE), but a small one they allow.
-    for (int i = 0; i < ADE_WINDOWS; i++) {
-        document* d = win_doc(ed, i);
-        if (d != NULL && same_file(tb_fname(&d->buf_), fname)) {
-            static char msg[] = "Already open in window 1";
-            msg[sizeof(msg) - 2] = (char) ('1' + i);
-            ui_message(&ed->ui_, &ed->scr_, msg);
-            return;
-        }
-    }
-
-    switch (ed_doc_open(ed, &docs[slot], &views[slot], ADE_DOC_KB, fname)) {
-        case TB_OK:
-            open_[slot] = true;
-            current = slot;
-            break;
-        case TB_TOO_LARGE:
-            ui_message(&ed->ui_, &ed->scr_, "File too large, or no room for it");
-            break;
-        case TB_NO_FILE:
-            ui_message(&ed->ui_, &ed->scr_, "Cannot open file");
-            break;
-        case TB_IN_USE:
-            ui_message(&ed->ui_, &ed->scr_, "Already open in another window");
-            break;
-    }
+    win_open_named(ed, fname);
 }
 
 void win_next(editor* ed) {

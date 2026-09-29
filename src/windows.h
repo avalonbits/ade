@@ -50,6 +50,13 @@ void win_close(editor* ed);
 void win_list(editor* ed);
 void win_quit(editor* ed);
 
+// Opens `fname` in a new window without asking for a name, and returns the
+// window it is in (0-based), or -1 having said why it could not. Which window
+// holds a file already, or -1; and showing window `i`.
+int win_open_named(editor* ed, const char* fname);
+int win_find(editor* ed, const char* fname);
+void win_go(editor* ed, int i);
+
 // What is open, for anything that reports on it: the document in window `i`
 // (0-based), or NULL for a free one, and which window is on screen.
 document* win_doc(editor* ed, int i);
