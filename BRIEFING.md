@@ -320,6 +320,26 @@ libraries from an aed release (see the decisions below), so phase B needs an aed
 release that carries `aed-libs-<version>.tar.gz`; until one exists, B1 builds
 against a package made locally with aed's `mklibs.sh`.
 
+
+### Phase B progress
+
+- **aed v1.3.2** is the first release carrying `aed-libs-1.3.2.tar.gz`; ade pins
+  it (`aed-libs.pin`, sha256 `e68fcb2c...d1e9`) and `tools/fetch-aed-libs.sh`
+  downloads, checks and unpacks it into `third_party/`.
+- **aed#190** (base keymap, reviewed, awaiting the user's merge go-ahead in the
+  aed session): `ED_KEYS` in libedui holds the 51 editing bindings;
+  `AED_KEYS` is aed's own six keys chained in front. ade's keys chain in front
+  of `ED_KEYS` the same way, so **ade needs a release after v1.3.2**; until
+  then it builds with `AED_LIBS=<package made by aed's mklibs.sh from #190>`.
+  When that release exists, bump the pin and `make` works on its own.
+- **B1 is written** (`src/main.c`): ade opens the file on its command line and
+  edits as aed does -- its own app context (`ade`, `/config/ade.ini`, aed's
+  grammar/theme/font directories), its own keys (open, save, save-as, quit)
+  in front of `ED_KEYS`, no settings or banner yet. `test/run.sh` checks the
+  fetch, the build and link, and on the emulator on both firmwares that ade
+  opens a file named on its command line. 82,258 bytes.
+- Small aed follow-up: `.gitignore` should cover `aed-libs-*.tar.gz`, which
+  `mkrelease.sh` leaves in the checkout.
 ## Decisions made
 
 - **How ade gets the libraries**: from **aed's GitHub release assets**. Each aed
