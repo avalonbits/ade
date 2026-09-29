@@ -368,6 +368,23 @@ against a package made locally with aed's `mklibs.sh`.
   selection so Copy and Cut still have one. Build, Run and Options say what
   they are waiting for. The scripted run (61 keys) now also undoes from the
   Edit menu, tries Build, wanders the bar, and quits from the File menu.
+- **B4 is written** (`src/build.c`): F9, or Build on the menu, builds the file
+  on screen -- `.c` with acc, `.s`/`.asm` with zap -- through hub. ade saves
+  every changed window (one with no name stops it), keeps the session in
+  hub's block `ADE ` (which files are open in which windows, each cursor, the
+  window on screen), pushes the tool with `HUB_STOP_ON_ERROR`, asks to come
+  back as `ade -resume`, and returns. Resumed, it reopens the windows, puts
+  each cursor back, and either says "Built" or reads the first line of
+  `/ade.err` (`file:line:col: ...`, both tools' form), goes to that file's
+  window -- opening it if it has none -- at the error, and shows it.
+  ade now **refuses to start without hub** (`hub_present`, which is also what
+  lets every other hub call work), so every emulator check runs under hub on
+  MOS 3.0.2, started from `hub -f /script.txt`; the refusal is checked on
+  3.0.2 and 2.3.3. The build checks put acc (with `/lib/acc`) and zap on the
+  card and run a broken C file, a broken assembly file, and a good C file
+  built from window 2 with both windows changed and unsaved. The build and
+  resume messages wait for a key, so the test's keys go in before the resume.
+  Linking `libhub.a` and using `snprintf` took ade to 98,815 bytes.
 ## Decisions made
 
 - **How ade gets the libraries**: from **aed's GitHub release assets**. Each aed

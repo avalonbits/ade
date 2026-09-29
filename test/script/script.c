@@ -1,5 +1,9 @@
 /*
- * The keys a person would press to use ade's windows, played on real MOS.
+ * The keys a person would press, played on real MOS: which keys depends on how
+ * ade was started. On a.txt, the windows and the menus, below. On a source
+ * file, F9, to build it; and when hub brings ade back, -resume, leaving.
+ *
+ * The windows and the menus:
  *
  * The card holds a.txt ("alpha"), b.txt ("bravo") and c.txt ("charlie"), and
  * ade starts on a.txt. The run types in each window, opens the other two with
@@ -24,7 +28,7 @@
 #define K(ch, vk)       { ch, vk, 0 }
 #define M(ch, vk, mods) { ch, vk, mods }
 
-static const key_press KEYS[] = {
+static const key_press WINDOWS[] = {
     K('x', VK_x),                                   // a: xalpha
     K(0, VK_F3),                                    // open in a new window...
     K('b', VK_b), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
@@ -65,7 +69,39 @@ static const key_press KEYS[] = {
     K(13, VK_RETURN),                               // ...Quit: only 2 is unsaved
     K('n', VK_n),                                   // ...leave it as it was
 };
-#define NKEYS ((int) (sizeof(KEYS) / sizeof(KEYS[0])))
+// Started on a source file: build it, F9. hub runs the tool, and ade again.
+static const key_press BUILD[] = {
+    K(0, VK_F9),
+};
+
+// Started on good.txt, with more for the build to carry across: good.txt
+// changed in window 1, and good.c opened in window 2, changed with the cursor
+// after it on line 3 -- all unsaved, and window 2 on screen at F9, which
+// builds the file on screen.
+static const key_press GOOD[] = {
+    K(0, VK_END),                                   // good.txt: after "bravo"
+    K('y', VK_y),                                   // bravoy
+    K(0, VK_F3),                                    // open in a new window...
+    K('g', VK_g), K('o', VK_o), K('o', VK_o), K('d', VK_d), K('.', VK_PERIOD),
+    K('c', VK_c),
+    K(13, VK_RETURN),                               // ...good.c, window 2
+    K(0, VK_DOWN), K(0, VK_DOWN),                   // line 3
+    K(' ', VK_SPACE),                               // "     return 0;"
+    K(0, VK_F9),
+};
+
+// Started by hub after the build: what it says -- the error, or that it was
+// built -- waits for a key; then, every window having been saved before the
+// build, leaving asks nothing.
+static const key_press RESUME[] = {
+    K('k', VK_k),                                   // the error, or "Built"
+    M(17, VK_q, MOD_CTRL),
+};
+
+#define COUNT(a) ((int) (sizeof(a) / sizeof(a[0])))
+
+static const key_press* KEYS = WINDOWS;
+static int NKEYS = COUNT(WINDOWS);
 
 static int at;
 
@@ -81,7 +117,18 @@ static bool poll(void* ctx, key_press* kp) {
 
 static const key_source SCRIPT = { poll, NULL, NULL };
 
-const key_source* script_keys(void) {
+const key_source* script_keys(const char* arg) {
+    if (arg != NULL && strcmp(arg, "-resume") == 0) {
+        KEYS = RESUME;
+        NKEYS = COUNT(RESUME);
+    } else if (arg != NULL && strstr(arg, "good") != NULL) {
+        KEYS = GOOD;
+        NKEYS = COUNT(GOOD);
+    } else if (arg != NULL && (strstr(arg, ".c") != NULL || strstr(arg, ".s") != NULL)) {
+        KEYS = BUILD;
+        NKEYS = COUNT(BUILD);
+    }
+
     return &SCRIPT;
 }
 
@@ -104,15 +151,20 @@ static int line1(document* d, char* out, int max) {
 void script_report(editor* ed) {
     static char out[512];
     static char text[64];
-    int n = sprintf(out, "keys %d of %d\ncurrent %d\n", at, NKEYS, win_current() + 1);
+    int n = sprintf(out, "keys %d of %d\ncurrent %d\nat %d:%d\n", at, NKEYS,
+                    win_current() + 1, tb_ypos(&ed->doc_->buf_),
+                    tb_xpos(&ed->doc_->buf_));
     for (int i = 0; i < ADE_WINDOWS; i++) {
         document* d = win_doc(ed, i);
         if (d == NULL) {
             n += sprintf(out + n, "window %d closed\n", i + 1);
             continue;
         }
+        const int y = tb_ypos(&d->buf_);
+        const int x = tb_xpos(&d->buf_);
         line1(d, text, (int) sizeof(text));
-        n += sprintf(out + n, "window %d %s %s\n", i + 1, tb_fname(&d->buf_), text);
+        n += sprintf(out + n, "window %d %s %d:%d %s\n", i + 1, tb_fname(&d->buf_),
+                     y, x, text);
     }
     const char fh = mos_fopen("/ade.out", FA_WRITE | FA_CREATE_ALWAYS);
     if (fh != 0) {

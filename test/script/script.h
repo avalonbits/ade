@@ -9,7 +9,8 @@
 #include "editor.h"
 #include "keys.h"
 
-const key_source* script_keys(void);
+// The keys for a run started with `arg` -- its first argument, or NULL.
+const key_source* script_keys(const char* arg);
 void script_report(editor* ed);
 
 #endif  // _SCRIPT_H_

@@ -20,6 +20,7 @@
 
 #include <string.h>
 
+#include "build.h"
 #include "cmd_ops.h"
 #include "user_input.h"
 #include "windows.h"
@@ -69,7 +70,7 @@ static const menu_item SEARCH_ITEMS[] = {
     { "Go to line",         "CTRL+G",     cmd_goto,       0,   NULL },
 };
 static const menu_item BUILD_ITEMS[] = {
-    { "Build",              "F9",         NULL, 0, "Building arrives with hub" },
+    { "Build",              "F9",         build, 0, NULL },
 };
 static const menu_item RUN_ITEMS[] = {
     { "Run",                "CTRL+F9",    NULL, 0, "Running arrives with hub" },

@@ -3,13 +3,19 @@
 #
 #   1. tools/fetch-aed-libs.sh takes the pinned package and nothing else.
 #   2. ade builds against aed's two libraries, and links from them.
-#   3. On the emulator, on the newest and the oldest firmware aed supports,
-#      ade starts on a file named on the command line and opens it.
+#   3. On the emulator: without hub, on MOS 2.3.3 and 3.0.2, ade says it
+#      needs it and stops. Under hub, on MOS 3.0.2 -- hub's floor -- ade
+#      opens a file named on its command line, plays a session of windows
+#      and menus, and builds: acc and zap fail on a broken file and ade comes
+#      back on the error, and a good file is built.
 #
 # The build and the emulator need a package: AED_LIBS=<unpacked package>, or
-# the one aed-libs.pin names, fetched. The emulator run needs
+# the one aed-libs.pin names, fetched; and hub -- HUB=<checkout>, ~/code/devel
+# by default -- for its libhub.a and hub.bin. The emulator run needs
 # ~/fab-agon-emulator-1.2.4 (AGON_EMU overrides) and is skipped without it;
 # the oldest firmware's MOS 2.3.3 is fetched from its release once and kept.
+# The builds use the Agon acc and zap: ACC_BIN and ZAP_BIN, by default their
+# repositories' bin/.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -85,6 +91,10 @@ if [ ! -x "$EMU/fab-agon-emulator" ]; then
 
     exit $status
 fi
+HUB=${HUB:-$HOME/code/devel}
+ACC_DIR=${ACC_DIR:-$HOME/code/acc}
+ACC_BIN=${ACC_BIN:-$ACC_DIR/bin/acc.bin}
+ZAP_BIN=${ZAP_BIN:-$HOME/code/zap/bin/zap.bin}
 
 # MOS 2.3.3, the oldest aed supports, with the map beside it: without the map
 # the emulator quietly disables the host SD card. Fetched once through the
@@ -99,41 +109,83 @@ if [ ! -s "$MOS233/MOS.bin" ] || [ ! -s "$MOS233/MOS.map" ]; then
 fi
 check "MOS 2.3.3 is at hand" "$(wc -c < "$MOS233/MOS.bin" | tr -d ' ')" 81072
 
-# A document too big for the memory ade gives one, so opening it pages -- and
-# paging leaves its two scratch files beside it on the card while ade runs.
-# The emulator is stopped with ade still in its key loop, so they are there
-# to find: ade started, took the file from the command line, and opened it.
-for fw in newest oldest; do
-    card="$W/card-$fw"
-    mkdir -p "$card/bin"
-    cp -r "$EMU/sdcard/mos" "$card/"
-    cp "$EMU/sdcard/MOS.bin" "$EMU/sdcard/firmware.bin" "$card/"
-    cp bin/ade.bin "$card/bin/"
-    for i in $(seq 1 3000); do
-        printf 'line %04d of a document too long for memory\r\n' "$i"
-    done > "$card/big.txt"
-    printf 'ade big.txt\r\n' > "$card/autoexec.txt"
-    chmod -R u+w "$card"
+# card <ade.bin>: a fresh card with MOS's files, hub, ade, acc and zap.
+card() {
+    local c
+    c=$(mktemp -d -p "$W")
+    mkdir -p "$c/bin"
+    cp -r "$EMU/sdcard/mos" "$c/"
+    cp "$EMU/sdcard/MOS.bin" "$EMU/sdcard/firmware.bin" "$c/"
+    cp "$HUB/build/hub.bin" "$c/mos/"
+    cp "$1" "$c/bin/ade.bin"
+    # acc links against its libraries on the card, where it looks for them.
+    if [ -f "$ACC_BIN" ]; then
+        cp "$ACC_BIN" "$c/bin/acc.bin"
+        mkdir -p "$c/lib/acc"
+        cp "$ACC_DIR/bin/libc.a" "$ACC_DIR/bin/rt.a" "$c/lib/acc/"
+        cp -r "$ACC_DIR/include" "$c/lib/acc/include"
+    fi
+    [ -f "$ZAP_BIN" ] && cp "$ZAP_BIN" "$c/bin/zap.bin"
+    echo "$c"
+}
 
-    flags=()
-    [ "$fw" = oldest ] && flags=(--firmware quark --mos "$PWD/$MOS233/MOS.bin")
-    fifo="$W/fifo-$fw"
+# under_hub <card> <seconds> <command>: boot MOS 3.0.2 with hub running
+# <command> from a script, as a person would at hub's prompt, and stop the
+# emulator after <seconds>. Whatever ade wrote is on the card. Run flat out
+# (-u): acc is a quarter of a megabyte to load and run, and nothing here is
+# about how long anything takes.
+under_hub() {
+    local c=$1 secs=$2 fifo hold
+    printf '%s\n' "$3" > "$c/script.txt"
+    printf 'hub -f /script.txt\r\n' > "$c/autoexec.txt"
+    chmod -R u+w "$c"
+    fifo=$(mktemp -u -p "$W")
     mkfifo "$fifo"
     tail -f /dev/null > "$fifo" &
     hold=$!
     (cd "$EMU" && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy \
-        timeout 30 ./fab-agon-emulator "${flags[@]}" --sdcard "$card" \
-        < "$fifo" > /dev/null 2>&1)
+        timeout "$secs" ./fab-agon-emulator -u --sdcard "$c" < "$fifo" > /dev/null 2>&1)
     kill "$hold" 2>/dev/null
     wait "$hold" 2>/dev/null
+}
 
-    check "ade opens a file named on its command line ($fw firmware)" \
-          "$([ -f "$card/big.txt.aedh" ] && [ -f "$card/big.txt.aedt" ] && echo opened)" opened
+# --- without hub, ade says so and stops ---
+# Nothing is drawn before the check, so the CLI emulator's console shows it.
+for fw in 3.0.2 2.3.3; do
+    c=$(card bin/ade.bin)
+    printf 'alpha\r\n' > "$c/a.txt"
+    printf 'ade a.txt\r\n' > "$c/autoexec.txt"
+    chmod -R u+w "$c"
+    mos=()
+    [ "$fw" = 2.3.3 ] && mos=(--mos "$PWD/$MOS233/MOS.bin")
+    fifo=$(mktemp -u -p "$W")
+    mkfifo "$fifo"
+    tail -f /dev/null > "$fifo" &
+    hold=$!
+    out=$(cd "$EMU" && timeout 20 ./agon-cli-emulator -u --sdcard "$c" "${mos[@]}" \
+        < "$fifo" 2>&1 | tr -d '\r')
+    kill "$hold" 2>/dev/null
+    wait "$hold" 2>/dev/null
+    check "without hub, on MOS $fw, ade says it needs it" \
+          "$(grep -c 'ade runs under hub' <<< "$out")" 1
 done
 
-# --- 4. ade's windows, played on the emulator ---
-# The test build of ade, with test/script in place of the keyboard -- see
-# test/script/script.c for the keys and what they do -- as a project of its
+# --- under hub: a file named on the command line ---
+# A document too big for the memory ade gives one, so opening it pages -- and
+# paging leaves its two scratch files beside it on the card while ade runs.
+# The emulator is stopped with ade still in its key loop, so they are there
+# to find: ade started, took the file from the command line, and opened it.
+c=$(card bin/ade.bin)
+for i in $(seq 1 3000); do
+    printf 'line %04d of a document too long for memory\r\n' "$i"
+done > "$c/big.txt"
+under_hub "$c" 30 "ade big.txt"
+check "under hub, ade opens a file named on its command line" \
+      "$([ -f "$c/big.txt.aedh" ] && [ -f "$c/big.txt.aedt" ] && echo opened)" opened
+
+# --- the test build ---
+# ade with test/script in place of the keyboard -- see test/script/script.c
+# for the keys, which depend on how ade was started -- as a project of its
 # own, so the real build is left as it is.
 case "$LIBS_DIR" in /*) LIBS_ABS=$LIBS_DIR ;; *) LIBS_ABS=$PWD/$LIBS_DIR ;; esac
 proj="$W/scripted"
@@ -142,55 +194,91 @@ cp src/*.c src/*.h test/script/*.c test/script/*.h "$proj/src/"
 cat > "$proj/Makefile" <<MK
 NAME=ade
 include \$(shell agondev-config --makefile)
-CFLAGS += -DADE_SCRIPT -I$LIBS_ABS/include/core -I$LIBS_ABS/include/ui
+CFLAGS += -DADE_SCRIPT -I$LIBS_ABS/include/core -I$LIBS_ABS/include/ui -I$HUB/include
 PROJECTLIBDIR := $LIBS_ABS/lib
-LIBS := -ledui -ledcore
+LIBS := -ledui -ledcore $HUB/build/lib/libhub.a
 MK
 (cd "$proj" && make >/dev/null 2>&1)
 check "the scripted ade builds" "$([ -f "$proj/bin/ade.bin" ] && echo built)" built
 
-WANT="keys 61 of 61
-current 2
-window 1 a.txt alpha
-window 2 b.txt y2#bravo
-window 3 closed"
-
-for fw in newest oldest; do
-    card="$W/win-$fw"
-    mkdir -p "$card/bin"
-    cp -r "$EMU/sdcard/mos" "$card/"
-    cp "$EMU/sdcard/MOS.bin" "$EMU/sdcard/firmware.bin" "$card/"
-    cp "$proj/bin/ade.bin" "$card/bin/"
-    printf 'alpha\r\n' > "$card/a.txt"
-    printf 'bravo\r\n' > "$card/b.txt"
-    printf 'charlie\r\n' > "$card/c.txt"
-    printf 'ade a.txt\r\n' > "$card/autoexec.txt"
-    chmod -R u+w "$card"
-
-    flags=()
-    [ "$fw" = oldest ] && flags=(--firmware quark --mos "$PWD/$MOS233/MOS.bin")
-    fifo="$W/wfifo-$fw"
-    mkfifo "$fifo"
-    tail -f /dev/null > "$fifo" &
-    hold=$!
-    (cd "$EMU" && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy \
-        timeout 40 ./fab-agon-emulator "${flags[@]}" --sdcard "$card" \
-        < "$fifo" > /dev/null 2>&1)
-    kill "$hold" 2>/dev/null
-    wait "$hold" 2>/dev/null
-
-    got=$(tr -d '\r' < "$card/ade.out" 2>/dev/null)
-    if [ "$got" = "$WANT" ]; then
-        printf 'PASS  %-56s %s\n' "windows and menus, played ($fw)" "as played"
+# played <card> <what> <want>: /ade.out, written as ade finished, against <want>.
+played() {
+    local got
+    got=$(tr -d '\r' < "$1/ade.out" 2>/dev/null)
+    if [ "$got" = "$3" ]; then
+        printf 'PASS  %-56s %s\n' "$2" "as played"
     else
-        printf 'FAIL  %-56s\n' "windows and menus, played ($fw)"
-        echo "      want: $(echo "$WANT" | tr '\n' '|')"
+        printf 'FAIL  %-56s\n' "$2"
+        echo "      want: $(echo "$3" | tr '\n' '|')"
         echo "      got:  $(echo "${got:-nothing}" | tr '\n' '|')"
         status=1
     fi
-    check "  and nothing was saved, as answered ($fw)" \
-          "$(cat "$card/a.txt" "$card/b.txt" "$card/c.txt" | tr -d '\r' | tr '\n' ' ')" \
-          "alpha bravo charlie "
-done
+}
+
+# --- under hub: windows and menus ---
+c=$(card "$proj/bin/ade.bin")
+printf 'alpha\r\n' > "$c/a.txt"
+printf 'bravo\r\n' > "$c/b.txt"
+printf 'charlie\r\n' > "$c/c.txt"
+under_hub "$c" 40 "ade a.txt"
+played "$c" "under hub, windows and menus, played" "keys 61 of 61
+current 2
+at 1:4
+window 1 a.txt 1:1 alpha
+window 2 b.txt 1:4 y2#bravo
+window 3 closed"
+check "  and nothing was saved, as answered" \
+      "$(cat "$c/a.txt" "$c/b.txt" "$c/c.txt" | tr -d '\r' | tr '\n' ' ')" \
+      "alpha bravo charlie "
+
+# --- under hub: building ---
+# F9 on a broken file: hub runs the tool, which fails; ade comes back on the
+# error -- its file, line and column -- and shows it, which waits for a key.
+if [ ! -f "$ACC_BIN" ] || [ ! -f "$ZAP_BIN" ]; then
+    echo "SKIP  building: no Agon acc or zap at $ACC_BIN, $ZAP_BIN"
+
+    exit $status
+fi
+c=$(card "$proj/bin/ade.bin")
+printf 'int main(void)\r\n{\r\n    return x;\r\n}\r\n' > "$c/bad.c"
+under_hub "$c" 120 "ade bad.c"
+played "$c" "F9 on a broken C file: back on acc's error" "keys 2 of 2
+current 1
+at 3:12
+window 1 bad.c 3:12 int main(void)
+window 2 closed
+window 3 closed"
+check "  where acc said it was" "$(tr -d '\r' < "$c/ade.err" 2>/dev/null | head -1)" \
+      "bad.c:3:12: error: 'x' is not declared"
+
+c=$(card "$proj/bin/ade.bin")
+printf '  nop\r\n  frob a\r\n' > "$c/bad.s"
+under_hub "$c" 120 "ade bad.s"
+played "$c" "F9 on a broken assembly file: back on zap's error" "keys 2 of 2
+current 1
+at 2:3
+window 1 bad.s 2:3   nop
+window 2 closed
+window 3 closed"
+
+# The build carries ade's windows across: good.txt changed in window 1, and
+# good.c open and changed in window 2, on screen. Both are saved for the tool,
+# and ade comes back with both windows, each cursor where it was, and window 2
+# on screen.
+c=$(card "$proj/bin/ade.bin")
+printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/good.c"
+printf 'bravo\r\n' > "$c/good.txt"
+under_hub "$c" 120 "ade good.txt"
+played "$c" "F9 on a good C file: built, and back where it was" "keys 2 of 2
+current 2
+at 3:2
+window 1 good.txt 1:7 bravoy
+window 2 good.c 3:2 int main(void)
+window 3 closed"
+check "  every window was saved first" \
+      "$(sed -n 3p "$c/good.c" | tr -d '\r'; tr -d '\r' < "$c/good.txt")" \
+      "     return 0;
+bravoy"
+check "  the program is on the card" "$([ -s "$c/good.bin" ] && echo yes)" yes
 
 exit $status

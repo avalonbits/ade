@@ -22,9 +22,13 @@ ifeq ($(AED_LIBS),)
 $(error no aed libraries: see the message above, or set AED_LIBS)
 endif
 
-CFLAGS += -I$(AED_LIBS)/include/core -I$(AED_LIBS)/include/ui
+# hub's client library, for building: its header and libhub.a, from a hub
+# checkout -- HUB=<dir>, ~/code/devel by default.
+HUB ?= $(HOME)/code/devel
+
+CFLAGS += -I$(AED_LIBS)/include/core -I$(AED_LIBS)/include/ui -I$(HUB)/include
 PROJECTLIBDIR := $(AED_LIBS)/lib
-LIBS := -ledui -ledcore
+LIBS := -ledui -ledcore $(HUB)/build/lib/libhub.a
 
 # Header dependencies, which AgonDev's makefile does not track -- see aed's
 # Makefile for what that cost it. The libraries' headers count too: a new

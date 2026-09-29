@@ -26,9 +26,15 @@
  * editor's, from ED_KEYS behind them.
  */
 
+#include <stdbool.h>
 #include <stddef.h>
+#include <string.h>
+
+#include <agon/mos.h>
+#include <hub.h>
 
 #include "app.h"
+#include "build.h"
 #include "editor.h"
 #include "menu.h"
 #include "text_buffer.h"
@@ -60,7 +66,7 @@ static const app_context ADE_APP = {
  * ade's own keys: its files and leaving, the same as aed's, its windows and
  * its menus, on the keys Turbo Pascal gave them -- F3 opens a file in a new
  * window, F6 goes to the next, ALT+F3 closes the one on screen, ALT+F6 lists
- * them, and F10 opens the menus.
+ * them, and F10 opens the menus. F9 builds, through hub -- see build.h.
  * ALT+F3 and ALT+F6 come before F3 and F6, which would match them too.
  */
 static const key_binding ADE_BINDINGS[] = {
@@ -75,6 +81,7 @@ static const key_binding ADE_BINDINGS[] = {
     // The menus own the selection, so one made before opening them is still
     // there for Copy or Cut.
     { VK_F10, 0, KC_OWNS_SEL, menu_open },
+    { VK_F9, 0, 0, build },
 };
 
 #undef LETTER
@@ -94,15 +101,35 @@ static const ed_program ADE = {
 int main(int argc, char** argv) {
     static editor ed;
 
-    const char* fname = argc > 1 ? argv[1] : NULL;
+    // Building runs the tools through hub, and ade comes back through it; a
+    // machine without hub -- or a MOS older than 3.0.2, which hub needs --
+    // gets told so rather than an editor that cannot do what it is for.
+    if (!hub_present()) {
+        static const char why[] =
+            "ade runs under hub, which needs MOS 3.0.2 or later.\r\n"
+            "Put hub.bin in /mos, type hub, then ade.\r\n";
+        mos_puts((char*) why, sizeof(why) - 1, 0);
+
+        return 1;
+    }
+
+    // `ade -resume` is hub bringing ade back from a build: the session it
+    // left says which files to open.
+    const bool resuming = argc > 1 && strcmp(argv[1], "-resume") == 0;
+    const char* fname = resuming ? build_first_file()
+                                 : (argc > 1 ? argv[1] : NULL);
     if (ed_init_for(&ed, ADE_DOC_KB, fname, &ADE) == NULL) {
         return 1;
     }
     win_start(&ed);
     menu_start(&ed);
 #ifdef ADE_SCRIPT
-    ui_set_keys(&ed.ui_, script_keys());
+    // Before the resume: what it says waits for a key.
+    ui_set_keys(&ed.ui_, script_keys(argc > 1 ? argv[1] : NULL));
 #endif
+    if (resuming) {
+        build_resume(&ed);
+    }
     ed_run(&ed);
 #ifdef ADE_SCRIPT
     script_report(&ed);
