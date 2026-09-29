@@ -342,9 +342,8 @@ against a package made locally with aed's `mklibs.sh`.
   several. A file too big for memory can be paged by only one document at a
   time -- a second open, by any spelling of its path, is `TB_IN_USE` -- since
   two stores on one file would share and destroy its scratch files. It also
-  added `aed-libs-*.tar.gz` to aed's `.gitignore`. **ade needs the release
-  after v1.3.3**; until then it builds with `AED_LIBS=<package made by
-  mklibs.sh from aed main>`.
+  added `aed-libs-*.tar.gz` to aed's `.gitignore`. It shipped in **v1.3.4**,
+  which ade now pins (sha256 `7f2d0e06...cabc`); a plain `make` builds ade.
 - **B2 is written** (`src/windows.c`): up to three windows, full-screen, one
   on screen at a time. Window 1 is the file ade started with and stays open;
   48 KiB each. F3 opens a file in a new window (and says so at three, or when
