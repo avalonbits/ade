@@ -1,0 +1,4 @@
+# Build artifacts.
+obj/
+bin/
+third_party/
