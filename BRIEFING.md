@@ -336,8 +336,24 @@ against a package made locally with aed's `mklibs.sh`.
   in front of `ED_KEYS`, no settings or banner yet. `test/run.sh` checks the
   fetch, the build and link, and on the emulator on both firmwares that ade
   opens a file named on its command line. 82,258 bytes.
-- Small aed follow-up, still open: `.gitignore` should cover
-  `aed-libs-*.tar.gz`, which `mkrelease.sh` leaves in the checkout.
+- **aed#192** is merged as `9802c17`, after v1.3.3: the editor points at
+  its current document (`doc_`; its own is `home_`), with `ed_doc_open`,
+  `ed_doc_show`, `ed_doc_close` and `scr_view_init` for programs that keep
+  several. A file too big for memory can be paged by only one document at a
+  time -- a second open, by any spelling of its path, is `TB_IN_USE` -- since
+  two stores on one file would share and destroy its scratch files. It also
+  added `aed-libs-*.tar.gz` to aed's `.gitignore`. **ade needs the release
+  after v1.3.3**; until then it builds with `AED_LIBS=<package made by
+  mklibs.sh from aed main>`.
+- **B2 is written** (`src/windows.c`): up to three windows, full-screen, one
+  on screen at a time. Window 1 is the file ade started with and stays open;
+  48 KiB each. F3 opens a file in a new window (and says so at three, or when
+  that file is already in a window -- names are resolved, so `a.txt` and
+  `/a.txt` are one); F6 next; ALT+F3 closes the one shown, asking about
+  unsaved work, and goes back to the previous; ALT+F6 lists them; CTRL+Q asks
+  about every unsaved window. `test/run.sh` plays 42 keys through a test
+  build (`test/script`) on both firmwares and checks what each window holds.
+  Window state is file-scope in `windows.c` -- one ade, one set of windows.
 ## Decisions made
 
 - **How ade gets the libraries**: from **aed's GitHub release assets**. Each aed
