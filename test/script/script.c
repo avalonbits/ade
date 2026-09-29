@@ -3,7 +3,7 @@
  *
  * The card holds a.txt ("alpha"), b.txt ("bravo") and c.txt ("charlie"), and
  * ade starts on a.txt. The run types in each window, opens the other two with
- * F3, is told that a.txt is window 1's already and at the fourth that three
+ * F3, is told that /a.txt is window 1's a.txt already and at the fourth that three
  * are open, moves with F6 and the ALT+F6
  * list, closes window 3 without saving, and quits without saving the others.
  * test/run.sh reads /ade.out, written as ade finishes, against what that has
@@ -28,7 +28,8 @@ static const key_press KEYS[] = {
     K('b', VK_b), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
     K(13, VK_RETURN),                               // ...b.txt, window 2
     K('y', VK_y),                                   // b: ybravo
-    K(0, VK_F3),                                    // a.txt again...
+    K(0, VK_F3),                                    // /a.txt: a.txt again...
+    K('/', VK_SLASH),
     K('a', VK_a), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
     K(13, VK_RETURN),                               // ...is window 1's
     K('m', VK_m),                                   // ...which the message waits on

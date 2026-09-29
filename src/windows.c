@@ -18,6 +18,7 @@
 
 #include "windows.h"
 
+#include <agon/mos.h>
 #include <string.h>
 
 #include "cmd_ops.h"
@@ -64,14 +65,85 @@ void win_finish(editor* ed) {
     current = 0;
 }
 
-// Whether two names are one file, as FAT sees them: without regard to case.
+/*
+ * A name as one spelling per file: MOS resolves a relative name against the
+ * current directory, so from the root "a.txt", "/a.txt" and "./a.txt" are one
+ * file. Put under the current directory, a drive prefix dropped, "." and ".."
+ * folded away -- as aed's doc_store does for its scratch files. Empty when it
+ * cannot be worked out.
+ */
+static void resolve(char* out, int max, const char* path) {
+    static char joined[2 * TB_FNAME_MAX];
+    int j = 0;
+    out[0] = 0;
+    if (path == NULL || path[0] == 0) {
+        return;
+    }
+    if (path[0] != '/') {
+        if (ffs_getcwd(joined, (unsigned) TB_FNAME_MAX) != 0) {
+            return;
+        }
+        const char* colon = strchr(joined, ':');
+        if (colon != NULL) {
+            memmove(joined, colon + 1, strlen(colon + 1) + 1);
+        }
+        j = (int) strlen(joined);
+        joined[j++] = '/';
+    }
+    const int plen = (int) strlen(path);
+    if (j + plen >= (int) sizeof(joined)) {
+        return;
+    }
+    memcpy(joined + j, path, (size_t) plen + 1);
+
+    int n = 0;
+    const char* p = joined;
+    while (*p != 0) {
+        while (*p == '/') {
+            p++;
+        }
+        const char* e = p;
+        while (*e != 0 && *e != '/') {
+            e++;
+        }
+        const int len = (int) (e - p);
+        if (len == 2 && p[0] == '.' && p[1] == '.') {
+            while (n > 0 && out[n - 1] != '/') {
+                n--;
+            }
+            if (n > 0) {
+                n--;
+            }
+        } else if (len > 0 && !(len == 1 && p[0] == '.')) {
+            if (n + 1 + len >= max) {
+                out[0] = 0;
+                return;
+            }
+            out[n++] = '/';
+            memcpy(out + n, p, (size_t) len);
+            n += len;
+        }
+        p = e;
+    }
+    if (n == 0) {
+        out[n++] = '/';
+    }
+    out[n] = 0;
+}
+
+// Whether two names are one file: resolved, then compared as FAT compares
+// them, without regard to case.
 static bool same_file(const char* a, const char* b) {
-    if (a == NULL || b == NULL || a[0] == 0) {
+    static char ra[TB_FNAME_MAX];
+    static char rb[TB_FNAME_MAX];
+    resolve(ra, TB_FNAME_MAX, a);
+    resolve(rb, TB_FNAME_MAX, b);
+    if (ra[0] == 0 || rb[0] == 0) {
         return false;
     }
-    for (;; a++, b++) {
-        char x = *a;
-        char y = *b;
+    for (int i = 0;; i++) {
+        char x = ra[i];
+        char y = rb[i];
         if (x >= 'a' && x <= 'z') {
             x = (char) (x - 'a' + 'A');
         }

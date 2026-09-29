@@ -149,7 +149,7 @@ MK
 (cd "$proj" && make >/dev/null 2>&1)
 check "the scripted ade builds" "$([ -f "$proj/bin/ade.bin" ] && echo built)" built
 
-WANT="keys 41 of 41
+WANT="keys 42 of 42
 current 2
 window 1 a.txt xzalpha
 window 2 b.txt y2#bravo
