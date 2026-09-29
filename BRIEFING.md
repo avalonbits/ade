@@ -353,6 +353,21 @@ against a package made locally with aed's `mklibs.sh`.
   about every unsaved window. `test/run.sh` plays 42 keys through a test
   build (`test/script`) on both firmwares and checks what each window holds.
   Window state is file-scope in `windows.c` -- one ade, one set of windows.
+- **aed#194** (merged by the user as `9ba06c4`, shipped in **v1.3.5**, which
+  ade pins -- sha256 `ca70e812...a56c`): the header row is the program's.
+  `scr_set_title`, `scr_set_header(draw, ctx)` (called on each clear in the
+  title's place) and `scr_header_draw`; `ed_program.title` is a new last
+  field, and a program that leaves it out gets no title.
+- **B3 is written** (`src/menu.c`): the menu bar on the header row -- File,
+  Edit, Search, Build, Run, Options -- drawn by ade's header hook, the open
+  menu in brackets. F10 opens it; LEFT/RIGHT move between menus (wrapping),
+  UP/DOWN through the pulled-down one, RETURN chooses, ESC or F10 leaves.
+  Each pull-down is drawn in a view of its own under its name, with the
+  document's colouring set aside. Every entry is also a key, shown beside
+  it, and choosing it runs through `ed_handle` as the key would; F10 owns the
+  selection so Copy and Cut still have one. Build, Run and Options say what
+  they are waiting for. The scripted run (61 keys) now also undoes from the
+  Edit menu, tries Build, wanders the bar, and quits from the File menu.
 ## Decisions made
 
 - **How ade gets the libraries**: from **aed's GitHub release assets**. Each aed

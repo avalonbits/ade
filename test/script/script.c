@@ -5,7 +5,9 @@
  * ade starts on a.txt. The run types in each window, opens the other two with
  * F3, is told that /a.txt is window 1's a.txt already and at the fourth that three
  * are open, moves with F6 and the ALT+F6
- * list, closes window 3 without saving, and quits without saving the others.
+ * list, closes window 3 without saving, undoes window 1 back to its file from
+ * the Edit menu, is told Build is still to come, wanders to Options and out
+ * again, and quits from the File menu without saving window 2.
  * test/run.sh reads /ade.out, written as ade finishes, against what that has
  * to leave: two windows, each holding its file and what was typed into it --
  * a 2 in window 2 saying the second a.txt was refused rather than opened, and
@@ -48,8 +50,20 @@ static const key_press KEYS[] = {
     K('n', VK_n),                                   // ...not saving; back to 2
     K('#', VK_HASH),                                // b: y#bravo, so it is 2
     K(0, VK_F6),                                    // next: round to window 1
-    M(17, VK_q, MOD_CTRL),                          // quit: 1 and 2 are unsaved
-    K('n', VK_n), K('n', VK_n),                     // ...leave both as they were
+    K(0, VK_F10), K(0, VK_RIGHT), K(13, VK_RETURN), // the menus: Edit, Undo --
+                                                    // x and z were one run of
+                                                    // typing, so a: alpha, as
+                                                    // saved, and no longer
+                                                    // unsaved
+    K(0, VK_F10), K(0, VK_RIGHT), K(0, VK_RIGHT), K(0, VK_RIGHT),
+    K(13, VK_RETURN),                               // Build: not yet...
+    K('k', VK_k),                                   // ...which the message waits on
+    K(0, VK_F10), K(0, VK_LEFT), K(27, VK_ESCAPE),  // round to Options, and out
+    K(0, VK_F10),                                   // File...
+    K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN),
+    K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN),
+    K(13, VK_RETURN),                               // ...Quit: only 2 is unsaved
+    K('n', VK_n),                                   // ...leave it as it was
 };
 #define NKEYS ((int) (sizeof(KEYS) / sizeof(KEYS[0])))
 

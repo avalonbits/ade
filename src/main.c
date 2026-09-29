@@ -30,6 +30,7 @@
 
 #include "app.h"
 #include "editor.h"
+#include "menu.h"
 #include "text_buffer.h"
 #include "windows.h"
 
@@ -56,9 +57,10 @@ static const app_context ADE_APP = {
     { lo, mods, 0, cmd }, { up, mods, 0, cmd }
 
 /*
- * ade's own keys: its files and leaving, the same as aed's, and its windows,
- * on the keys Turbo Pascal gave them -- F3 opens a file in a new window, F6
- * goes to the next, ALT+F3 closes the one on screen, and ALT+F6 lists them.
+ * ade's own keys: its files and leaving, the same as aed's, its windows and
+ * its menus, on the keys Turbo Pascal gave them -- F3 opens a file in a new
+ * window, F6 goes to the next, ALT+F3 closes the one on screen, ALT+F6 lists
+ * them, and F10 opens the menus.
  * ALT+F3 and ALT+F6 come before F3 and F6, which would match them too.
  */
 static const key_binding ADE_BINDINGS[] = {
@@ -70,6 +72,9 @@ static const key_binding ADE_BINDINGS[] = {
     { VK_F6, A, 0, win_list },
     { VK_F3, 0, 0, win_open },
     { VK_F6, 0, 0, win_next },
+    // The menus own the selection, so one made before opening them is still
+    // there for Copy or Cut.
+    { VK_F10, 0, KC_OWNS_SEL, menu_open },
 };
 
 #undef LETTER
@@ -82,7 +87,9 @@ static const keymap ADE_KEYS = {
 };
 
 // No settings and no banner yet: those come with ade's own settings file.
-static const ed_program ADE = { &ADE_APP, &ADE_KEYS, NULL, NULL };
+static const ed_program ADE = {
+    &ADE_APP, &ADE_KEYS, NULL, NULL, "ade: the Agon Development Environment",
+};
 
 int main(int argc, char** argv) {
     static editor ed;
@@ -92,6 +99,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     win_start(&ed);
+    menu_start(&ed);
 #ifdef ADE_SCRIPT
     ui_set_keys(&ed.ui_, script_keys());
 #endif

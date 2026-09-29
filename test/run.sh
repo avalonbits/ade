@@ -149,9 +149,9 @@ MK
 (cd "$proj" && make >/dev/null 2>&1)
 check "the scripted ade builds" "$([ -f "$proj/bin/ade.bin" ] && echo built)" built
 
-WANT="keys 42 of 42
+WANT="keys 61 of 61
 current 2
-window 1 a.txt xzalpha
+window 1 a.txt alpha
 window 2 b.txt y2#bravo
 window 3 closed"
 
@@ -181,9 +181,9 @@ for fw in newest oldest; do
 
     got=$(tr -d '\r' < "$card/ade.out" 2>/dev/null)
     if [ "$got" = "$WANT" ]; then
-        printf 'PASS  %-56s %s\n' "three windows, opened, moved between, closed ($fw)" "as played"
+        printf 'PASS  %-56s %s\n' "windows and menus, played ($fw)" "as played"
     else
-        printf 'FAIL  %-56s\n' "three windows, opened, moved between, closed ($fw)"
+        printf 'FAIL  %-56s\n' "windows and menus, played ($fw)"
         echo "      want: $(echo "$WANT" | tr '\n' '|')"
         echo "      got:  $(echo "${got:-nothing}" | tr '\n' '|')"
         status=1
