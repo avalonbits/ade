@@ -226,6 +226,7 @@ under_hub "$c" 40 "ade a.txt"
 played "$c" "under hub, windows and menus, played" "keys 61 of 61
 current 2
 at 1:4
+screen 1:4
 window 1 a.txt 1:1 alpha
 window 2 b.txt 1:4 y2#bravo
 window 3 closed"
@@ -247,6 +248,7 @@ under_hub "$c" 120 "ade bad.c"
 played "$c" "F9 on a broken C file: back on acc's error" "keys 2 of 2
 current 1
 at 3:12
+screen 3:12
 window 1 bad.c 3:12 int main(void)
 window 2 closed
 window 3 closed"
@@ -259,6 +261,7 @@ under_hub "$c" 120 "ade bad.s"
 played "$c" "F9 on a broken assembly file: back on zap's error" "keys 2 of 2
 current 1
 at 2:3
+screen 2:3
 window 1 bad.s 2:3   nop
 window 2 closed
 window 3 closed"
@@ -274,6 +277,7 @@ under_hub "$c" 120 "ade good.txt"
 played "$c" "F9 on a good C file: built, and back where it was" "keys 2 of 2
 current 2
 at 3:2
+screen 3:2
 window 1 good.txt 1:7 bravoy
 window 2 good.c 3:2 int main(void)
 window 3 closed"
@@ -299,6 +303,7 @@ prog"
 played "$c" "F9 in a project: every file built, and linked" "keys 2 of 2
 current 1
 at 1:1
+screen 1:1
 window 1 main.c 1:1 #include <stdio.h>
 window 2 closed
 window 3 closed"
@@ -317,6 +322,7 @@ under_hub "$c" 180 "ade main.c"
 played "$c" "F9 in a project, add.c broken: back on its error" "keys 2 of 2
 current 2
 at 3:16
+screen 3:16
 window 1 main.c 1:1 int add(int a, int b);
 window 2 add.c 3:16 int add(int a, int b)
 window 3 closed"
@@ -368,6 +374,7 @@ under_hub "$c" 60 "ade wrong.c"
 played "$c" "F9 in a project that cannot be built: says why, and stays" "keys 3 of 3
 current 1
 at 1:1
+screen 1:1
 window 1 wrong.c 1:1 int main(void)
 window 2 closed
 window 3 closed"
@@ -382,6 +389,7 @@ under_hub "$c" 120 "ade hello.s"
 played "$c" "F9 in a project with its own rules" "keys 2 of 2
 current 1
 at 1:1
+screen 1:1
 window 1 hello.s 1:1         ret
 window 2 closed
 window 3 closed"
@@ -409,6 +417,7 @@ if [ -s "$W/fail.bin" ]; then
     played "$c" "three errors: the list, to the third, and back to the second" "keys 9 of 9
 current 1
 at 4:1
+screen 4:1
 window 1 main.c 4:1 int add(int a, int b);
 window 2 add.c 1:3 int add(int a, int b)
 window 3 closed"
@@ -427,6 +436,7 @@ ade runme.c'
 played "$c" "CTRL+F9: built, run, and back" "keys 2 of 2
 current 1
 at 1:1
+screen 1:1
 window 1 runme.c 1:1 #include <stdio.h>
 window 2 closed
 window 3 closed"
@@ -455,6 +465,7 @@ ade runbad.c'
 played "$c" "CTRL+F9 on a broken file: back on the error" "keys 2 of 2
 current 1
 at 3:12
+screen 3:12
 window 1 runbad.c 3:12 int main(void)
 window 2 closed
 window 3 closed"
@@ -478,10 +489,11 @@ check "CTRL+F9 in a project: run with the arguments project.ini gives" \
 # the card from the host's disk.
 #
 # Measured: 42 to start. A resume is the start, 20 to open window 2, and 20
-# for each full paint -- showing a window is one, placing its cursor another.
-# Two windows came back in 160 when every window was shown and placed and the
-# target shown again; placing the target last, once, brought that to 140.
-RESUME_CS=150
+# for each full paint. Two windows came back in 160 when every window was
+# shown and placed and the target shown again, and in 140 when the target was
+# placed last, once; placing each without drawing (ed_doc_place, aed 1.3.7)
+# and painting only the target brought it to 84.
+RESUME_CS=100
 c=$(card "$proj/bin/ade.bin")
 printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/good.c"
 printf 'bravo\r\n' > "$c/good.txt"

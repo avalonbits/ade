@@ -235,11 +235,15 @@ const char* build_first_file(void) {
     return s->name[0][0] != 0 ? s->name[0] : NULL;
 }
 
-// Puts a document's cursor at (line, x) and the view round it.
-static void place(editor* ed, int line, int x) {
-    tb_seek(&ed->doc_->buf_, (tb_pos) { .line = line, .x = x });
-    tb_settle(&ed->doc_->buf_);
-    cmd_restore_after_modal(ed, true);
+// Puts window w's cursor at (line, x) and shows it there: one paint, whether
+// it was on screen already or not.
+static void show_at(editor* ed, int w, int line, int x) {
+    win_place(ed, w, line, x);
+    if (win_current() != w) {
+        win_go(ed, w);
+    } else {
+        cmd_restore_after_modal(ed, false);
+    }
 }
 
 // What the last build said: the error file, each line a string, and where
@@ -337,10 +341,7 @@ static void go_to_error(editor* ed, int k) {
     int x = 0;
     const int w = error_window(ed, k, &line, &x);
     if (w >= 0) {
-        if (win_current() != w) {
-            win_go(ed, w);
-        }
-        place(ed, line, x);
+        show_at(ed, w, line, x);
     }
     chosen = k;
     ui_message(&ed->ui_, &ed->scr_, errs + err_at[k]);
@@ -398,9 +399,8 @@ void build_resume(editor* ed) {
     }
 
     // Where ade ends up: the window that was on screen, as it was -- or, when
-    // the build failed, the error's file at the error. Every paint costs a
-    // fifth of a second or so, and each place() is one, so that window is
-    // placed once, last, and only the others are shown on the way.
+    // the build failed, the error's file at the error. A paint costs a fifth
+    // of a second or so, so that is the only window painted.
     int target = s->open[s->current] ? win_find(ed, s->name[s->current]) : -1;
     if (target < 0) {
         target = 0;
@@ -421,17 +421,16 @@ void build_resume(editor* ed) {
             x = ex;
         }
     }
+    // Every other window placed without drawing -- each is painted when it
+    // is shown -- and then the one ade ends up on, shown there: one paint for
+    // the lot.
     for (int i = 0; i < ADE_WINDOWS; i++) {
         const int w = s->open[i] ? win_find(ed, s->name[i]) : -1;
         if (w >= 0 && w != target) {
-            win_go(ed, w);
-            place(ed, s->line[i], s->x[i]);
+            win_place(ed, w, s->line[i], s->x[i]);
         }
     }
-    if (win_current() != target) {
-        win_go(ed, target);
-    }
-    place(ed, line, x);
+    show_at(ed, target, line, x);
 
     // A message is on the footer, which the loop repaints after it; with more
     // than one error, the list, from which each can be gone to.

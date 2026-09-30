@@ -203,9 +203,14 @@ static int line1(document* d, char* out, int max) {
 void script_report(editor* ed) {
     static char out[512];
     static char text[64];
-    int n = sprintf(out, "keys %d of %d\ncurrent %d\nat %d:%d\n", at, NKEYS,
-                    win_current() + 1, tb_ypos(&ed->doc_->buf_),
-                    tb_xpos(&ed->doc_->buf_));
+    // Where the cursor is in the text, and where it is drawn: the row in the
+    // view and the column along the line, both from 1. The two agree only if
+    // what put the cursor somewhere also put the screen's cursor there.
+    const view* v = ed->scr_.v_;
+    int n = sprintf(out, "keys %d of %d\ncurrent %d\nat %d:%d\nscreen %d:%d\n", at,
+                    NKEYS, win_current() + 1, tb_ypos(&ed->doc_->buf_),
+                    tb_xpos(&ed->doc_->buf_), v->currY_ - v->topY_ + 1,
+                    v->originX_ + v->currX_ + 1);
     for (int i = 0; i < ADE_WINDOWS; i++) {
         document* d = win_doc(ed, i);
         if (d == NULL) {

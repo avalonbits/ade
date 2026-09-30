@@ -39,6 +39,14 @@ document* win_doc(editor* ed, int i) {
     return i == 0 ? &ed->home_ : &docs[i];
 }
 
+static view* win_view(editor* ed, int i);
+
+void win_place(editor* ed, int i, int line, int x) {
+    if (win_doc(ed, i) != NULL) {
+        ed_doc_place(ed, win_doc(ed, i), win_view(ed, i), line, x);
+    }
+}
+
 static view* win_view(editor* ed, int i) {
     return i == 0 ? &ed->scr_.whole_ : &views[i];
 }

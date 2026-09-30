@@ -60,6 +60,11 @@ void win_go(editor* ed, int i);
 // What is open, for anything that reports on it: the document in window `i`
 // (0-based), or NULL for a free one, and which window is on screen.
 document* win_doc(editor* ed, int i);
+
+// Puts window i's cursor at (line, x), x from 0, and its view round it,
+// drawing nothing: the window on screen shows the old place until it is
+// repainted, and any other is painted there when it is shown.
+void win_place(editor* ed, int i, int line, int x);
 int win_current(void);
 
 #endif  // _WINDOWS_H_

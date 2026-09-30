@@ -354,7 +354,7 @@ against a package made locally with aed's `mklibs.sh`.
   build (`test/script`) on both firmwares and checks what each window holds.
   Window state is file-scope in `windows.c` -- one ade, one set of windows.
 - **aed#194** (merged by the user as `9ba06c4`, shipped in **v1.3.5**, which
-  ade pins -- sha256 `ca70e812...a56c`): the header row is the program's.
+  ade pinned then -- sha256 `ca70e812...a56c`): the header row is the program's.
   `scr_set_title`, `scr_set_header(draw, ctx)` (called on each clear in the
   title's place) and `scr_header_draw`; `ed_program.title` is a new last
   field, and a program that leaves it out gets no title.
@@ -392,10 +392,10 @@ against a package made locally with aed's `mklibs.sh`.
   paint: showing a window is one, placing its cursor another, since
   `cmd_restore_after_modal` recentres by clearing and repainting. Two windows
   came back in 1.60 s; placing the window that ends up on screen last, once,
-  and not repainting after the message, brought that to **1.40 s**, which
-  `test/run.sh` holds under 1.50 s. Going further needs libedui to place a
-  document's cursor and centre its view without painting (`centre_line` is
-  private today): a resume would then be about 0.8 s.
+  and not repainting after the message, brought that to 1.40 s. aed 1.3.7's
+  `ed_doc_place` now lets every window be placed without drawing and only
+  the one ade ends up on be painted, which brought it to **0.84 s**.
+  `test/run.sh` holds it under 1.00 s.
 - **B7 is written** (`src/project.c`): a `project.ini` in the current
   directory makes F9 build the project, whatever is on screen. `[project]`
   has `name` (the program, `name.bin`) and `files` (up to 32, built in
@@ -465,9 +465,14 @@ against a package made locally with aed's `mklibs.sh`.
   `ed_settings_render`, each taking the program's `cfg_schema`), and aed#201
   adds `ed_doc_place`, which places a document's cursor and view without
   drawing. aed#201 also fixed `cmd_restore_after_modal`, which dropped the
-  view's sideways scroll. So ade's resume has been drawing each cursor in
-  the column it was left in, which is wrong once a long line has scrolled,
-  until the next key.
+  view's sideways scroll.
+- **The resume's cursor was drawn in the wrong column.** It recentred each
+  window with `cmd_restore_after_modal(ed, true)`, which keeps the screen
+  cursor's old column: on a fresh start, column 1. So coming back on an error
+  at 3:12 drew the cursor at the start of line 3 until the next key. The
+  tests read the cursor from the text, so they could not see it. The resume
+  now uses `ed_doc_place`, and the scripted report gives the screen cursor
+  too (`screen row:col`), which must agree with the text's (`at`).
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made
