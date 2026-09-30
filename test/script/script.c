@@ -99,6 +99,30 @@ static const key_press WRONG[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// Started on tabs.txt, a tab and an x, with /config/ade.ini saying tab = 2:
+// to the end of the line, which is drawn at column 4 with that tab and at 6
+// with the default.
+static const key_press TABS[] = {
+    K(0, VK_END),
+    M(17, VK_q, MOD_CTRL),
+};
+
+// Started on settings.txt, the same line, with no settings file yet. CTRL+E
+// sets the tab to 8; then Options -> Settings, from the menu, sets it to 6;
+// then to the end of the line again, drawn at column 8 with that tab.
+static const key_press SETTINGS[] = {
+    M(5, VK_e, MOD_CTRL),                           // the settings...
+    K(13, VK_RETURN),                               // ...tab width, "4"
+    K(8, VK_BACKSPACE), K('8', VK_8), K(13, VK_RETURN),
+    K(27, VK_ESCAPE),                               // ...written: tab = 8
+    K(0, VK_F10), K(0, VK_LEFT), K(13, VK_RETURN),  // Options, Settings...
+    K(13, VK_RETURN),                               // ...tab width, "8"
+    K(8, VK_BACKSPACE), K('6', VK_6), K(13, VK_RETURN),
+    K(27, VK_ESCAPE),                               // ...written: tab = 6
+    K(0, VK_HOME), K(0, VK_END),
+    M(17, VK_q, MOD_CTRL),
+};
+
 // Started on a file whose name has "run" in it: build and run it, CTRL+F9.
 static const key_press RUN[] = {
     M(0, VK_F9, MOD_CTRL),
@@ -167,6 +191,12 @@ const key_source* script_keys(const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "tabs") != NULL) {
+        KEYS = TABS;
+        NKEYS = COUNT(TABS);
+    } else if (arg != NULL && strstr(arg, "settings") != NULL) {
+        KEYS = SETTINGS;
+        NKEYS = COUNT(SETTINGS);
     } else if (arg != NULL && strstr(arg, "run") != NULL) {
         KEYS = RUN;
         NKEYS = COUNT(RUN);

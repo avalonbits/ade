@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "build.h"
+#include "options.h"
 #include "cmd_ops.h"
 #include "user_input.h"
 #include "windows.h"
@@ -77,8 +78,7 @@ static const menu_item RUN_ITEMS[] = {
     { "Run",                "CTRL+F9",    build_run, 0, NULL },
 };
 static const menu_item OPTIONS_ITEMS[] = {
-    { "Settings",           "",           NULL, 0,
-      "Settings arrive with ade's own settings file" },
+    { "Settings",           "CTRL+E",     ade_cmd_settings, 0, NULL },
 };
 
 #undef OWN

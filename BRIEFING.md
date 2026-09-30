@@ -473,6 +473,11 @@ against a package made locally with aed's `mklibs.sh`.
   tests read the cursor from the text, so they could not see it. The resume
   now uses `ed_doc_place`, and the scripted report gives the screen cursor
   too (`screen row:col`), which must agree with the text's (`at`).
+- **Settings** (`src/options.c`): the editor's settings (tab width, colours,
+  a font, from aed's library) in ade's own `/config/ade.ini`, which the first
+  run writes. Options -> Settings and CTRL+E change them. ade's part is its
+  schema, a render naming ade, and one-line wrappers. Linking the settings
+  screen and its pickers took ade from 104,581 to 113,154 bytes.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

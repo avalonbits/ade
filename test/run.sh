@@ -230,9 +230,42 @@ screen 1:4
 window 1 a.txt 1:1 alpha
 window 2 b.txt 1:4 y2#bravo
 window 3 closed"
+check "  and the first run wrote ade's settings file" \
+      "$(head -1 "$c/config/ade.ini" 2>/dev/null | tr -d '\r')" "# ade settings."
 check "  and nothing was saved, as answered" \
       "$(cat "$c/a.txt" "$c/b.txt" "$c/c.txt" | tr -d '\r' | tr '\n' ' ')" \
       "alpha bravo charlie "
+
+# --- settings ---
+# The editor's settings, from aed's library, in /config/ade.ini: applied as
+# ade starts...
+c=$(card "$proj/bin/ade.bin")
+mkdir -p "$c/config"
+printf '[editor]\r\ntab = 2\r\n' > "$c/config/ade.ini"
+printf '\tx\r\n' > "$c/tabs.txt"
+under_hub "$c" 40 "ade tabs.txt"
+played "$c" "settings: the file's tab width, applied as ade starts" "keys 2 of 2
+current 1
+at 1:3
+screen 1:4
+window 1 tabs.txt 1:3 	x
+window 2 closed
+window 3 closed"
+
+# ...and changed with CTRL+E and from the Options menu, applied at once and
+# written to the file.
+c=$(card "$proj/bin/ade.bin")
+printf '\tx\r\n' > "$c/settings.txt"
+under_hub "$c" 40 "ade settings.txt"
+played "$c" "settings: changed with CTRL+E, then from Options" "keys 17 of 17
+current 1
+at 1:3
+screen 1:8
+window 1 settings.txt 1:3 	x
+window 2 closed
+window 3 closed"
+check "  and written to ade.ini" \
+      "$(grep '^tab = ' "$c/config/ade.ini" 2>/dev/null | tr -d '\r')" "tab = 6"
 
 # --- under hub: building ---
 # F9 on a broken file: hub runs the tool, which fails; ade comes back on the
