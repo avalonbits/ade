@@ -396,6 +396,24 @@ against a package made locally with aed's `mklibs.sh`.
   `test/run.sh` holds under 1.50 s. Going further needs libedui to place a
   document's cursor and centre its view without painting (`centre_line` is
   private today): a resume would then be about 0.8 s.
+- **B7 is written** (`src/project.c`): a `project.ini` in the current
+  directory makes F9 build the project, whatever is on screen. `[project]`
+  has `name` (the program, `name.bin`) and `files` (up to six, built in
+  order, then linked). `[build]` may replace the rules for `c`, `s`, `asm`
+  and `link`; the defaults are `acc -c %f -o %b.o -errors %e`,
+  `zap %f %b.o -f acc -c -e %e` and `acc %o -o %n.bin -errors %e` (acc on
+  the Agon links `/lib/acc/libc.a` by itself). `%f` is the file, `%b` the
+  file without its extension, `%o` every object, `%n` the name, `%e` the
+  error file. An empty `link` runs none. Each command is one hub job with
+  `HUB_STOP_ON_ERROR`; hub holds eight jobs, so six files plus a link fit
+  whether or not the continuation takes a slot. A project that can't be
+  built (no name, no files, a file nothing builds, a command too long for
+  `HUB_CMD_MAX`) says why before anything is saved. The checks:
+  - C plus assembly, built with the defaults and then run by hub;
+  - an error in a file that isn't on screen, which ade opens in a window of
+    its own;
+  - a file nothing builds;
+  - an assembly program with its own rule and no link.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

@@ -283,6 +283,73 @@ check "  every window was saved first" \
 bravoy"
 check "  the program is on the card" "$([ -s "$c/good.bin" ] && echo yes)" yes
 
+# --- under hub: projects ---
+# project.ini names the program and its files: F9 builds each and links them,
+# whatever is on screen. C and assembly together, with the default rules; hub
+# then runs what was built, which says what the two halves worked out.
+c=$(card "$proj/bin/ade.bin")
+printf '[project]\r\nname = prog\r\nfiles = main.c add.c seven.s\r\n' > "$c/project.ini"
+printf '#include <stdio.h>\r\nint add(int a, int b);\r\nint seven(void);\r\n' > "$c/main.c"
+printf 'int main(void)\r\n{\r\n    FILE* f = fopen("/ran.txt", "w");\r\n' >> "$c/main.c"
+printf '    fprintf(f, "%%d\\n", add(seven(), 5));\r\n    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$c/main.c"
+printf 'int add(int a, int b)\r\n{\r\n    return a + b;\r\n}\r\n' > "$c/add.c"
+printf '        XDEF    _seven\r\n        SEGMENT CODE\r\n_seven:\r\n        ld      hl, 7\r\n        ret\r\n' > "$c/seven.s"
+under_hub "$c" 180 "ade main.c
+prog"
+played "$c" "F9 in a project: every file built, and linked" "keys 2 of 2
+current 1
+at 1:1
+window 1 main.c 1:1 #include <stdio.h>
+window 2 closed
+window 3 closed"
+check "  one object per file" \
+      "$(for o in main.o add.o seven.o; do [ -s "$c/$o" ] && printf '%s ' $o; done)" \
+      "main.o add.o seven.o "
+check "  and the program, which runs" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" 12
+
+# An error in a file of the project that is not on screen: ade comes back on
+# it, in a window of its own.
+c=$(card "$proj/bin/ade.bin")
+printf '[project]\r\nname = prog\r\nfiles = main.c add.c\r\n' > "$c/project.ini"
+printf 'int add(int a, int b);\r\nint main(void)\r\n{\r\n    return add(1, 2);\r\n}\r\n' > "$c/main.c"
+printf 'int add(int a, int b)\r\n{\r\n    return a + c;\r\n}\r\n' > "$c/add.c"
+under_hub "$c" 180 "ade main.c"
+played "$c" "F9 in a project, add.c broken: back on its error" "keys 2 of 2
+current 2
+at 3:16
+window 1 main.c 1:1 int add(int a, int b);
+window 2 add.c 3:16 int add(int a, int b)
+window 3 closed"
+check "  and nothing was linked" "$([ -e "$c/prog.bin" ] && echo linked || echo no)" no
+
+# A project.ini that names a file nothing builds: F9 says so and builds none.
+c=$(card "$proj/bin/ade.bin")
+printf '[project]\r\nname = prog\r\nfiles = wrong.c notes.txt\r\n' > "$c/project.ini"
+printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/wrong.c"
+printf 'notes\r\n' > "$c/notes.txt"
+under_hub "$c" 60 "ade wrong.c"
+played "$c" "F9 in a project that cannot be built: says why, and stays" "keys 3 of 3
+current 1
+at 1:1
+window 1 wrong.c 1:1 int main(void)
+window 2 closed
+window 3 closed"
+check "  and built nothing" "$([ -e "$c/wrong.o" ] && echo built || echo no)" no
+
+# A project's own rules: an assembly program in one piece, zap writing the
+# binary itself (%n), and no link.
+c=$(card "$proj/bin/ade.bin")
+printf '[project]\r\nname = hello\r\nfiles = hello.s\r\n[build]\r\ns = zap %%f %%n.bin -c -e %%e\r\nlink =\r\n' > "$c/project.ini"
+printf '        ret\r\n' > "$c/hello.s"
+under_hub "$c" 120 "ade hello.s"
+played "$c" "F9 in a project with its own rules" "keys 2 of 2
+current 1
+at 1:1
+window 1 hello.s 1:1         ret
+window 2 closed
+window 3 closed"
+check "  zap wrote the program itself" "$([ -s "$c/hello.bin" ] && echo yes)" yes
+
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.
 # The scripted ade times itself, in hundredths, from main to its first key:

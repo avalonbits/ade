@@ -91,6 +91,14 @@ static const key_press GOOD[] = {
     K(0, VK_F9),
 };
 
+// Started on wrong.c, in a project that cannot be built: F9 says why, which
+// waits for a key, and ade stays -- so leaving is up to the script.
+static const key_press WRONG[] = {
+    K(0, VK_F9),
+    K('k', VK_k),                                   // ...which the message waits on
+    M(17, VK_q, MOD_CTRL),
+};
+
 // Started by hub after the build: what it says -- the error, or that it was
 // built -- waits for a key; then, every window having been saved before the
 // build, leaving asks nothing.
@@ -134,6 +142,9 @@ const key_source* script_keys(const char* arg) {
     if (arg != NULL && strcmp(arg, "-resume") == 0) {
         KEYS = RESUME;
         NKEYS = COUNT(RESUME);
+    } else if (arg != NULL && strstr(arg, "wrong") != NULL) {
+        KEYS = WRONG;
+        NKEYS = COUNT(WRONG);
     } else if (arg != NULL && strstr(arg, "good") != NULL) {
         KEYS = GOOD;
         NKEYS = COUNT(GOOD);

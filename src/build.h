@@ -37,6 +37,10 @@
  *   .s, .asm     zap <file> <file>.bin -c -e /ade.err
  *
  * Both write an error as `file:line:column: error: text` and fail with 100.
+ *
+ * With a project.ini in the current directory, F9 builds the project instead:
+ * a job per file and the link, stopping at the first that fails -- see
+ * project.h.
  */
 
 // The command F9 is bound to, and Build on the menu.

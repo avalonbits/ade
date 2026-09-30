@@ -25,6 +25,7 @@
 #include <hub.h>
 
 #include "cmd_ops.h"
+#include "project.h"
 #include "user_input.h"
 #include "windows.h"
 
@@ -75,7 +76,9 @@ static char tool_for(const char* name, char* base, int max) {
     return 0;
 }
 
-void build(editor* ed) {
+// The commands for the file on screen, into cmds; how many, or 0 with a
+// message shown.
+static int file_commands(editor* ed, char cmds[][HUB_CMD_MAX + 1]) {
     user_input* ui = &ed->ui_;
     screen* scr = &ed->scr_;
 
@@ -84,17 +87,54 @@ void build(editor* ed) {
     const char tool = name != NULL ? tool_for(name, base, TB_FNAME_MAX) : 0;
     if (tool == 0) {
         ui_message(ui, scr, "Build what? ade builds .c with acc, .s and .asm with zap");
-        return;
+        return 0;
     }
 
-    static char cmd[2 * TB_FNAME_MAX + 40];
-    if (tool == 'c') {
-        snprintf(cmd, sizeof(cmd), "acc %s -o %s.bin -errors " ERR_FILE, name, base);
-    } else {
-        snprintf(cmd, sizeof(cmd), "zap %s %s.bin -c -e " ERR_FILE, name, base);
-    }
-    if ((int) strlen(cmd) > HUB_CMD_MAX) {
+    const int n = tool == 'c'
+        ? snprintf(cmds[0], HUB_CMD_MAX + 1, "acc %s -o %s.bin -errors " ERR_FILE, name, base)
+        : snprintf(cmds[0], HUB_CMD_MAX + 1, "zap %s %s.bin -c -e " ERR_FILE, name, base);
+    if (n > HUB_CMD_MAX) {
         ui_message(ui, scr, "The file's name is too long for hub to run the build");
+        return 0;
+    }
+
+    return 1;
+}
+
+// The commands for the project, into cmds; how many, or 0 with a message
+// shown.
+static int project_commands(editor* ed, const project* p,
+                            char cmds[][HUB_CMD_MAX + 1]) {
+    const int n = proj_jobs(p);
+    for (int i = 0; i < n; i++) {
+        if (!proj_job(p, i, ERR_FILE, cmds[i], HUB_CMD_MAX + 1)) {
+            static char msg[80];
+            snprintf(msg, sizeof(msg), "Command %d of " PROJ_FILE " is too long for hub",
+                     i + 1);
+            ui_message(&ed->ui_, &ed->scr_, msg);
+            return 0;
+        }
+    }
+
+    return n;
+}
+
+void build(editor* ed) {
+    user_input* ui = &ed->ui_;
+    screen* scr = &ed->scr_;
+
+    // With a project, the project; without one, the file on screen.
+    static project proj;
+    static char msg[80];
+    static char cmds[PROJ_FILES + 1][HUB_CMD_MAX + 1];
+    const int has = proj_load(&proj, msg, (int) sizeof(msg));
+    if (has < 0) {
+        ui_message(ui, scr, msg);
+        return;
+    }
+    const int ncmds = has > 0 ? project_commands(ed, &proj, cmds)
+                              : file_commands(ed, cmds);
+    if (ncmds == 0) {
         return;
     }
 
@@ -140,9 +180,11 @@ void build(editor* ed) {
 
     // An error left by an earlier build must not be taken for this one's.
     mos_del(ERR_FILE);
-    if (hub_enter("ADE ") != HUB_OK
-            || hub_push(cmd, HUB_STOP_ON_ERROR) != HUB_OK
-            || hub_return_to("ade -resume") != HUB_OK) {
+    bool queued = hub_enter("ADE ") == HUB_OK;
+    for (int i = 0; i < ncmds && queued; i++) {
+        queued = hub_push(cmds[i], HUB_STOP_ON_ERROR) == HUB_OK;
+    }
+    if (!queued || hub_return_to("ade -resume") != HUB_OK) {
         memset(s->magic, 0, 4);
         ui_message(ui, scr, "hub would not take the build");
         return;
