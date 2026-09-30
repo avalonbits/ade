@@ -458,6 +458,16 @@ against a package made locally with aed's `mklibs.sh`.
 
   No check sees `HUB_USER_PROGRAM` itself. The test can't read the VDP's
   state, and hub's own tests cover the reset.
+- **aed v1.3.7** (tag `6811f32`, aed-libs sha256 `7c5a62e6...add1`), which ade
+  now pins, adds two things to libedui at ade's request: aed#200 moves the
+  editor's settings into the library (`settings.h`: `ED_SETTINGS`,
+  `ed_settings_apply`, `ed_cmd_settings`, `ed_settings_modal`,
+  `ed_settings_render`, each taking the program's `cfg_schema`), and aed#201
+  adds `ed_doc_place`, which places a document's cursor and view without
+  drawing. aed#201 also fixed `cmd_restore_after_modal`, which dropped the
+  view's sideways scroll. So ade's resume has been drawing each cursor in
+  the column it was left in, which is wrong once a long line has scrolled,
+  until the next key.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made
