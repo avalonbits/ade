@@ -414,6 +414,15 @@ against a package made locally with aed's `mklibs.sh`.
     its own;
   - a file nothing builds;
   - an assembly program with its own rule and no link.
+- **B5 is written** (`build_errors` in `src/build.c`). After a failed build,
+  ade reads every `file:line:col:` line of `/ade.err`, up to 16. With one
+  error it goes to it and shows it, as before. With more, it goes to the
+  first and opens an ERRORS list over it: RETURN goes to the chosen error
+  (opening its file in a window if needed) and shows it, and ESC stays.
+  ALT+F9, also Errors on the Build menu, brings the list back at the last
+  error chosen. acc and zap still stop at one error, so the check uses
+  `test/tools/fail.c`, built with host acc: it writes three errors and fails
+  with 100, as a project's `c` rule.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

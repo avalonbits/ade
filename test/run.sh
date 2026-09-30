@@ -350,6 +350,35 @@ window 2 closed
 window 3 closed"
 check "  zap wrote the program itself" "$([ -s "$c/hello.bin" ] && echo yes)" yes
 
+# --- under hub: more than one error ---
+# A tool that reports three errors -- test/tools/fail.c, standing in for acc
+# and zap, which stop at one -- as a project's rule. ade comes back on the
+# first with the list of them up; the script goes to the third, in a file not
+# yet open, then brings the list back with ALT+F9 and goes to the second.
+if [ -x "$ACC_DIR/bin/acc" ]; then
+    "$ACC_DIR/bin/acc" test/tools/fail.c "$ACC_DIR/bin/libc.a" -I "$ACC_DIR/include" \
+        -o "$W/fail.bin" >/dev/null 2>&1
+fi
+if [ -s "$W/fail.bin" ]; then
+    c=$(card "$proj/bin/ade.bin")
+    cp "$W/fail.bin" "$c/bin/fail.bin"
+    : > "$c/errlist"
+    printf '[project]\r\nname = prog\r\nfiles = main.c add.c\r\n[build]\r\nc = fail %%e\r\n' \
+        > "$c/project.ini"
+    printf 'int add(int a, int b);\r\nint main(void)\r\n{\r\n    return add(1, 2);\r\n}\r\n' \
+        > "$c/main.c"
+    printf 'int add(int a, int b)\r\n{\r\n    return a + b;\r\n}\r\n' > "$c/add.c"
+    under_hub "$c" 120 "ade main.c"
+    played "$c" "three errors: the list, to the third, and back to the second" "keys 9 of 9
+current 1
+at 4:1
+window 1 main.c 4:1 int add(int a, int b);
+window 2 add.c 1:3 int add(int a, int b)
+window 3 closed"
+else
+    echo "SKIP  more than one error: no host acc at $ACC_DIR/bin/acc to build test/tools/fail.c"
+fi
+
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.
 # The scripted ade times itself, in hundredths, from main to its first key:

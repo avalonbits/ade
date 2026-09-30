@@ -107,6 +107,19 @@ static const key_press RESUME[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// Resumed from a build that left three errors -- when /errlist is on the
+// card, since every resume is started the same way. The list is up, on the
+// first: to the third, in add.c, which opens in window 2; then the list again,
+// which starts at the third, up to the second, back in main.c; and leave.
+static const key_press ERRLIST[] = {
+    K(0, VK_DOWN), K(0, VK_DOWN), K(13, VK_RETURN), // add.c:1:3
+    K('k', VK_k),                                   // ...which the message waits on
+    M(0, VK_F9, MOD_ALT),                           // the list again...
+    K(0, VK_UP), K(13, VK_RETURN),                  // ...main.c:4:1
+    K('k', VK_k),                                   // ...which the message waits on
+    M(17, VK_q, MOD_CTRL),
+};
+
 #define COUNT(a) ((int) (sizeof(a) / sizeof(a[0])))
 
 static const key_press* KEYS = WINDOWS;
@@ -140,8 +153,15 @@ static const key_source SCRIPT = { poll, NULL, NULL };
 
 const key_source* script_keys(const char* arg) {
     if (arg != NULL && strcmp(arg, "-resume") == 0) {
-        KEYS = RESUME;
-        NKEYS = COUNT(RESUME);
+        const char fh = mos_fopen("/errlist", FA_READ);
+        if (fh != 0) {
+            mos_fclose(fh);
+            KEYS = ERRLIST;
+            NKEYS = COUNT(ERRLIST);
+        } else {
+            KEYS = RESUME;
+            NKEYS = COUNT(RESUME);
+        }
     } else if (arg != NULL && strstr(arg, "wrong") != NULL) {
         KEYS = WRONG;
         NKEYS = COUNT(WRONG);

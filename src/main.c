@@ -66,8 +66,9 @@ static const app_context ADE_APP = {
  * ade's own keys: its files and leaving, the same as aed's, its windows and
  * its menus, on the keys Turbo Pascal gave them -- F3 opens a file in a new
  * window, F6 goes to the next, ALT+F3 closes the one on screen, ALT+F6 lists
- * them, and F10 opens the menus. F9 builds, through hub -- see build.h.
- * ALT+F3 and ALT+F6 come before F3 and F6, which would match them too.
+ * them, and F10 opens the menus. F9 builds, through hub -- see build.h --
+ * and ALT+F9 lists the errors it left. ALT+F3, ALT+F6 and ALT+F9 come before
+ * F3, F6 and F9, which would match them too.
  */
 static const key_binding ADE_BINDINGS[] = {
     LETTER(VK_o, VK_O, C, cmd_open),
@@ -81,6 +82,7 @@ static const key_binding ADE_BINDINGS[] = {
     // The menus own the selection, so one made before opening them is still
     // there for Copy or Cut.
     { VK_F10, 0, KC_OWNS_SEL, menu_open },
+    { VK_F9, A, 0, build_errors },
     { VK_F9, 0, 0, build },
 };
 

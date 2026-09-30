@@ -208,45 +208,34 @@ static void place(editor* ed, int line, int x) {
     cmd_restore_after_modal(ed, true);
 }
 
-// The first line of the error file, as `file:line:column: ...`: the file into
-// `file`, the position into *line and *col, the whole line into `text`.
-static bool read_error(char* file, int fmax, int* line, int* col,
-                       char* text, int tmax) {
-    const char fh = mos_fopen(ERR_FILE, FA_READ);
-    if (fh == 0) {
-        return false;
-    }
-    static char buf[256];
-    const int n = (int) mos_fread(fh, buf, sizeof(buf) - 1);
-    mos_fclose(fh);
-    if (n <= 0) {
-        return false;
-    }
-    buf[n] = 0;
-    char* end = strpbrk(buf, "\r\n");
-    if (end != NULL) {
-        *end = 0;
-    }
-    snprintf(text, (size_t) tmax, "%s", buf);
+// What the last build said: the error file, each line a string, and where
+// the lines of the form `file:line:column: ...` start -- the errors. Kept
+// until the next build, for the list.
+#define ERR_MAX 16
+static char errs[1024];
+static int err_at[ERR_MAX];
+static int nerrs;
+static int chosen;
 
-    // file:line:col: -- the file may hold a drive's colon, so the numbers are
-    // found from the first ':' followed by a digit.
-    char* p = buf;
-    char* c1 = NULL;
-    for (char* q = buf; *q != 0; q++) {
+// The position in an error line: the file into `file`, the line and column
+// into *line and *col. The file may hold a drive's colon, so the numbers are
+// found from the first ':' followed by a digit.
+static bool parse_error(const char* s, char* file, int fmax, int* line, int* col) {
+    const char* c1 = NULL;
+    for (const char* q = s; *q != 0; q++) {
         if (q[0] == ':' && q[1] >= '0' && q[1] <= '9') {
             c1 = q;
             break;
         }
     }
-    if (c1 == NULL || c1 - p >= fmax) {
+    if (c1 == NULL || c1 == s || c1 - s >= fmax) {
         return false;
     }
-    memcpy(file, p, (size_t) (c1 - p));
-    file[c1 - p] = 0;
+    memcpy(file, s, (size_t) (c1 - s));
+    file[c1 - s] = 0;
     *line = 0;
     *col = 0;
-    char* q = c1 + 1;
+    const char* q = c1 + 1;
     while (*q >= '0' && *q <= '9') {
         *line = *line * 10 + (*q++ - '0');
     }
@@ -258,6 +247,105 @@ static bool read_error(char* file, int fmax, int* line, int* col,
     }
 
     return *line > 0;
+}
+
+// Reads the error file into errs, and finds the errors in it.
+static void read_errors(void) {
+    nerrs = 0;
+    chosen = 0;
+    const char fh = mos_fopen(ERR_FILE, FA_READ);
+    if (fh == 0) {
+        return;
+    }
+    const int n = (int) mos_fread(fh, errs, sizeof(errs) - 1);
+    mos_fclose(fh);
+    if (n <= 0) {
+        return;
+    }
+    errs[n] = 0;
+
+    static char file[TB_FNAME_MAX];
+    int start = 0;
+    while (start < n && nerrs < ERR_MAX) {
+        int end = start;
+        while (end < n && errs[end] != '\r' && errs[end] != '\n') {
+            end++;
+        }
+        errs[end] = 0;
+        int line = 0;
+        int col = 0;
+        if (parse_error(errs + start, file, TB_FNAME_MAX, &line, &col)) {
+            err_at[nerrs++] = start;
+        }
+        start = end + 1;
+        while (start < n && (errs[start] == '\r' || errs[start] == '\n')) {
+            start++;
+        }
+    }
+}
+
+// Where error k is: its window -- opened if its file has none -- and the
+// cursor's line and x there, the tools' column being a byte in the line from
+// 1, with 0 for not known. The window is -1 when it cannot be opened.
+static int error_window(editor* ed, int k, int* line, int* x) {
+    static char file[TB_FNAME_MAX];
+    int col = 0;
+    parse_error(errs + err_at[k], file, TB_FNAME_MAX, line, &col);
+    *x = col > 0 ? col - 1 : 0;
+    const int w = win_find(ed, file);
+
+    return w >= 0 ? w : win_open_named(ed, file);
+}
+
+// Goes to error k and shows what it says.
+static void go_to_error(editor* ed, int k) {
+    int line = 0;
+    int x = 0;
+    const int w = error_window(ed, k, &line, &x);
+    if (w >= 0) {
+        if (win_current() != w) {
+            win_go(ed, w);
+        }
+        place(ed, line, x);
+    }
+    chosen = k;
+    ui_message(&ed->ui_, &ed->scr_, errs + err_at[k]);
+}
+
+void build_errors(editor* ed) {
+    if (nerrs == 0) {
+        ui_message(&ed->ui_, &ed->scr_, "The last build left no errors");
+        return;
+    }
+    screen* scr = &ed->scr_;
+    user_input* ui = &ed->ui_;
+    const char top = scr->v_->topY_;
+    const char bottom = ui->ypos_;
+    const int width = scr->v_->cols_ < 255 ? scr->v_->cols_ : 255;
+    static char row[256];
+
+    int at = chosen;
+    for (;;) {
+        char y = ui_modal_title(scr, top, width, "  ERRORS");
+        for (int k = 0; k < nerrs && y < bottom; k++) {
+            int c = ui_put_at(row, 0, width, k == at ? "  > " : "    ");
+            c = ui_put_at(row, c, width, errs + err_at[k]);
+            scr_write_line(scr, y++, row, c);
+        }
+        ui_modal_fill(scr, y, bottom,
+                      "  UP/DOWN to choose, RETURN to go there, ESC to stay", 52);
+
+        const key_press kp = ks_wait(ui->keys_);
+        const pick_key act = ui_modal_move(kp.vkey, &at, nerrs - 1);
+        if (act == PICK_LEAVE) {
+            cmd_restore_after_modal(ed, false);
+            return;
+        }
+        if (act == PICK_TAKE) {
+            go_to_error(ed, at);
+            return;
+        }
+    }
 }
 
 void build_resume(editor* ed) {
@@ -285,23 +373,18 @@ void build_resume(editor* ed) {
     }
     int line = s->line[s->current];
     int x = s->x[s->current];
-    static char text[128];
     const bool failed = hub_failed_job() >= 0;
-    bool found = false;
     if (failed) {
-        static char file[TB_FNAME_MAX];
+        read_errors();
+    }
+    if (nerrs > 0) {
         int eline = 0;
-        int col = 0;
-        found = read_error(file, TB_FNAME_MAX, &eline, &col, text, (int) sizeof(text));
-        // The error's file, in its window -- opened if it has none; the column
-        // is the tools' -- a tab is one -- which is a byte in the line, from 1,
-        // with 0 for not known.
-        const int w = found ? win_find(ed, file) : -1;
-        const int e = found && w < 0 ? win_open_named(ed, file) : w;
+        int ex = 0;
+        const int e = error_window(ed, 0, &eline, &ex);
         if (e >= 0) {
             target = e;
             line = eline;
-            x = col > 0 ? col - 1 : 0;
+            x = ex;
         }
     }
     for (int i = 0; i < ADE_WINDOWS; i++) {
@@ -316,13 +399,17 @@ void build_resume(editor* ed) {
     }
     place(ed, line, x);
 
-    // The message is on the footer, which the loop repaints after it.
+    // A message is on the footer, which the loop repaints after it; with more
+    // than one error, the list, from which each can be gone to.
     if (!failed) {
         ui_message(&ed->ui_, &ed->scr_, "Built");
-    } else if (found) {
-        ui_message(&ed->ui_, &ed->scr_, text);
+    } else if (nerrs == 0) {
+        static char msg[40];
+        snprintf(msg, sizeof(msg), "The build failed, with %d", hub_last_result());
+        ui_message(&ed->ui_, &ed->scr_, msg);
+    } else if (nerrs == 1) {
+        ui_message(&ed->ui_, &ed->scr_, errs + err_at[0]);
     } else {
-        snprintf(text, sizeof(text), "The build failed, with %d", hub_last_result());
-        ui_message(&ed->ui_, &ed->scr_, text);
+        build_errors(ed);
     }
 }

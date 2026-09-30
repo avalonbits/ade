@@ -46,6 +46,10 @@
 // The command F9 is bound to, and Build on the menu.
 void build(editor* ed);
 
+// The errors the last build left, as a list to go to one from; shown on
+// coming back from a build that left more than one. ALT+F9, and on the menu.
+void build_errors(editor* ed);
+
 // Whether ade was started by hub to come back from a build, and puts the
 // session back if so: call after ed_init_for, with the windows started. The
 // first file to open is `first_file` -- see build_first_file.
