@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <hub.h>
+#include <hub/hub.h>
 
 #include "cmd_ops.h"
 #include "project.h"

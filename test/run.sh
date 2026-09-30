@@ -198,7 +198,7 @@ NAME=ade
 include \$(shell agondev-config --makefile)
 CFLAGS += -DADE_SCRIPT -I$LIBS_ABS/include/core -I$LIBS_ABS/include/ui -I$HUB/include
 PROJECTLIBDIR := $LIBS_ABS/lib
-LIBS := -ledui -ledcore $HUB/build/lib/libhub.a
+LIBS := -ledui -ledcore $HUB/build/lib/agondev/libhub.a
 MK
 (cd "$proj" && make >/dev/null 2>&1)
 check "the scripted ade builds" "$([ -f "$proj/bin/ade.bin" ] && echo built)" built

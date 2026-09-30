@@ -27,7 +27,7 @@ dig -- and now ade.
 | Project | Where | What ade uses |
 |---|---|---|
 | **aed** | `~/code/aed` (read `AGENTS.md` and `.internal/docs/` first) | the core library and most of the view |
-| **hub** -- resident shell/scheduler | `~/code/devel`; design: https://claude.ai/code/artifact/2284d613-0e89-40fc-bf85-5e81dd591918 | runs acc/zap/the program for ade and brings ade back; keeps ade's session in a hub block; `include/hub.h` + `libhub.a` |
+| **hub** -- resident shell/scheduler | `~/code/devel`; design: https://claude.ai/code/artifact/2284d613-0e89-40fc-bf85-5e81dd591918 | runs acc/zap/the program for ade and brings ade back; keeps ade's session in a hub block; `include/hub/hub.h` + `build/lib/agondev/libhub.a` |
 | **zap** -- assembler | `~/code/zap`; `-e <file>` on branch `error-file`, PR avalonbits/zap#163 | assembling; its error file |
 | **acc** -- C compiler | `~/code/acc` (another agent works there; read only); `-errors <file>` with columns on branch `error-file`, worktree `~/code/acc-diag` | compiling; its error file |
 | **pak** -- library packaging (designed, not built) | https://claude.ai/code/artifact/ddf7e7fe-e8eb-4e6e-b4a4-6c79aae6962a | postponed; would later replace downloading the libraries from aed releases |

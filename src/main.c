@@ -31,7 +31,7 @@
 #include <string.h>
 
 #include <agon/mos.h>
-#include <hub.h>
+#include <hub/hub.h>
 
 #include "app.h"
 #include "build.h"

@@ -28,7 +28,7 @@ HUB ?= $(HOME)/code/devel
 
 CFLAGS += -I$(AED_LIBS)/include/core -I$(AED_LIBS)/include/ui -I$(HUB)/include
 PROJECTLIBDIR := $(AED_LIBS)/lib
-LIBS := -ledui -ledcore $(HUB)/build/lib/libhub.a
+LIBS := -ledui -ledcore $(HUB)/build/lib/agondev/libhub.a
 
 # Header dependencies, which AgonDev's makefile does not track -- see aed's
 # Makefile for what that cost it. The libraries' headers count too: a new

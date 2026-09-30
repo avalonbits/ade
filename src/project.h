@@ -21,7 +21,7 @@
 
 #include <stdbool.h>
 
-#include <hub.h>
+#include <hub/hub.h>
 
 /*
  * A project: project.ini in the current directory, naming a program and the
