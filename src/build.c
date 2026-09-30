@@ -223,51 +223,64 @@ void build_resume(editor* ed) {
     if (s == NULL || memcmp(s->magic, "ADE1", 4) != 0) {
         return;
     }
+    memset(s->magic, 0, 4);             // used: a later start is not a resume
+
     // Window 1 is open already: ed_init_for opened its file. The others, in
-    // order, then each cursor where it was.
+    // order.
     for (int i = 1; i < ADE_WINDOWS; i++) {
         if (s->open[i]) {
             win_open_named(ed, s->name[i]);
         }
     }
+
+    // Where ade ends up: the window that was on screen, as it was -- or, when
+    // the build failed, the error's file at the error. Every paint costs a
+    // fifth of a second or so, and each place() is one, so that window is
+    // placed once, last, and only the others are shown on the way.
+    int target = s->open[s->current] ? win_find(ed, s->name[s->current]) : -1;
+    if (target < 0) {
+        target = 0;
+    }
+    int line = s->line[s->current];
+    int x = s->x[s->current];
+    static char text[128];
+    const bool failed = hub_failed_job() >= 0;
+    bool found = false;
+    if (failed) {
+        static char file[TB_FNAME_MAX];
+        int eline = 0;
+        int col = 0;
+        found = read_error(file, TB_FNAME_MAX, &eline, &col, text, (int) sizeof(text));
+        // The error's file, in its window -- opened if it has none; the column
+        // is the tools' -- a tab is one -- which is a byte in the line, from 1,
+        // with 0 for not known.
+        const int w = found ? win_find(ed, file) : -1;
+        const int e = found && w < 0 ? win_open_named(ed, file) : w;
+        if (e >= 0) {
+            target = e;
+            line = eline;
+            x = col > 0 ? col - 1 : 0;
+        }
+    }
     for (int i = 0; i < ADE_WINDOWS; i++) {
         const int w = s->open[i] ? win_find(ed, s->name[i]) : -1;
-        if (w >= 0) {
+        if (w >= 0 && w != target) {
             win_go(ed, w);
             place(ed, s->line[i], s->x[i]);
         }
     }
-    const int back = s->open[s->current] ? win_find(ed, s->name[s->current]) : -1;
-    win_go(ed, back >= 0 ? back : 0);
-    memset(s->magic, 0, 4);             // used: a later start is not a resume
+    if (win_current() != target) {
+        win_go(ed, target);
+    }
+    place(ed, line, x);
 
-    if (hub_failed_job() < 0) {
+    // The message is on the footer, which the loop repaints after it.
+    if (!failed) {
         ui_message(&ed->ui_, &ed->scr_, "Built");
-        cmd_restore_after_modal(ed, false);
-        return;
+    } else if (found) {
+        ui_message(&ed->ui_, &ed->scr_, text);
+    } else {
+        snprintf(text, sizeof(text), "The build failed, with %d", hub_last_result());
+        ui_message(&ed->ui_, &ed->scr_, text);
     }
-    static char file[TB_FNAME_MAX];
-    static char text[128];
-    int line = 0;
-    int col = 0;
-    if (!read_error(file, TB_FNAME_MAX, &line, &col, text, (int) sizeof(text))) {
-        static char msg[40];
-        snprintf(msg, sizeof(msg), "The build failed, with %d", hub_last_result());
-        ui_message(&ed->ui_, &ed->scr_, msg);
-        cmd_restore_after_modal(ed, false);
-        return;
-    }
-    // To the error: its file's window, opened if it has none; the column is
-    // the tools' -- a tab is one -- which is a byte in the line, from 1, with
-    // 0 for not known.
-    int w = win_find(ed, file);
-    if (w < 0) {
-        w = win_open_named(ed, file);
-    }
-    if (w >= 0) {
-        win_go(ed, w);
-        place(ed, line, col > 0 ? col - 1 : 0);
-    }
-    ui_message(&ed->ui_, &ed->scr_, text);
-    cmd_restore_after_modal(ed, false);
 }

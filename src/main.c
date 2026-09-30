@@ -100,6 +100,9 @@ static const ed_program ADE = {
 
 int main(int argc, char** argv) {
     static editor ed;
+#ifdef ADE_SCRIPT
+    script_begin();
+#endif
 
     // Building runs the tools through hub, and ade comes back through it; a
     // machine without hub -- or a MOS older than 3.0.2, which hub needs --

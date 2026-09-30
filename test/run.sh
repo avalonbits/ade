@@ -130,13 +130,14 @@ card() {
     echo "$c"
 }
 
-# under_hub <card> <seconds> <command>: boot MOS 3.0.2 with hub running
-# <command> from a script, as a person would at hub's prompt, and stop the
-# emulator after <seconds>. Whatever ade wrote is on the card. Run flat out
-# (-u): acc is a quarter of a megabyte to load and run, and nothing here is
-# about how long anything takes.
+# under_hub <card> <seconds> <command> [paced]: boot MOS 3.0.2 with hub
+# running <command> from a script, as a person would at hub's prompt, and stop
+# the emulator after <seconds>. Whatever ade wrote is on the card. Run flat out
+# (-u) -- acc is a quarter of a megabyte to load and run -- unless "paced":
+# then at the Agon's own speed, for timing.
 under_hub() {
-    local c=$1 secs=$2 fifo hold
+    local c=$1 secs=$2 fifo hold speed=-u
+    [ "${4:-}" = paced ] && speed=
     printf '%s\n' "$3" > "$c/script.txt"
     printf 'hub -f /script.txt\r\n' > "$c/autoexec.txt"
     chmod -R u+w "$c"
@@ -145,7 +146,7 @@ under_hub() {
     tail -f /dev/null > "$fifo" &
     hold=$!
     (cd "$EMU" && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy \
-        timeout "$secs" ./fab-agon-emulator -u --sdcard "$c" < "$fifo" > /dev/null 2>&1)
+        timeout "$secs" ./fab-agon-emulator $speed --sdcard "$c" < "$fifo" > /dev/null 2>&1)
     kill "$hold" 2>/dev/null
     wait "$hold" 2>/dev/null
 }
@@ -281,5 +282,28 @@ check "  every window was saved first" \
       "     return 0;
 bravoy"
 check "  the program is on the card" "$([ -s "$c/good.bin" ] && echo yes)" yes
+
+# --- how long ade takes to start, at the Agon's own speed ---
+# Every build restarts ade, so its start-up is part of every build's wait.
+# The scripted ade times itself, in hundredths, from main to its first key:
+# the screen drawn -- or, resumed, the outcome shown. The good build again,
+# unhurried; MOS loading the binary is not in it, since the emulator reads
+# the card from the host's disk.
+#
+# Measured: 42 to start. A resume is the start, 20 to open window 2, and 20
+# for each full paint -- showing a window is one, placing its cursor another.
+# Two windows came back in 160 when every window was shown and placed and the
+# target shown again; placing the target last, once, brought that to 140.
+RESUME_CS=150
+c=$(card "$proj/bin/ade.bin")
+printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/good.c"
+printf 'bravo\r\n' > "$c/good.txt"
+under_hub "$c" 400 "ade good.txt" paced
+start=$(tr -d '\r\n' < "$c/ade.time" 2>/dev/null)
+resume=$(tr -d '\r\n' < "$c/ade-resume.time" 2>/dev/null)
+echo "TIME  start-up ${start:-?} cs, resumed with two windows ${resume:-?} cs"
+check "ade starts in under 0.6 s" "$([ "${start:-999}" -lt 60 ] && echo yes)" yes
+check "  and comes back from a build in under $RESUME_CS cs" \
+      "$([ "${resume:-999}" -lt "$RESUME_CS" ] && echo yes)" yes
 
 exit $status

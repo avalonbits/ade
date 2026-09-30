@@ -11,6 +11,8 @@
 
 // The keys for a run started with `arg` -- its first argument, or NULL.
 const key_source* script_keys(const char* arg);
+// Called first thing in main: the start-up is timed from here.
+void script_begin(void);
 void script_report(editor* ed);
 
 #endif  // _SCRIPT_H_

@@ -22,6 +22,7 @@
 #include <agon/mos.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "windows.h"
 
@@ -105,8 +106,20 @@ static int NKEYS = COUNT(WINDOWS);
 
 static int at;
 
+// When main began, and when ade first asked for a key: ready, its screen
+// drawn -- or, resumed, the build's outcome on it.
+static clock_t began;
+static clock_t ready;
+
+void script_begin(void) {
+    began = clock();
+}
+
 static bool poll(void* ctx, key_press* kp) {
     (void) ctx;
+    if (at == 0 && ready == 0) {
+        ready = clock();
+    }
     if (at >= NKEYS) {
         return false;           // run out: ade waits, and the test times out
     }
@@ -170,5 +183,15 @@ void script_report(editor* ed) {
     if (fh != 0) {
         mos_fwrite(fh, out, (unsigned) n);
         mos_fclose(fh);
+    }
+
+    // The start-up, in hundredths of a second: a start and a resume each
+    // their own file, since a build's run has both.
+    n = sprintf(out, "%lu\n", (unsigned long) ((ready - began) / (CLOCKS_PER_SEC / 100)));
+    const char th = mos_fopen(KEYS == RESUME ? "/ade-resume.time" : "/ade.time",
+                              FA_WRITE | FA_CREATE_ALWAYS);
+    if (th != 0) {
+        mos_fwrite(th, out, (unsigned) n);
+        mos_fclose(th);
     }
 }

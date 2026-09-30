@@ -385,6 +385,19 @@ against a package made locally with aed's `mklibs.sh`.
   built from window 2 with both windows changed and unsaved. The build and
   resume messages wait for a key, so the test's keys go in before the resume.
   Linking `libhub.a` and using `snprintf` took ade to 98,815 bytes.
+- **Start-up is measured** (`test/run.sh`, at the Agon's own speed, from
+  `main` to ade's first key; MOS loading the binary is not included, since the
+  emulator reads the card from the host). ade starts in **0.42 s**. A resume
+  is the start plus 0.2 s to open each further window plus 0.2 s per full
+  paint: showing a window is one, placing its cursor another, since
+  `cmd_restore_after_modal` recentres by clearing and repainting. Two windows
+  came back in 1.60 s; placing the window that ends up on screen last, once,
+  and not repainting after the message, brought that to **1.40 s**, which
+  `test/run.sh` holds under 1.50 s. Going further needs libedui to place a
+  document's cursor and centre its view without painting (`centre_line` is
+  private today): a resume would then be about 0.8 s.
+- **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
+  sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made
 
 - **How ade gets the libraries**: from **aed's GitHub release assets**. Each aed
