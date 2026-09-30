@@ -398,24 +398,32 @@ against a package made locally with aed's `mklibs.sh`.
   private today): a resume would then be about 0.8 s.
 - **B7 is written** (`src/project.c`): a `project.ini` in the current
   directory makes F9 build the project, whatever is on screen. `[project]`
-  has `name` (the program, `name.bin`) and `files` (up to five, built in
+  has `name` (the program, `name.bin`) and `files` (up to 32, built in
   order, then linked). `[build]` may replace the rules for `c`, `s`, `asm`
   and `link`; the defaults are `acc -c %f -o %b.o -errors %e`,
   `zap %f %b.o -f acc -c -e %e` and `acc %o -o %n.bin -errors %e` (acc on
   the Agon links `/lib/acc/libc.a` by itself). `%f` is the file, `%b` the
   file without its extension, `%o` every object, `%n` the name, `%e` the
-  error file. An empty `link` runs none. Each command is one hub job with
-  `HUB_STOP_ON_ERROR`. hub holds `HUB_MAX_JOBS` (8) jobs, counting the
-  continuation. Run adds the program, so five files, the link, the program
-  and ade fill it exactly. The limit was six until hub said the continuation
-  counts. A project that can't be
+  error file. An empty `link` runs none. The commands go into `build.obey`
+  beside `project.ini`, and hub runs `Obey build.obey` as a single job with
+  `HUB_STOP_ON_ERROR`. MOS 3.0.2's Obey stops at the first line that fails
+  and returns its error. So a project isn't held to hub's `HUB_MAX_JOBS` (8),
+  and Run is three jobs: the build, the program, and ade. A command may be 250
+  characters long, which is what fits in Obey's 256-byte line. `build.obey`
+  is written again only when `project.ini` changes. Its first line is a
+  comment with an FNV-1a checksum of `project.ini` and of ade's default
+  rules, so a hand edit lasts until then, and it runs at MOS's prompt too.
+  One job per file came first, and it capped a project at five. A project that can't be
   built (no name, no files, a file nothing builds, a command too long for
   `HUB_CMD_MAX`) says why before anything is saved. The checks:
   - C plus assembly, built with the defaults and then run by hub;
   - an error in a file that isn't on screen, which ade opens in a window of
     its own;
   - a file nothing builds;
-  - an assembly program with its own rule and no link.
+  - an assembly program with its own rule and no link;
+  - eight files, built, linked and run;
+  - a hand edit to `build.obey` that lasts while `project.ini` is unchanged
+    and is gone once a file is added.
 - **B5 is written** (`build_errors` in `src/build.c`). After a failed build,
   ade reads every `file:line:col:` line of `/ade.err`, up to 16. With one
   error it goes to it and shows it, as before. With more, it goes to the

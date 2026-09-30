@@ -32,6 +32,15 @@ static const char RULE_LINK[] = "acc %o -o %n.bin -errors %e";
 
 static char text[TEXT_MAX];
 
+// FNV-1a, 32 bits, over s[0, n), carried on from `h`.
+static unsigned long hash(unsigned long h, const char* s, int n) {
+    for (int i = 0; i < n; i++) {
+        h = (h ^ (unsigned char) s[i]) * 16777619UL;
+    }
+
+    return h & 0xFFFFFFFFUL;
+}
+
 // s[0, len) into out, as a string; false when it does not fit.
 static bool copy(char* out, int max, const char* s, int len) {
     if (len >= max) {
@@ -115,6 +124,11 @@ int proj_load(project* p, char* msg, int max) {
     }
 
     memset(p, 0, sizeof(*p));
+    // The file and ade's defaults: either changing makes a new build.obey.
+    p->sum = hash(2166136261UL, text, n);
+    p->sum = hash(p->sum, RULE_C, (int) sizeof(RULE_C));
+    p->sum = hash(p->sum, RULE_S, (int) sizeof(RULE_S));
+    p->sum = hash(p->sum, RULE_LINK, (int) sizeof(RULE_LINK));
     strcpy(p->c, RULE_C);
     strcpy(p->s, RULE_S);
     strcpy(p->asm_, RULE_S);
@@ -161,7 +175,7 @@ int proj_load(project* p, char* msg, int max) {
                 rule = p->link;
             }
             if (rule != NULL) {
-                fits = copy(rule, HUB_CMD_MAX + 1, ln.value, ln.valuelen);
+                fits = copy(rule, PROJ_CMD_MAX + 1, ln.value, ln.valuelen);
             }
         }
         if (!fits) {
@@ -251,6 +265,54 @@ bool proj_job(const project* p, int i, const char* err, char* out, int max) {
         }
     }
     out[at < max ? at : max - 1] = 0;
+
+    return ok;
+}
+
+bool proj_obey(const project* p, const char* err, char* msg, int max) {
+    static char head[80];
+    const int hn = snprintf(head, sizeof(head),
+                            "# Made by ade from " PROJ_FILE " %08lx: edits last until it changes\r\n",
+                            p->sum);
+
+    // Made from this project.ini already: left as it is.
+    static char was[80];
+    char fh = mos_fopen(PROJ_OBEY, FA_READ);
+    if (fh != 0) {
+        const int n = (int) mos_fread(fh, was, (unsigned) hn);
+        mos_fclose(fh);
+        if (n == hn && memcmp(was, head, (size_t) hn) == 0) {
+            return true;
+        }
+    }
+
+    static char cmd[PROJ_CMD_MAX + 3];
+    const int jobs = proj_jobs(p);
+    for (int i = 0; i < jobs; i++) {
+        if (!proj_job(p, i, err, cmd, PROJ_CMD_MAX + 1)) {
+            snprintf(msg, (size_t) max, "Command %d of " PROJ_FILE " is longer than %d",
+                     i + 1, PROJ_CMD_MAX);
+            return false;
+        }
+    }
+    fh = mos_fopen(PROJ_OBEY, FA_WRITE | FA_CREATE_ALWAYS);
+    if (fh == 0) {
+        snprintf(msg, (size_t) max, PROJ_OBEY " could not be written");
+        return false;
+    }
+    bool ok = (int) mos_fwrite(fh, head, (unsigned) hn) == hn;
+    for (int i = 0; i < jobs && ok; i++) {
+        proj_job(p, i, err, cmd, PROJ_CMD_MAX + 1);
+        const int n = (int) strlen(cmd);
+        cmd[n] = '\r';
+        cmd[n + 1] = '\n';
+        ok = (int) mos_fwrite(fh, cmd, (unsigned) n + 2) == n + 2;
+    }
+    mos_fclose(fh);
+    if (!ok) {
+        mos_del(PROJ_OBEY);             // half a build is worse than none
+        snprintf(msg, (size_t) max, PROJ_OBEY " could not be written");
+    }
 
     return ok;
 }

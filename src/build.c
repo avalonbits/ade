@@ -85,9 +85,9 @@ static char tool_for(const char* name, char* base, int max) {
 // without .bin.
 static char program[PROJ_NAME_MAX];
 
-// The commands for the file on screen, into cmds; how many, or 0 with a
-// message shown.
-static int file_commands(editor* ed, char cmds[][HUB_CMD_MAX + 1]) {
+// The command that builds the file on screen, into cmd; false with a message
+// shown when there is none.
+static bool file_command(editor* ed, char* cmd) {
     user_input* ui = &ed->ui_;
     screen* scr = &ed->scr_;
 
@@ -96,41 +96,37 @@ static int file_commands(editor* ed, char cmds[][HUB_CMD_MAX + 1]) {
     const char tool = name != NULL ? tool_for(name, base, TB_FNAME_MAX) : 0;
     if (tool == 0) {
         ui_message(ui, scr, "Build what? ade builds .c with acc, .s and .asm with zap");
-        return 0;
+        return false;
     }
 
     const int n = tool == 'c'
-        ? snprintf(cmds[0], HUB_CMD_MAX + 1, "acc %s -o %s.bin -errors " ERR_FILE, name, base)
-        : snprintf(cmds[0], HUB_CMD_MAX + 1, "zap %s %s.bin -c -e " ERR_FILE, name, base);
+        ? snprintf(cmd, HUB_CMD_MAX + 1, "acc %s -o %s.bin -errors " ERR_FILE, name, base)
+        : snprintf(cmd, HUB_CMD_MAX + 1, "zap %s %s.bin -c -e " ERR_FILE, name, base);
     if (n > HUB_CMD_MAX) {
         ui_message(ui, scr, "The file's name is too long for hub to run the build");
-        return 0;
+        return false;
     }
     if (snprintf(program, sizeof(program), "%s", base) >= (int) sizeof(program)) {
         ui_message(ui, scr, "The file's name is too long for hub to run the program");
-        return 0;
+        return false;
     }
 
-    return 1;
+    return true;
 }
 
-// The commands for the project, into cmds; how many, or 0 with a message
-// shown.
-static int project_commands(editor* ed, const project* p,
-                            char cmds[][HUB_CMD_MAX + 1]) {
+// The command that builds the project, into cmd: Obey on PROJ_OBEY, made
+// again if project.ini has changed since it last was. False with a message
+// shown when it cannot be.
+static bool project_command(editor* ed, const project* p, char* cmd) {
     snprintf(program, sizeof(program), "%s", p->name);
-    const int n = proj_jobs(p);
-    for (int i = 0; i < n; i++) {
-        if (!proj_job(p, i, ERR_FILE, cmds[i], HUB_CMD_MAX + 1)) {
-            static char msg[80];
-            snprintf(msg, sizeof(msg), "Command %d of " PROJ_FILE " is too long for hub",
-                     i + 1);
-            ui_message(&ed->ui_, &ed->scr_, msg);
-            return 0;
-        }
+    static char msg[80];
+    if (!proj_obey(p, ERR_FILE, msg, (int) sizeof(msg))) {
+        ui_message(&ed->ui_, &ed->scr_, msg);
+        return false;
     }
+    snprintf(cmd, HUB_CMD_MAX + 1, "Obey " PROJ_OBEY);
 
-    return n;
+    return true;
 }
 
 // Builds, then with `run` runs what was built, and comes back.
@@ -141,15 +137,15 @@ static void start(editor* ed, bool run) {
     // With a project, the project; without one, the file on screen.
     static project proj;
     static char msg[80];
-    static char cmds[PROJ_FILES + 1][HUB_CMD_MAX + 1];
+    static char cmd[HUB_CMD_MAX + 1];
     const int has = proj_load(&proj, msg, (int) sizeof(msg));
     if (has < 0) {
         ui_message(ui, scr, msg);
         return;
     }
-    const int ncmds = has > 0 ? project_commands(ed, &proj, cmds)
-                              : file_commands(ed, cmds);
-    if (ncmds == 0) {
+    const bool made = has > 0 ? project_command(ed, &proj, cmd)
+                              : file_command(ed, cmd);
+    if (!made) {
         return;
     }
 
@@ -197,10 +193,8 @@ static void start(editor* ed, bool run) {
 
     // An error left by an earlier build must not be taken for this one's.
     mos_del(ERR_FILE);
-    bool queued = hub_enter("ADE ") == HUB_OK;
-    for (int i = 0; i < ncmds && queued; i++) {
-        queued = hub_push(cmds[i], HUB_STOP_ON_ERROR) == HUB_OK;
-    }
+    bool queued = hub_enter("ADE ") == HUB_OK
+                  && hub_push(cmd, HUB_STOP_ON_ERROR) == HUB_OK;
     // The program after the build -- skipped by hub if a step failed -- on a
     // screen as hub's prompt leaves it, and held for a key after, so what it
     // printed can be read before ade paints over it. Whatever it returns,

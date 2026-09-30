@@ -42,8 +42,8 @@
  * to press when it ends; ade comes back saying what it returned.
  *
  * With a project.ini in the current directory, F9 builds the project instead:
- * a job per file and the link, stopping at the first that fails -- see
- * project.h.
+ * a command per file and the link, in build.obey, run by MOS's Obey as one
+ * of hub's jobs and stopping at the first that fails -- see project.h.
  */
 
 // The command F9 is bound to, and Build on the menu.

@@ -322,6 +322,43 @@ window 2 add.c 3:16 int add(int a, int b)
 window 3 closed"
 check "  and nothing was linked" "$([ -e "$c/prog.bin" ] && echo linked || echo no)" no
 
+# The build is build.obey, run by MOS's Obey as one of hub's jobs, so a
+# project is not held to hub's eight: here, eight files and the link.
+c=$(card "$proj/bin/ade.bin")
+files=main.c
+: > "$c/main.c"
+for n in 1 2 3 4 5 6 7; do
+    printf 'int f%d(void)\r\n{\r\n    return %d;\r\n}\r\n' $n $n > "$c/f$n.c"
+    printf 'int f%d(void);\r\n' $n >> "$c/main.c"
+    files="$files f$n.c"
+done
+printf '#include <stdio.h>\r\nint main(void)\r\n{\r\n    FILE* f = fopen("/ran.txt", "w");\r\n' >> "$c/main.c"
+printf '    fprintf(f, "%%d\\n", f1() + f2() + f3() + f4() + f5() + f6() + f7());\r\n' >> "$c/main.c"
+printf '    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$c/main.c"
+printf '[project]\r\nname = prog\r\nfiles = %s\r\n' "$files" > "$c/project.ini"
+under_hub "$c" 240 "ade main.c
+prog"
+check "F9 in a project of eight files: built, linked and run" \
+      "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" 28
+check "  from build.obey, which ade wrote" \
+      "$(head -1 "$c/build.obey" 2>/dev/null | cut -c1-30)" "# Made by ade from project.ini"
+
+# build.obey is written again only when project.ini changes: a line added to
+# it by hand -- a copy, which leaves a file to see -- lasts through a build
+# with project.ini as it was...
+printf 'copy main.c kept.txt\r\n' >> "$c/build.obey"
+under_hub "$c" 240 "ade main.c"
+check "  a hand edit to build.obey lasts while project.ini is unchanged" \
+      "$([ -e "$c/kept.txt" ] && echo kept || echo gone)" kept
+
+# ...and is gone once a file is added to the project, which is built.
+printf 'int f8(void)\r\n{\r\n    return 8;\r\n}\r\n' > "$c/f8.c"
+printf '[project]\r\nname = prog\r\nfiles = %s f8.c\r\n' "$files" > "$c/project.ini"
+rm -f "$c/kept.txt"
+under_hub "$c" 240 "ade main.c"
+check "  a file added to project.ini writes it again" \
+      "$([ -s "$c/f8.o" ] && echo built || echo not)$([ -e "$c/kept.txt" ] && echo ' kept')" built
+
 # A project.ini that names a file nothing builds: F9 says so and builds none.
 c=$(card "$proj/bin/ade.bin")
 printf '[project]\r\nname = prog\r\nfiles = wrong.c notes.txt\r\n' > "$c/project.ini"

@@ -21,8 +21,6 @@
 
 #include <stdbool.h>
 
-#include <hub/hub.h>
-
 /*
  * A project: project.ini in the current directory, naming a program and the
  * files it is built from. With one, F9 builds the project rather than the
@@ -43,23 +41,31 @@
  * error to, and %% a percent sign. An empty link runs no link: a program
  * assembled in one piece, `s = zap %f %n.bin -c -e %e`, needs none.
  *
- * Each command is one of hub's jobs, and hub holds HUB_MAX_JOBS, counting the
- * continuation that brings ade back. Run adds the program: five files, the
- * link, the program and ade make eight.
+ * The commands go into PROJ_OBEY, beside project.ini, which hub runs as one
+ * job with MOS's Obey: it stops at the first command that fails, and so does
+ * the build, however many files there are. The file is written again only
+ * when project.ini changes -- its first line is a comment holding a checksum
+ * of project.ini and of ade's own defaults -- so a hand edit to it lasts
+ * until then. It can also be run at MOS's prompt: `obey build.obey`.
  */
 
 #define PROJ_FILE       "project.ini"
-#define PROJ_FILES      5
+#define PROJ_OBEY       "build.obey"
+#define PROJ_FILES      32
 #define PROJ_NAME_MAX   64
+
+// The longest command: an Obey line is read into 256 bytes, with its end.
+#define PROJ_CMD_MAX    250
 
 typedef struct {
     char name[PROJ_NAME_MAX];
     int nfiles;
     char files[PROJ_FILES][PROJ_NAME_MAX];
-    char c[HUB_CMD_MAX + 1];
-    char s[HUB_CMD_MAX + 1];
-    char asm_[HUB_CMD_MAX + 1];
-    char link[HUB_CMD_MAX + 1];
+    char c[PROJ_CMD_MAX + 1];
+    char s[PROJ_CMD_MAX + 1];
+    char asm_[PROJ_CMD_MAX + 1];
+    char link[PROJ_CMD_MAX + 1];
+    unsigned long sum;                  // of project.ini and the defaults
 } project;
 
 // Reads PROJ_FILE: 1 when there is a project, 0 when there is no file, and -1
@@ -72,5 +78,10 @@ int proj_jobs(const project* p);
 // Command `i` of proj_jobs, with its error going to `err`. False when it is
 // longer than `max` allows.
 bool proj_job(const project* p, int i, const char* err, char* out, int max);
+
+// Makes sure PROJ_OBEY holds the project's commands, writing it when it was
+// made from another project.ini or not at all. False with what went wrong in
+// `msg` when it cannot be written.
+bool proj_obey(const project* p, const char* err, char* msg, int max);
 
 #endif  // _PROJECT_H_
