@@ -446,7 +446,8 @@ against a package made locally with aed's `mklibs.sh`.
   menu, queues the build, then the program with `HUB_USER_PROGRAM |
   HUB_PAUSE_AFTER` and without `HUB_STOP_ON_ERROR`, then `ade -resume`. The
   program is the project's `name`, or the file's name without its extension,
-  run from the current directory. hub skips it when a build step fails, and
+  run from the current directory. A project's `run` line says how, arguments
+  and all (`run = %n -v data.txt`), with `%n` alone the default. hub skips it when a build step fails, and
   ade comes back on the error. Otherwise ade says "<program> returned N". The
   session remembers whether it ran (magic `ADE2`). The checks cover:
   - Run with `Hub$NoPause`: the program runs and ade comes back;

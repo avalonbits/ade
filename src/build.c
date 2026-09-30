@@ -85,6 +85,9 @@ static char tool_for(const char* name, char* base, int max) {
 // without .bin.
 static char program[PROJ_NAME_MAX];
 
+// ...and the command that runs it, for Run.
+static char run_cmd[HUB_CMD_MAX + 1];
+
 // The command that builds the file on screen, into cmd; false with a message
 // shown when there is none.
 static bool file_command(editor* ed, char* cmd) {
@@ -110,6 +113,7 @@ static bool file_command(editor* ed, char* cmd) {
         ui_message(ui, scr, "The file's name is too long for hub to run the program");
         return false;
     }
+    snprintf(run_cmd, sizeof(run_cmd), "%s", base);
 
     return true;
 }
@@ -119,6 +123,10 @@ static bool file_command(editor* ed, char* cmd) {
 // shown when it cannot be.
 static bool project_command(editor* ed, const project* p, char* cmd) {
     snprintf(program, sizeof(program), "%s", p->name);
+    if (!proj_run(p, run_cmd, (int) sizeof(run_cmd))) {
+        ui_message(&ed->ui_, &ed->scr_, "run in " PROJ_FILE " is too long for hub");
+        return false;
+    }
     static char msg[80];
     if (!proj_obey(p, ERR_FILE, msg, (int) sizeof(msg))) {
         ui_message(&ed->ui_, &ed->scr_, msg);
@@ -200,7 +208,7 @@ static void start(editor* ed, bool run) {
     // printed can be read before ade paints over it. Whatever it returns,
     // ade comes back.
     if (queued && run) {
-        queued = hub_push(program, HUB_USER_PROGRAM | HUB_PAUSE_AFTER) == HUB_OK;
+        queued = hub_push(run_cmd, HUB_USER_PROGRAM | HUB_PAUSE_AFTER) == HUB_OK;
     }
     if (!queued || hub_return_to("ade -resume") != HUB_OK) {
         memset(s->magic, 0, 4);

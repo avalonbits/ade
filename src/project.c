@@ -29,6 +29,7 @@
 static const char RULE_C[] = "acc -c %f -o %b.o -errors %e";
 static const char RULE_S[] = "zap %f %b.o -f acc -c -e %e";
 static const char RULE_LINK[] = "acc %o -o %n.bin -errors %e";
+static const char RULE_RUN[] = "%n";
 
 static char text[TEXT_MAX];
 
@@ -133,6 +134,7 @@ int proj_load(project* p, char* msg, int max) {
     strcpy(p->s, RULE_S);
     strcpy(p->asm_, RULE_S);
     strcpy(p->link, RULE_LINK);
+    strcpy(p->run, RULE_RUN);
 
     const char* section = "";
     int seclen = 0;
@@ -158,6 +160,8 @@ int proj_load(project* p, char* msg, int max) {
         if (ini_name_is(section, seclen, "project")) {
             if (ini_name_is(ln.name, ln.namelen, "name")) {
                 fits = copy(p->name, PROJ_NAME_MAX, ln.value, ln.valuelen);
+            } else if (ini_name_is(ln.name, ln.namelen, "run")) {
+                fits = copy(p->run, PROJ_CMD_MAX + 1, ln.value, ln.valuelen);
             } else if (ini_name_is(ln.name, ln.namelen, "files")) {
                 if (!read_files(p, ln.value, ln.valuelen, msg, max)) {
                     return -1;
@@ -228,9 +232,9 @@ static int base_len(const char* file) {
     return (int) (dot - file);
 }
 
-bool proj_job(const project* p, int i, const char* err, char* out, int max) {
-    const char* file = i < p->nfiles ? p->files[i] : "";
-    const char* rule = i < p->nfiles ? rule_for(p, file) : p->link;
+// `rule` with its % names put in, for `file` -- "" for the link and the run.
+static bool expand(const project* p, const char* rule, const char* file,
+                   const char* err, char* out, int max) {
     int at = 0;
     bool ok = true;
     for (const char* r = rule; *r != 0 && ok; r++) {
@@ -267,6 +271,16 @@ bool proj_job(const project* p, int i, const char* err, char* out, int max) {
     out[at < max ? at : max - 1] = 0;
 
     return ok;
+}
+
+bool proj_job(const project* p, int i, const char* err, char* out, int max) {
+    const char* file = i < p->nfiles ? p->files[i] : "";
+
+    return expand(p, i < p->nfiles ? rule_for(p, file) : p->link, file, err, out, max);
+}
+
+bool proj_run(const project* p, char* out, int max) {
+    return expand(p, p->run, "", "", out, max);
 }
 
 bool proj_obey(const project* p, const char* err, char* msg, int max) {

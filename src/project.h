@@ -29,6 +29,8 @@
  *   [project]
  *   name = hello                   ; the program: hello.bin
  *   files = main.c util.c fast.s   ; each built, in order, then linked
+ *   run = %n -v data.txt           ; how Run runs it: %n, the program, alone
+ *                                  ; unless this says otherwise
  *
  *   [build]                        ; optional -- these are the defaults
  *   c = acc -c %f -o %b.o -errors %e
@@ -65,6 +67,7 @@ typedef struct {
     char s[PROJ_CMD_MAX + 1];
     char asm_[PROJ_CMD_MAX + 1];
     char link[PROJ_CMD_MAX + 1];
+    char run[PROJ_CMD_MAX + 1];
     unsigned long sum;                  // of project.ini and the defaults
 } project;
 
@@ -78,6 +81,10 @@ int proj_jobs(const project* p);
 // Command `i` of proj_jobs, with its error going to `err`. False when it is
 // longer than `max` allows.
 bool proj_job(const project* p, int i, const char* err, char* out, int max);
+
+// How Run runs the program: `run` with its % names put in. False when it is
+// longer than `max` allows.
+bool proj_run(const project* p, char* out, int max);
 
 // Makes sure PROJ_OBEY holds the project's commands, writing it when it was
 // made from another project.ini or not at all. False with what went wrong in

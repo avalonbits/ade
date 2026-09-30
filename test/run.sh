@@ -460,6 +460,16 @@ window 2 closed
 window 3 closed"
 check "  and the program was not run" "$([ -e "$c/ran.txt" ] && echo ran || echo no)" no
 
+# A project's run line: how Run runs the program, arguments and all.
+c=$(card "$proj/bin/ade.bin")
+printf '[project]\r\nname = runargs\r\nfiles = runargs.c\r\nrun = %%n alpha beta\r\n' > "$c/project.ini"
+printf '#include <stdio.h>\r\nint main(int argc, char** argv)\r\n{\r\n    FILE* f = fopen("/ran.txt", "w");\r\n' > "$c/runargs.c"
+printf '    fprintf(f, "%%d %%s\\n", argc, argc > 2 ? argv[2] : "-");\r\n    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$c/runargs.c"
+under_hub "$c" 120 'Set Hub$NoPause 1
+ade runargs.c'
+check "CTRL+F9 in a project: run with the arguments project.ini gives" \
+      "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" "3 beta"
+
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.
 # The scripted ade times itself, in hundredths, from main to its first key:
