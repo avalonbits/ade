@@ -18,11 +18,13 @@
 
 #include "menu.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "build.h"
-#include "options.h"
 #include "cmd_ops.h"
+#include "options.h"
+#include "project.h"
 #include "user_input.h"
 #include "windows.h"
 
@@ -109,13 +111,10 @@ static int menu_col(int m) {
     return col;
 }
 
-// The header: the menus' names, the open one in brackets.
-static void draw_bar(screen* scr, void* ctx) {
-    (void) ctx;
-    static char bar[128];
+int menu_bar_text(screen* scr, char* bar, int max) {
     int n = 0;
     bar[n++] = ' ';
-    for (int m = 0; m < NMENUS && n < (int) sizeof(bar) - 12; m++) {
+    for (int m = 0; m < NMENUS && n < max - 12; m++) {
         const int len = (int) strlen(MENUS[m].name);
         bar[n - 1] = m == open_menu ? '[' : ' ';
         memcpy(bar + n, MENUS[m].name, (size_t) len);
@@ -123,7 +122,36 @@ static void draw_bar(screen* scr, void* ctx) {
         bar[n++] = m == open_menu ? ']' : ' ';
         bar[n++] = ' ';
     }
-    scr_bar_line(scr, 0, bar, n);
+
+    // On the right, what is being worked on: the project's program, if there
+    // is a project.ini, and the open windows, the one on screen in brackets.
+    static char right[PROJ_NAME_MAX + 16];
+    int r = 0;
+    const char* name = build_project();
+    if (name != NULL) {
+        r = snprintf(right, sizeof(right), "%s  ", name);
+        if (r >= (int) sizeof(right)) {
+            r = (int) sizeof(right) - 1;
+        }
+    }
+    r += win_strip(right + r, (int) sizeof(right) - r);
+    const int width = scr->barW_ < max ? scr->barW_ : max;
+    const int at = width - r - 1;
+    if (at > n) {
+        memset(bar + n, ' ', (size_t) (at - n));
+        memcpy(bar + at, right, (size_t) r);
+        n = at + r;
+    }
+
+    return n;
+}
+
+// The header: the menus' names, the open one in brackets, and on the right
+// the project and the windows.
+static void draw_bar(screen* scr, void* ctx) {
+    (void) ctx;
+    static char bar[128];
+    scr_bar_line(scr, 0, bar, menu_bar_text(scr, bar, (int) sizeof(bar)));
 }
 
 void menu_start(editor* ed) {

@@ -478,6 +478,24 @@ against a package made locally with aed's `mklibs.sh`.
   run writes. Options -> Settings and CTRL+E change them. ade's part is its
   schema, a render naming ade, and one-line wrappers. Linking the settings
   screen and its pickers took ade from 104,581 to 113,154 bytes.
+- **B8, as far as it can go now.** The header row's right-hand end shows the
+  project's program, from `project.ini`, and the open windows with the one
+  on screen in brackets (`prog  1 [2] 3`). The footer already has the file,
+  its changed mark and the position.
+  - Alt-F5 (the user screen) waits on hub's phase 7, which is designed but
+    not started. The hub session proposes that hub capture the screen into
+    a VDP buffer when a `HUB_USER_PROGRAM` job ends, with
+    `hub_user_screen()` returning the mode it was taken in. ade would then
+    show it and repaint. ade uses no VDP buffers meanwhile.
+  - Breakpoints wait on dig, which is a briefing only, with editor
+    integration down as "Later"; C source lines also need acc line tables.
+  - A link line longer than 250 characters, the Obey limit, has no way
+    round it inside ade. acc reads each archive once, in order, so splitting
+    the objects over archives breaks back-references. The fix is acc taking
+    its inputs from a file (`acc @list`), which is acc's to do.
+- **Memory is measured**: with three windows open, each paging a file too
+  big for it, 34 KB is left for the heap and stack, which share one region.
+  `test/run.sh` fails below 16 KB, and a 24 KB leak takes it to 10.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

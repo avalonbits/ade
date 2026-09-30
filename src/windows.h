@@ -67,4 +67,8 @@ document* win_doc(editor* ed, int i);
 void win_place(editor* ed, int i, int line, int x);
 int win_current(void);
 
+// The open windows' numbers, the one on screen in brackets -- "1 [2] 3" --
+// into out; returns its length.
+int win_strip(char* out, int max);
+
 #endif  // _WINDOWS_H_

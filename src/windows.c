@@ -51,6 +51,28 @@ static view* win_view(editor* ed, int i) {
     return i == 0 ? &ed->scr_.whole_ : &views[i];
 }
 
+int win_strip(char* out, int max) {
+    int n = 0;
+    for (int i = 0; i < ADE_WINDOWS && n + 5 < max; i++) {
+        if (!open_[i]) {
+            continue;
+        }
+        if (n > 0) {
+            out[n++] = ' ';
+        }
+        if (i == current) {
+            out[n++] = '[';
+        }
+        out[n++] = (char) ('1' + i);
+        if (i == current) {
+            out[n++] = ']';
+        }
+    }
+    out[n] = 0;
+
+    return n;
+}
+
 int win_current(void) {
     return current;
 }

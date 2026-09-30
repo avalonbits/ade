@@ -203,6 +203,12 @@ MK
 (cd "$proj" && make >/dev/null 2>&1)
 check "the scripted ade builds" "$([ -f "$proj/bin/ade.bin" ] && echo built)" built
 
+# header <card>: the right-hand end of the header row as ade finished -- the
+# project's program and the open windows -- past the menus' names.
+header() {
+    tr -d '\r' < "$1/ade.head" 2>/dev/null | awk -F'   +' '{print $NF}'
+}
+
 # played <card> <what> <want>: /ade.out, written as ade finished, against <want>.
 played() {
     local got
@@ -230,6 +236,7 @@ screen 1:4
 window 1 a.txt 1:1 alpha
 window 2 b.txt 1:4 y2#bravo
 window 3 closed"
+check "  and the header shows the open windows, 2 on screen" "$(header "$c")" "1 [2]"
 check "  and the first run wrote ade's settings file" \
       "$(head -1 "$c/config/ade.ini" 2>/dev/null | tr -d '\r')" "# ade settings."
 check "  and nothing was saved, as answered" \
@@ -266,6 +273,27 @@ window 2 closed
 window 3 closed"
 check "  and written to ade.ini" \
       "$(grep '^tab = ' "$c/config/ade.ini" 2>/dev/null | tr -d '\r')" "tab = 6"
+
+# --- memory ---
+# ade at its fullest -- three windows, each on a file too big for its memory,
+# so each pages from the card -- and what is left for the heap and the stack,
+# which grow toward each other out of one region with no guard between. The
+# scripted ade counts it in KB. Measured at 35 with aed 1.3.7 and settings
+# (ade 113 KB); the floor is there to say when that is being eaten.
+MEMORY_FLOOR_KB=16
+c=$(card "$proj/bin/ade.bin")
+for f in memory m2 m3; do
+    i=0
+    while [ $i -lt 2500 ]; do
+        printf 'line %05d of a file too big for one window\r\n' $i
+        i=$((i + 1))
+    done > "$c/$f.txt"
+done
+under_hub "$c" 60 "ade memory.txt"
+free_kb=$(tr -d '\r\n' < "$c/ade.mem" 2>/dev/null)
+echo "MEM   three paged windows open, ${free_kb:-?} KB left"
+check "three paged windows open, $MEMORY_FLOOR_KB KB or more left" \
+      "$([ "${free_kb:-0}" -ge "$MEMORY_FLOOR_KB" ] && echo yes)" yes
 
 # --- under hub: building ---
 # F9 on a broken file: hub runs the tool, which fails; ade comes back on the
@@ -340,6 +368,7 @@ screen 1:1
 window 1 main.c 1:1 #include <stdio.h>
 window 2 closed
 window 3 closed"
+check "  and the header names the project's program" "$(header "$c")" "prog  [1]"
 check "  one object per file" \
       "$(for o in main.o add.o seven.o; do [ -s "$c/$o" ] && printf '%s ' $o; done)" \
       "main.o add.o seven.o "
@@ -454,6 +483,7 @@ screen 4:1
 window 1 main.c 4:1 int add(int a, int b);
 window 2 add.c 1:3 int add(int a, int b)
 window 3 closed"
+    check "  and the header shows add.c's window beside it" "$(header "$c")" "prog  [1] 2"
 else
     echo "SKIP  more than one error: no host acc at $ACC_DIR/bin/acc to build test/tools/fail.c"
 fi

@@ -33,6 +33,11 @@
 // Takes over the header row of the editor's screen.
 void menu_start(editor* ed);
 
+// The header row's text into bar, at most max: the menus' names, the open
+// one in brackets, and at the right the project's program and the open
+// windows, the one on screen in brackets. Returns its length.
+int menu_bar_text(screen* scr, char* bar, int max);
+
 // The command F10 is bound to.
 void menu_open(editor* ed);
 

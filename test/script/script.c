@@ -21,9 +21,11 @@
 
 #include <agon/mos.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
+#include "menu.h"
 #include "windows.h"
 
 #define K(ch, vk)       { ch, vk, 0 }
@@ -123,6 +125,19 @@ static const key_press SETTINGS[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// Started on memory.txt: m2.txt and m3.txt in the other two windows, all
+// three too big for a window's memory, so each pages from the card -- ade at
+// its fullest -- and leave. The report then says how much memory is left.
+static const key_press MEMORY[] = {
+    K(0, VK_F3),
+    K('m', VK_m), K('2', VK_2), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    K(0, VK_F3),
+    K('m', VK_m), K('3', VK_3), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(17, VK_q, MOD_CTRL),
+};
+
 // Started on a file whose name has "run" in it: build and run it, CTRL+F9.
 static const key_press RUN[] = {
     M(0, VK_F9, MOD_CTRL),
@@ -191,6 +206,9 @@ const key_source* script_keys(const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "memory") != NULL) {
+        KEYS = MEMORY;
+        NKEYS = COUNT(MEMORY);
     } else if (arg != NULL && strstr(arg, "tabs") != NULL) {
         KEYS = TABS;
         NKEYS = COUNT(TABS);
@@ -230,6 +248,22 @@ static int line1(document* d, char* out, int max) {
     return n;
 }
 
+// How much memory is left, in KB: 1 KB blocks taken until there are no more,
+// then given back. The heap and the stack grow toward each other out of one
+// region, so this is what both have left between them.
+static int free_kb(void) {
+    static void* blocks[512];
+    int n = 0;
+    while (n < 512 && (blocks[n] = malloc(1024)) != NULL) {
+        n++;
+    }
+    for (int i = 0; i < n; i++) {
+        free(blocks[i]);
+    }
+
+    return n;
+}
+
 void script_report(editor* ed) {
     static char out[512];
     static char text[64];
@@ -257,6 +291,28 @@ void script_report(editor* ed) {
     if (fh != 0) {
         mos_fwrite(fh, out, (unsigned) n);
         mos_fclose(fh);
+    }
+
+    // The header row as it reads now, to its last character.
+    static char head[128];
+    int hn = menu_bar_text(&ed->scr_, head, (int) sizeof(head) - 1);
+    while (hn > 0 && head[hn - 1] == ' ') {
+        hn--;
+    }
+    head[hn++] = '\n';
+    const char hh = mos_fopen("/ade.head", FA_WRITE | FA_CREATE_ALWAYS);
+    if (hh != 0) {
+        mos_fwrite(hh, head, (unsigned) hn);
+        mos_fclose(hh);
+    }
+
+    if (KEYS == MEMORY) {
+        n = sprintf(out, "%d\n", free_kb());
+        const char mh = mos_fopen("/ade.mem", FA_WRITE | FA_CREATE_ALWAYS);
+        if (mh != 0) {
+            mos_fwrite(mh, out, (unsigned) n);
+            mos_fclose(mh);
+        }
     }
 
     // The start-up, in hundredths of a second: a start and a resume each

@@ -62,6 +62,10 @@ void build_errors(editor* ed);
 // first file to open is `first_file` -- see build_first_file.
 void build_resume(editor* ed);
 
+// The name project.ini gives the program, or NULL without a project: read
+// the first time it is asked for, and again at each build.
+const char* build_project(void);
+
 // The file window 1 held when the build began, for ed_init_for to open on
 // resume; NULL when there is no session to go back to.
 const char* build_first_file(void);

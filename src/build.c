@@ -137,16 +137,31 @@ static bool project_command(editor* ed, const project* p, char* cmd) {
     return true;
 }
 
+// The project in the current directory, as last read: at F9, or for the
+// header the first time it asks. `loaded` is proj_load's answer, and 2 for
+// not read yet.
+static project proj;
+static int loaded = 2;
+
+const char* build_project(void) {
+    if (loaded == 2) {
+        static char msg[80];
+        loaded = proj_load(&proj, msg, (int) sizeof(msg));
+    }
+
+    return loaded > 0 ? proj.name : NULL;
+}
+
 // Builds, then with `run` runs what was built, and comes back.
 static void start(editor* ed, bool run) {
     user_input* ui = &ed->ui_;
     screen* scr = &ed->scr_;
 
     // With a project, the project; without one, the file on screen.
-    static project proj;
     static char msg[80];
     static char cmd[HUB_CMD_MAX + 1];
     const int has = proj_load(&proj, msg, (int) sizeof(msg));
+    loaded = has;
     if (has < 0) {
         ui_message(ui, scr, msg);
         return;
