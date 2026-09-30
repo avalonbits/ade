@@ -43,12 +43,13 @@
  * error to, and %% a percent sign. An empty link runs no link: a program
  * assembled in one piece, `s = zap %f %n.bin -c -e %e`, needs none.
  *
- * Each command is one of hub's jobs, and hub holds eight, so a project has at
- * most PROJ_FILES files.
+ * Each command is one of hub's jobs, and hub holds HUB_MAX_JOBS, counting the
+ * continuation that brings ade back. Run adds the program: five files, the
+ * link, the program and ade make eight.
  */
 
 #define PROJ_FILE       "project.ini"
-#define PROJ_FILES      6
+#define PROJ_FILES      5
 #define PROJ_NAME_MAX   64
 
 typedef struct {

@@ -99,6 +99,11 @@ static const key_press WRONG[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// Started on a file whose name has "run" in it: build and run it, CTRL+F9.
+static const key_press RUN[] = {
+    M(0, VK_F9, MOD_CTRL),
+};
+
 // Started by hub after the build: what it says -- the error, or that it was
 // built -- waits for a key; then, every window having been saved before the
 // build, leaving asks nothing.
@@ -162,6 +167,9 @@ const key_source* script_keys(const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "run") != NULL) {
+        KEYS = RUN;
+        NKEYS = COUNT(RUN);
     } else if (arg != NULL && strstr(arg, "wrong") != NULL) {
         KEYS = WRONG;
         NKEYS = COUNT(WRONG);

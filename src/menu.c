@@ -74,7 +74,7 @@ static const menu_item BUILD_ITEMS[] = {
     { "Errors",             "ALT+F9",     build_errors, 0, NULL },
 };
 static const menu_item RUN_ITEMS[] = {
-    { "Run",                "CTRL+F9",    NULL, 0, "Running arrives with hub" },
+    { "Run",                "CTRL+F9",    build_run, 0, NULL },
 };
 static const menu_item OPTIONS_ITEMS[] = {
     { "Settings",           "",           NULL, 0,

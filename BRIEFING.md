@@ -398,15 +398,17 @@ against a package made locally with aed's `mklibs.sh`.
   private today): a resume would then be about 0.8 s.
 - **B7 is written** (`src/project.c`): a `project.ini` in the current
   directory makes F9 build the project, whatever is on screen. `[project]`
-  has `name` (the program, `name.bin`) and `files` (up to six, built in
+  has `name` (the program, `name.bin`) and `files` (up to five, built in
   order, then linked). `[build]` may replace the rules for `c`, `s`, `asm`
   and `link`; the defaults are `acc -c %f -o %b.o -errors %e`,
   `zap %f %b.o -f acc -c -e %e` and `acc %o -o %n.bin -errors %e` (acc on
   the Agon links `/lib/acc/libc.a` by itself). `%f` is the file, `%b` the
   file without its extension, `%o` every object, `%n` the name, `%e` the
   error file. An empty `link` runs none. Each command is one hub job with
-  `HUB_STOP_ON_ERROR`; hub holds eight jobs, so six files plus a link fit
-  whether or not the continuation takes a slot. A project that can't be
+  `HUB_STOP_ON_ERROR`. hub holds `HUB_MAX_JOBS` (8) jobs, counting the
+  continuation. Run adds the program, so five files, the link, the program
+  and ade fill it exactly. The limit was six until hub said the continuation
+  counts. A project that can't be
   built (no name, no files, a file nothing builds, a command too long for
   `HUB_CMD_MAX`) says why before anything is saved. The checks:
   - C plus assembly, built with the defaults and then run by hub;
@@ -423,6 +425,30 @@ against a package made locally with aed's `mklibs.sh`.
   error chosen. acc and zap still stop at one error, so the check uses
   `test/tools/fail.c`, built with host acc: it writes three errors and fails
   with 100, as a project's `c` rule.
+- **hub 0.3** (`798267e` in `~/code/devel`, done by the hub session at ade's
+  request) acts on `HUB_USER_PROGRAM`: before the job it resets the cursor
+  settings, the system font and the mode noted at its prompt. It also acts on
+  `HUB_PAUSE_AFTER`: after the job it prints "Press a key to return" and
+  waits. A script sets `Hub$NoPause 1` to go on without waiting. The same
+  commit frees the running job's slot. Before it, ade started by hub could
+  queue only 7, so a six-file F9 after the first build was `HUB_ERR_FULL`.
+  The header is now `<hub/hub.h>`, and the library
+  `build/lib/agondev/libhub.a`.
+- **B6 is written** (`build_run` in `src/build.c`). CTRL+F9, also Run on the
+  menu, queues the build, then the program with `HUB_USER_PROGRAM |
+  HUB_PAUSE_AFTER` and without `HUB_STOP_ON_ERROR`, then `ade -resume`. The
+  program is the project's `name`, or the file's name without its extension,
+  run from the current directory. hub skips it when a build step fails, and
+  ade comes back on the error. Otherwise ade says "<program> returned N". The
+  session remembers whether it ran (magic `ADE2`). The checks cover:
+  - Run with `Hub$NoPause`: the program runs and ade comes back;
+  - Run without `Hub$NoPause`: the program runs and ade does not come back,
+    which is how the test sees that ade asks for the pause;
+  - Run on a broken file: ade comes back on the error, and a stale program
+    that would leave a mark is not run.
+
+  No check sees `HUB_USER_PROGRAM` itself. The test can't read the VDP's
+  state, and hub's own tests cover the reset.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

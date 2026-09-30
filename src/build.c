@@ -34,13 +34,18 @@
 // What survives the build, in hub's block "ADE ": which files were open, in
 // which windows, where each cursor was, and which window was on screen.
 typedef struct {
-    char magic[4];                      // "ADE1" once written
+    char magic[4];                      // MAGIC once written
+    bool ran;                           // the program was queued after the build
+    char program[PROJ_NAME_MAX];        // ...and what it is called
     unsigned char open[ADE_WINDOWS];
     unsigned char current;
     int line[ADE_WINDOWS];
     int x[ADE_WINDOWS];
     char name[ADE_WINDOWS][TB_FNAME_MAX];
 } session;
+
+// Changed whenever the session does, so an older ade's is not misread.
+#define MAGIC "ADE2"
 
 static session* block(void) {
     return (session*) hub_block("ADE ", sizeof(session));
@@ -76,6 +81,10 @@ static char tool_for(const char* name, char* base, int max) {
     return 0;
 }
 
+// What the build makes, as hub runs it: the file's name or the project's,
+// without .bin.
+static char program[PROJ_NAME_MAX];
+
 // The commands for the file on screen, into cmds; how many, or 0 with a
 // message shown.
 static int file_commands(editor* ed, char cmds[][HUB_CMD_MAX + 1]) {
@@ -97,6 +106,10 @@ static int file_commands(editor* ed, char cmds[][HUB_CMD_MAX + 1]) {
         ui_message(ui, scr, "The file's name is too long for hub to run the build");
         return 0;
     }
+    if (snprintf(program, sizeof(program), "%s", base) >= (int) sizeof(program)) {
+        ui_message(ui, scr, "The file's name is too long for hub to run the program");
+        return 0;
+    }
 
     return 1;
 }
@@ -105,6 +118,7 @@ static int file_commands(editor* ed, char cmds[][HUB_CMD_MAX + 1]) {
 // shown.
 static int project_commands(editor* ed, const project* p,
                             char cmds[][HUB_CMD_MAX + 1]) {
+    snprintf(program, sizeof(program), "%s", p->name);
     const int n = proj_jobs(p);
     for (int i = 0; i < n; i++) {
         if (!proj_job(p, i, ERR_FILE, cmds[i], HUB_CMD_MAX + 1)) {
@@ -119,7 +133,8 @@ static int project_commands(editor* ed, const project* p,
     return n;
 }
 
-void build(editor* ed) {
+// Builds, then with `run` runs what was built, and comes back.
+static void start(editor* ed, bool run) {
     user_input* ui = &ed->ui_;
     screen* scr = &ed->scr_;
 
@@ -165,7 +180,9 @@ void build(editor* ed) {
         ui_message(ui, scr, "hub has no room to keep ade's windows");
         return;
     }
-    memcpy(s->magic, "ADE1", 4);
+    memcpy(s->magic, MAGIC, 4);
+    s->ran = run;
+    memcpy(s->program, program, sizeof(program));
     s->current = (unsigned char) win_current();
     for (int i = 0; i < ADE_WINDOWS; i++) {
         document* d = win_doc(ed, i);
@@ -184,6 +201,13 @@ void build(editor* ed) {
     for (int i = 0; i < ncmds && queued; i++) {
         queued = hub_push(cmds[i], HUB_STOP_ON_ERROR) == HUB_OK;
     }
+    // The program after the build -- skipped by hub if a step failed -- on a
+    // screen as hub's prompt leaves it, and held for a key after, so what it
+    // printed can be read before ade paints over it. Whatever it returns,
+    // ade comes back.
+    if (queued && run) {
+        queued = hub_push(program, HUB_USER_PROGRAM | HUB_PAUSE_AFTER) == HUB_OK;
+    }
     if (!queued || hub_return_to("ade -resume") != HUB_OK) {
         memset(s->magic, 0, 4);
         ui_message(ui, scr, "hub would not take the build");
@@ -192,9 +216,17 @@ void build(editor* ed) {
     ed->leaving_ = true;
 }
 
+void build(editor* ed) {
+    start(ed, false);
+}
+
+void build_run(editor* ed) {
+    start(ed, true);
+}
+
 const char* build_first_file(void) {
     session* s = block();
-    if (s == NULL || memcmp(s->magic, "ADE1", 4) != 0 || !s->open[0]) {
+    if (s == NULL || memcmp(s->magic, MAGIC, 4) != 0 || !s->open[0]) {
         return NULL;
     }
 
@@ -350,7 +382,7 @@ void build_errors(editor* ed) {
 
 void build_resume(editor* ed) {
     session* s = block();
-    if (s == NULL || memcmp(s->magic, "ADE1", 4) != 0) {
+    if (s == NULL || memcmp(s->magic, MAGIC, 4) != 0) {
         return;
     }
     memset(s->magic, 0, 4);             // used: a later start is not a resume
@@ -401,7 +433,11 @@ void build_resume(editor* ed) {
 
     // A message is on the footer, which the loop repaints after it; with more
     // than one error, the list, from which each can be gone to.
-    if (!failed) {
+    if (!failed && s->ran) {
+        static char msg[PROJ_NAME_MAX + 20];
+        snprintf(msg, sizeof(msg), "%s returned %d", s->program, hub_last_result());
+        ui_message(&ed->ui_, &ed->scr_, msg);
+    } else if (!failed) {
         ui_message(&ed->ui_, &ed->scr_, "Built");
     } else if (nerrs == 0) {
         static char msg[40];

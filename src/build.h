@@ -38,6 +38,9 @@
  *
  * Both write an error as `file:line:column: error: text` and fail with 100.
  *
+ * Run queues the program after the build, on hub's own screen and with a key
+ * to press when it ends; ade comes back saying what it returned.
+ *
  * With a project.ini in the current directory, F9 builds the project instead:
  * a job per file and the link, stopping at the first that fails -- see
  * project.h.
@@ -45,6 +48,10 @@
 
 // The command F9 is bound to, and Build on the menu.
 void build(editor* ed);
+
+// Builds, then runs what was built -- the project's program, or the file's
+// .bin -- and comes back. CTRL+F9, and Run on the menu.
+void build_run(editor* ed);
 
 // The errors the last build left, as a list to go to one from; shown on
 // coming back from a build that left more than one. ALT+F9, and on the menu.

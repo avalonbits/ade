@@ -379,6 +379,50 @@ else
     echo "SKIP  more than one error: no host acc at $ACC_DIR/bin/acc to build test/tools/fail.c"
 fi
 
+# --- under hub: running ---
+# CTRL+F9 builds, then hub runs the program -- on its own screen, and held for
+# a key after -- then ade. Hub$NoPause lets a script go on past that key.
+RUNME='#include <stdio.h>\r\nint main(void)\r\n{\r\n    FILE* f = fopen("/ran.txt", "w");\r\n    fputs("ran\\n", f);\r\n    fclose(f);\r\n    return 3;\r\n}\r\n'
+c=$(card "$proj/bin/ade.bin")
+printf "$RUNME" > "$c/runme.c"
+under_hub "$c" 120 'Set Hub$NoPause 1
+ade runme.c'
+played "$c" "CTRL+F9: built, run, and back" "keys 2 of 2
+current 1
+at 1:1
+window 1 runme.c 1:1 #include <stdio.h>
+window 2 closed
+window 3 closed"
+check "  the program ran" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" ran
+
+# Without Hub$NoPause hub waits for a key once the program ends, so the
+# program has run and ade is not back: what ade last wrote is from before.
+c=$(card "$proj/bin/ade.bin")
+printf "$RUNME" > "$c/runme.c"
+under_hub "$c" 60 "ade runme.c"
+check "CTRL+F9, pausing: the program ran" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" ran
+check "  and hub waits for a key before ade" \
+      "$(tr -d '\r' < "$c/ade.out" 2>/dev/null | head -1)" "keys 1 of 1"
+
+# A build that fails runs nothing: ade is back on the error, and a program
+# left by an earlier build -- one that would say it ran -- stays unrun.
+c=$(card "$proj/bin/ade.bin")
+printf 'int main(void)\r\n{\r\n    return x;\r\n}\r\n' > "$c/runbad.c"
+printf "$RUNME" > "$c/runme.c"
+under_hub "$c" 120 'Set Hub$NoPause 1
+ade runme.c'
+cp "$c/runme.bin" "$c/runbad.bin" 2>/dev/null
+rm -f "$c/ran.txt" "$c/ade.out"
+under_hub "$c" 120 'Set Hub$NoPause 1
+ade runbad.c'
+played "$c" "CTRL+F9 on a broken file: back on the error" "keys 2 of 2
+current 1
+at 3:12
+window 1 runbad.c 3:12 int main(void)
+window 2 closed
+window 3 closed"
+check "  and the program was not run" "$([ -e "$c/ran.txt" ] && echo ran || echo no)" no
+
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.
 # The scripted ade times itself, in hundredths, from main to its first key:
