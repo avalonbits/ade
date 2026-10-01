@@ -258,6 +258,13 @@ screen 1:4
 window 1 tabs.txt 1:3 	x
 window 2 closed
 window 3 closed"
+# The menu bar in the footer's colours, to its last column: the scripted ade
+# reads that cell's pixel back from the VDP as it finishes, with the footer's
+# last and the text area's under the bar. Here, since this run leaves
+# without a question on the footer's row.
+bar=$(tr -d '\r\n' < "$c/ade.bar" 2>/dev/null)
+check "the menu bar is in the footer's colours, not the text's" \
+      "$(set -- $bar; [ -n "$2" ] && [ "$2" = "$6" ] && [ "$2" != "$4" ] && echo same)" same
 
 # ...and changed with CTRL+E and from the Options menu, applied at once and
 # written to the file.
@@ -339,13 +346,13 @@ c=$(card "$proj/bin/ade.bin")
 printf '#include <stdio.h>\r\n\r\nint main(void) {\r\n    printf("Hello, world!");\r\n\r\n    return ;\r\n}\r\n' \
     > "$c/bad.c"
 under_hub "$c" 120 "ade bad.c"
+# The title keeps the top row and the menu bar the one under it, so the
+# document's first line is on row 2. The title is drawn centred in a rule, and
+# the rule's dashes are what reads back; the bars' own text, in their swapped
+# colours, does not.
 check "a long error, shown: the screen stays where it is" \
-      "$(sed -n '2s/^ \(File  Edit\).*/\1/p; 3s/ *$//p' "$c/ade.scr" 2>/dev/null | tr '\n' '|')" \
-      "File  Edit| #include <stdio.h>|"
-# The title keeps the top row, the menu bar under it: the title is drawn
-# centred in a rule, and the rule's dashes are what reads back.
-check "  the title's rule on the top row, the menus under it" \
-      "$(sed -n '1s/^\(----\).*/\1/p' "$c/ade.scr" 2>/dev/null)" "----"
+      "$(sed -n '1s/^\(----\).*/\1/p; 3s/ *$//p' "$c/ade.scr" 2>/dev/null | tr '\n' '|')" \
+      "----| #include <stdio.h>|"
 
 c=$(card "$proj/bin/ade.bin")
 printf '  nop\r\n  frob a\r\n' > "$c/bad.s"

@@ -18,6 +18,7 @@
 
 #include "menu.h"
 
+#include <agon/mos.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -149,9 +150,20 @@ int menu_bar_text(screen* scr, char* bar, int max) {
 
 // The row under the title: the menus' names, the open one in brackets, and
 // on the right the project and the windows.
+//
+// In the footer's colours -- the document's, the other way round -- across
+// the whole row, as the footer does it: a viewport over the row cleared in
+// them colours every column, the last included, which nothing may be printed
+// in. The library puts the document's colours back after.
 static void draw_bar(screen* scr, void* ctx) {
     (void) ctx;
     static char bar[128];
+    const char paint[] = {
+        17, scr->bg_, 17, (char) (scr->fg_ + 128),  // ink and paper swapped
+        28, 0, 1, (char) scr->barW_, 1,             // a viewport over row 1
+        12, 26,                                     // cleared, and put back
+    };
+    mos_puts((char*) paint, sizeof(paint), 0);
     scr_bar_line(scr, 1, bar, menu_bar_text(scr, bar, (int) sizeof(bar)));
 }
 

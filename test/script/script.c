@@ -191,9 +191,10 @@ static int at;
 #define PFLAG_POINT 0x04
 #define SCRPIXEL    0x0A
 
-static unsigned long pixel(void) {
+static unsigned long pixel_at(int x, int y) {
     volatile unsigned char* sv = mos_sysvars();
-    static const char ask[] = { 23, 0, (char) 0x84, 44, 1, 44, 1 };
+    const char ask[] = { 23, 0, (char) 0x84, (char) (x & 0xFF), (char) (x >> 8),
+                         (char) (y & 0xFF), (char) (y >> 8) };
     sv[PFLAGS] &= (unsigned char) ~PFLAG_POINT;
     mos_puts((char*) ask, sizeof(ask), 0);
     for (long i = 0; i < 200000 && !(sv[PFLAGS] & PFLAG_POINT); i++) {
@@ -204,6 +205,10 @@ static unsigned long pixel(void) {
 
     return (unsigned long) sv[SCRPIXEL] << 16 | (unsigned long) sv[SCRPIXEL + 2] << 8
            | sv[SCRPIXEL + 1];
+}
+
+static unsigned long pixel(void) {
+    return pixel_at(300, 300);
 }
 
 static unsigned long seen[2];
@@ -405,6 +410,31 @@ void script_report(editor* ed) {
         if (ph != 0) {
             mos_fwrite(ph, out, (unsigned) n);
             mos_fclose(ph);
+        }
+    }
+
+    // The colour of the menu bar's last column, of the text area's under it,
+    // and of the footer's last column -- the screen's own pixels, in pixel
+    // coordinates for the moment, the middle of each cell.
+    {
+        volatile unsigned char* sv = mos_sysvars();
+        const int cols = sv[SCRCOLS];
+        const int rows = sv[SCRROWS];
+        const int cw = cols > 0 ? (sv[0x0F] | sv[0x10] << 8) / cols : 8;
+        const int ch = rows > 0 ? (sv[0x11] | sv[0x12] << 8) / rows : 8;
+        const int x = (cols - 1) * cw + cw / 2;
+        static const char pixels[] = { 23, 0, (char) 0xC0, 0 };
+        static const char logical[] = { 23, 0, (char) 0xC0, 1 };
+        mos_puts((char*) pixels, sizeof(pixels), 0);
+        const unsigned long bar = pixel_at(x, 1 * ch + ch / 2);
+        const unsigned long text = pixel_at(x, 2 * ch + ch / 2);
+        const unsigned long foot = pixel_at(x, (rows - 1) * ch + ch / 2);
+        mos_puts((char*) logical, sizeof(logical), 0);
+        n = sprintf(out, "bar %06lx text %06lx footer %06lx\n", bar, text, foot);
+        const char bh = mos_fopen("/ade.bar", FA_WRITE | FA_CREATE_ALWAYS);
+        if (bh != 0) {
+            mos_fwrite(bh, out, (unsigned) n);
+            mos_fclose(bh);
         }
     }
 
