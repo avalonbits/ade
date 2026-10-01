@@ -274,6 +274,20 @@ window 3 closed"
 check "  and written to ade.ini" \
       "$(grep '^tab = ' "$c/config/ade.ini" 2>/dev/null | tr -d '\r')" "tab = 6"
 
+# ...and a font named in ade.ini is ade's on every start: the first, and
+# each return from a build, after hub has put the prompt's font back. An
+# 8x16 font -- 256 glyphs of 16 rows; blank ones read as well as any -- gives
+# mode 0 30 rows, against the system font's 60. The scripted ade reads the
+# screen back as the resume asks for its first key, a line a row.
+c=$(card "$proj/bin/ade.bin")
+mkdir -p "$c/config/aed"
+head -c 4096 /dev/zero > "$c/config/aed/tall.bin"
+printf '[editor]\r\nfont = /config/aed/tall.bin\r\n' > "$c/config/ade.ini"
+printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/fontok.c"
+under_hub "$c" 120 "ade fontok.c"
+check "settings: the font ade.ini names, again after a build" \
+      "$(wc -l < "$c/ade.scr" 2>/dev/null | tr -d ' ')" 30
+
 # --- memory ---
 # ade at its fullest -- three windows, each on a file too big for its memory,
 # so each pages from the card -- and what is left for the heap and the stack,
