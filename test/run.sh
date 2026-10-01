@@ -534,6 +534,44 @@ window 2 closed
 window 3 closed"
 check "  and the program was not run" "$([ -e "$c/ran.txt" ] && echo ran || echo no)" no
 
+# ALT+F5: what the program left on the screen. hub captured it as the
+# program ended; ade shows it until a key, then itself again. The program
+# clears the screen to red, and the script reads a pixel back from the VDP --
+# the full emulator's, so a real one -- with each screen up. The report ends
+# with the mode as ade's main began and as it finished, and the mode hub
+# captured in.
+#
+# user_screen <card> <what> <mode or empty>: build and run the red program --
+# first switching to <mode>, if given -- then ALT+F5 and back.
+user_screen() {
+    local c=$1 what=$2 mode=$3 px user rest
+    : > "$c/userscreen"
+    printf '#include <stdio.h>\r\nint main(void)\r\n{\r\n' > "$c/runshow.c"
+    [ -n "$mode" ] && printf '    putchar(22);\r\n    putchar(%d);\r\n' "$mode" >> "$c/runshow.c"
+    printf '    putchar(17);\r\n    putchar(129);\r\n    putchar(12);\r\n    return 0;\r\n}\r\n' \
+        >> "$c/runshow.c"
+    under_hub "$c" 150 'Set Hub$NoPause 1
+ade runshow.c'
+    px=$(tr -d '\r\n' < "$c/ade.px" 2>/dev/null)
+    echo "PIX   $px"
+    user=${px#user }
+    user=${user%% *}
+    rest=${px#* ade }
+    check "$what" \
+          "$(case "$user" in ??0000) [ "$user" != 000000 ] && echo red ;; *) echo "$user" ;; esac)" red
+    check "  and then ade's own again" "$([ -n "$px" ] && [ "${rest%% *}" != "$user" ] && echo back)" back
+}
+
+user_screen "$(card "$proj/bin/ade.bin")" "ALT+F5: the program's screen, red, as it left it" ""
+
+# A program that changes the mode: ade comes back from it in its own mode,
+# mode 0, and ALT+F5 shows the capture in the program's, mode 3, then
+# returns to ade's.
+c=$(card "$proj/bin/ade.bin")
+user_screen "$c" "ALT+F5 after a program in mode 3: its screen, red" 3
+check "  hub captured it in mode 3, and ade ends in its own, mode 0" \
+      "$(tr -d '\r\n' < "$c/ade.px" 2>/dev/null | sed 's/.* mode [0-9]* //')" "0 captured 3"
+
 # A project's run line: how Run runs the program, arguments and all.
 c=$(card "$proj/bin/ade.bin")
 printf '[project]\r\nname = runargs\r\nfiles = runargs.c\r\nrun = %%n alpha beta\r\n' > "$c/project.ini"

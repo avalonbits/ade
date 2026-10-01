@@ -66,6 +66,14 @@ void build_resume(editor* ed);
 // the first time it is asked for, and again at each build.
 const char* build_project(void);
 
+// The user screen, ALT+F5: what the last program Run ran left on the screen,
+// as hub captured it, until a key is pressed; then ade again.
+void build_user_screen(editor* ed);
+
+// Back to the screen mode ade left in, before the editor starts on resume: a
+// program run in between may have changed it, and hub does not put it back.
+void build_resume_screen(void);
+
 // The file window 1 held when the build began, for ed_init_for to open on
 // resume; NULL when there is no session to go back to.
 const char* build_first_file(void);

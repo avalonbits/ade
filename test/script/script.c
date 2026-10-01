@@ -25,6 +25,8 @@
 #include <string.h>
 #include <time.h>
 
+#include <hub/hub.h>
+
 #include "menu.h"
 #include "windows.h"
 
@@ -164,6 +166,17 @@ static const key_press ERRLIST[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// Resumed after Run, when /userscreen is on the card: past what the program
+// returned, then ALT+F5 -- the program's screen -- and a key back to ade.
+// A pixel is read off the screen as each of the last two keys is asked for:
+// with the program's screen up, and with ade's back.
+static const key_press USERSCREEN[] = {
+    K('k', VK_k),                                   // "... returned 0"
+    M(0, VK_F5, MOD_ALT),                           // the program's screen...
+    K('k', VK_k),                                   // ...and back
+    M(17, VK_q, MOD_CTRL),
+};
+
 #define COUNT(a) ((int) (sizeof(a) / sizeof(a[0])))
 
 static const key_press* KEYS = WINDOWS;
@@ -171,12 +184,42 @@ static int NKEYS = COUNT(WINDOWS);
 
 static int at;
 
+// The pixel at logical (300, 300) -- R, G, B -- as the VDP reports it, or
+// 0xFFFFFF when it does not answer. Asked with VDU 23,0,&84; the answer lands
+// in MOS's system variables with a flag that says it has.
+#define PFLAGS      0x04
+#define PFLAG_POINT 0x04
+#define SCRPIXEL    0x0A
+
+static unsigned long pixel(void) {
+    volatile unsigned char* sv = mos_sysvars();
+    static const char ask[] = { 23, 0, (char) 0x84, 44, 1, 44, 1 };
+    sv[PFLAGS] &= (unsigned char) ~PFLAG_POINT;
+    mos_puts((char*) ask, sizeof(ask), 0);
+    for (long i = 0; i < 200000 && !(sv[PFLAGS] & PFLAG_POINT); i++) {
+    }
+    if (!(sv[PFLAGS] & PFLAG_POINT)) {
+        return 0xFFFFFFUL;
+    }
+
+    return (unsigned long) sv[SCRPIXEL] << 16 | (unsigned long) sv[SCRPIXEL + 2] << 8
+           | sv[SCRPIXEL + 1];
+}
+
+static unsigned long seen[2];
+
+// The screen mode, from MOS's system variables: as ade started, for the user
+// screen's check that it comes back in it.
+#define SCRMODE 0x27
+static int start_mode;
+
 // When main began, and when ade first asked for a key: ready, its screen
 // drawn -- or, resumed, the build's outcome on it.
 static clock_t began;
 static clock_t ready;
 
 void script_begin(void) {
+    start_mode = mos_sysvars()[SCRMODE];
     began = clock();
 }
 
@@ -188,6 +231,9 @@ static bool poll(void* ctx, key_press* kp) {
     if (at >= NKEYS) {
         return false;           // run out: ade waits, and the test times out
     }
+    if (KEYS == USERSCREEN && (at == 2 || at == 3)) {
+        seen[at - 2] = pixel();
+    }
     *kp = KEYS[at++];
 
     return true;
@@ -198,10 +244,15 @@ static const key_source SCRIPT = { poll, NULL, NULL };
 const key_source* script_keys(const char* arg) {
     if (arg != NULL && strcmp(arg, "-resume") == 0) {
         const char fh = mos_fopen("/errlist", FA_READ);
+        const char uh = fh == 0 ? mos_fopen("/userscreen", FA_READ) : 0;
         if (fh != 0) {
             mos_fclose(fh);
             KEYS = ERRLIST;
             NKEYS = COUNT(ERRLIST);
+        } else if (uh != 0) {
+            mos_fclose(uh);
+            KEYS = USERSCREEN;
+            NKEYS = COUNT(USERSCREEN);
         } else {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
@@ -304,6 +355,16 @@ void script_report(editor* ed) {
     if (hh != 0) {
         mos_fwrite(hh, head, (unsigned) hn);
         mos_fclose(hh);
+    }
+
+    if (KEYS == USERSCREEN) {
+        n = sprintf(out, "user %06lx ade %06lx mode %d %d captured %d\n", seen[0],
+                    seen[1], start_mode, mos_sysvars()[SCRMODE], hub_user_screen());
+        const char ph = mos_fopen("/ade.px", FA_WRITE | FA_CREATE_ALWAYS);
+        if (ph != 0) {
+            mos_fwrite(ph, out, (unsigned) n);
+            mos_fclose(ph);
+        }
     }
 
     if (KEYS == MEMORY) {

@@ -25,6 +25,7 @@
 #include <hub/hub.h>
 
 #include "cmd_ops.h"
+#include "options.h"
 #include "project.h"
 #include "user_input.h"
 #include "windows.h"
@@ -37,6 +38,7 @@ typedef struct {
     char magic[4];                      // MAGIC once written
     bool ran;                           // the program was queued after the build
     char program[PROJ_NAME_MAX];        // ...and what it is called
+    unsigned char mode;                 // the screen mode ade was in
     unsigned char open[ADE_WINDOWS];
     unsigned char current;
     int line[ADE_WINDOWS];
@@ -45,7 +47,14 @@ typedef struct {
 } session;
 
 // Changed whenever the session does, so an older ade's is not misread.
-#define MAGIC "ADE2"
+#define MAGIC "ADE3"
+
+// The screen mode, from MOS's system variables.
+#define SYSVAR_SCRMODE 0x27
+
+static int screen_mode(void) {
+    return ((volatile unsigned char*) mos_sysvars())[SYSVAR_SCRMODE];
+}
 
 static session* block(void) {
     return (session*) hub_block("ADE ", sizeof(session));
@@ -200,6 +209,7 @@ static void start(editor* ed, bool run) {
         return;
     }
     memcpy(s->magic, MAGIC, 4);
+    s->mode = (unsigned char) screen_mode();
     s->ran = run;
     memcpy(s->program, program, sizeof(program));
     s->current = (unsigned char) win_current();
@@ -239,6 +249,50 @@ void build(editor* ed) {
 
 void build_run(editor* ed) {
     start(ed, true);
+}
+
+void build_user_screen(editor* ed) {
+    const int mode = hub_user_screen();
+    if (mode < 0) {
+        ui_message(&ed->ui_, &ed->scr_, "No program has run yet: CTRL+F9 runs one");
+        return;
+    }
+    const int was = screen_mode();
+
+    // In the mode the program left, if that is another; then logical
+    // coordinates from the bottom left, as the capture was taken, and the
+    // buffer hub put it in drawn at 0,0.
+    static char vdu[] = {
+        22, 0,                                      // MODE, when it differs
+        23, 0, (char) 0xC0, 1,                      // logical coordinates
+        29, 0, 0, 0, 0,                             // origin 0,0
+        23, 27, 0x20, HUB_SCREEN_BUFFER & 0xFF, HUB_SCREEN_BUFFER >> 8,
+        23, 27, 3, 0, 0, 0, 0,                      // draw it at 0,0
+    };
+    vdu[1] = (char) mode;
+    const int skip = mode != was ? 0 : 2;
+    mos_puts(vdu + skip, (unsigned) (sizeof(vdu) - skip), 0);
+
+    ks_wait(ed->ui_.keys_);
+
+    // Back to ade's mode, which takes the font and colours with it, so ade's
+    // settings go back on before the screen is painted again.
+    if (mode != was) {
+        const char back[] = { 22, (char) was };
+        mos_puts((char*) back, sizeof(back), 0);
+        ade_settings(ed);
+    }
+    scr_footer_invalidate(&ed->scr_);
+    cmd_restore_after_modal(ed, false);
+}
+
+void build_resume_screen(void) {
+    const session* s = block();
+    if (s == NULL || memcmp(s->magic, MAGIC, 4) != 0 || s->mode == screen_mode()) {
+        return;
+    }
+    const char mode[] = { 22, (char) s->mode };
+    mos_puts((char*) mode, sizeof(mode), 0);
 }
 
 const char* build_first_file(void) {

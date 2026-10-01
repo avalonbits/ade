@@ -78,6 +78,7 @@ static const menu_item BUILD_ITEMS[] = {
 };
 static const menu_item RUN_ITEMS[] = {
     { "Run",                "CTRL+F9",    build_run, 0, NULL },
+    { "User screen",        "ALT+F5",     build_user_screen, 0, NULL },
 };
 static const menu_item OPTIONS_ITEMS[] = {
     { "Settings",           "CTRL+E",     ade_cmd_settings, 0, NULL },

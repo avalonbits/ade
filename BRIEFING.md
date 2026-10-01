@@ -482,11 +482,25 @@ against a package made locally with aed's `mklibs.sh`.
   project's program, from `project.ini`, and the open windows with the one
   on screen in brackets (`prog  1 [2] 3`). The footer already has the file,
   its changed mark and the position.
-  - Alt-F5 (the user screen) waits on hub's phase 7, which is designed but
-    not started. The hub session proposes that hub capture the screen into
-    a VDP buffer when a `HUB_USER_PROGRAM` job ends, with
-    `hub_user_screen()` returning the mode it was taken in. ade would then
-    show it and repaint. ade uses no VDP buffers meanwhile.
+  - **ALT+F5, the user screen** (`build_user_screen`, also Run -> User
+    screen), on hub 0.4's phase 7 (`42df6fb` in `~/code/devel`). hub
+    captures the screen into VDP buffer `HUB_SCREEN_BUFFER` (0x4855; hub
+    reserves 0x4800-0x48FF) as a `HUB_USER_PROGRAM` job ends, and
+    `hub_user_screen()` gives the mode, or -1 with no capture. ade switches
+    to that mode if it differs, draws the buffer at 0,0 in logical
+    coordinates, waits for a key, switches back and reapplies its settings
+    (a mode change drops the font and colours), and repaints. A capture
+    needs Console8 VDP 2.2.0 or later; on an older VDP the buffer is empty.
+    The test runs a program that clears the screen to red and reads a pixel
+    back from the full emulator's VDP with VDU 23,0,&84, while the user
+    screen is up and again after: `aa0000`, then ade's black.
+  - **A program that changed the screen mode left ade in it.** hub resets
+    the mode before a `HUB_USER_PROGRAM` job and leaves it alone after, so
+    a program that switched to mode 3 had ade resume in mode 3. The session
+    now records ade's mode (magic `ADE3`), and `build_resume_screen` puts it
+    back before `ed_init_for` measures the screen. The checks run a program
+    in mode 3 too: ade ends in mode 0, hub captured in 3, and ALT+F5 shows
+    the red in 3 and returns.
   - Breakpoints wait on dig, which is a briefing only, with editor
     integration down as "Later"; C source lines also need acc line tables.
   - A link line longer than 250 characters, the Obey limit, has no way

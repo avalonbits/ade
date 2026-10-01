@@ -68,9 +68,9 @@ static const app_context ADE_APP = {
  * aed's, and its windows and menus, on the keys Turbo Pascal gave them -- F3
  * opens a file in a new window, F6 goes to the next, ALT+F3 closes the one on
  * screen, ALT+F6 lists them, and F10 opens the menus. F9 builds, through hub
- * -- see build.h -- ALT+F9 lists the errors it left, and CTRL+F9 builds and
- * runs. ALT+F3, ALT+F6, ALT+F9 and CTRL+F9 come before F3, F6 and F9, which
- * would match them too.
+ * -- see build.h -- ALT+F9 lists the errors it left, CTRL+F9 builds and
+ * runs, and ALT+F5 shows what the program left on the screen. ALT+F3, ALT+F6,
+ * ALT+F9 and CTRL+F9 come before F3, F6 and F9, which would match them too.
  */
 static const key_binding ADE_BINDINGS[] = {
     LETTER(VK_o, VK_O, C, cmd_open),
@@ -85,6 +85,7 @@ static const key_binding ADE_BINDINGS[] = {
     // The menus own the selection, so one made before opening them is still
     // there for Copy or Cut.
     { VK_F10, 0, KC_OWNS_SEL, menu_open },
+    { VK_F5, A, 0, build_user_screen },
     { VK_F9, A, 0, build_errors },
     { VK_F9, C, 0, build_run },
     { VK_F9, 0, 0, build },
@@ -125,6 +126,9 @@ int main(int argc, char** argv) {
     // `ade -resume` is hub bringing ade back from a build: the session it
     // left says which files to open.
     const bool resuming = argc > 1 && strcmp(argv[1], "-resume") == 0;
+    if (resuming) {
+        build_resume_screen();
+    }
     const char* fname = resuming ? build_first_file()
                                  : (argc > 1 ? argv[1] : NULL);
     if (ed_init_for(&ed, ADE_DOC_KB, fname, &ADE) == NULL) {
