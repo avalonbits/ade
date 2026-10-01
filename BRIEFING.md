@@ -510,6 +510,17 @@ against a package made locally with aed's `mklibs.sh`.
 - **Memory is measured**: with three windows open, each paging a file too
   big for it, 34 KB is left for the heap and stack, which share one region.
   `test/run.sh` fails below 16 KB, and a 24 KB leak takes it to 10.
+- **aed v1.4.1** (tag `6e766cc`, sha256 `c4e338fb...e865`), pinned, carries
+  two library changes from ade's testing on Igor's emulator. aed#212 keeps a
+  message or question to the prompt row: written whole, a long one wrapped
+  off the bottom row and the VDP scrolled the screen up a line. ade already
+  cuts its own messages, and drops an error's position, since the cursor is
+  on it. aed#213 adds `scr_set_subheader`, a row of the program's own under
+  the header, with the text from row 2. ade's title now keeps the top row,
+  with the menu bar under it, attached from ade's `ed_program.settings` hook
+  so the editor's first paint is already laid out that way. Attaching it
+  after `ed_init_for` cost a second full paint: start-up went from 0.46 s to
+  0.64 s, which the timing check caught.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

@@ -101,8 +101,16 @@ static const keymap ADE_KEYS = {
 };
 
 // The editor's settings, in ade's own file -- see options.h. No banner yet.
+// What ade sets up as the screen comes into being, before the first paint:
+// the menu bar's row under the title, then the settings.
+static const char* ade_screen(editor* ed) {
+    menu_attach(ed);
+
+    return ade_settings(ed);
+}
+
 static const ed_program ADE = {
-    &ADE_APP, &ADE_KEYS, ade_settings, NULL, "ade: the Agon Development Environment",
+    &ADE_APP, &ADE_KEYS, ade_screen, NULL, "ade: the Agon Development Environment",
 };
 
 int main(int argc, char** argv) {

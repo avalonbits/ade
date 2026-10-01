@@ -22,7 +22,8 @@
 #include "editor.h"
 
 /*
- * ade's menu bar, on the header row: File, Edit, Search, Build, Run, Options.
+ * ade's menu bar, on the row under the title: File, Edit, Search, Build, Run,
+ * Options.
  *
  * F10 opens it, as in Turbo Pascal. LEFT and RIGHT move between menus, UP and
  * DOWN through the one pulled down, RETURN chooses and ESC -- or F10 again --
@@ -30,10 +31,16 @@
  * runs exactly what the key would, through ed_handle.
  */
 
-// Takes over the header row of the editor's screen.
+// Puts the bar on the row under the title, which takes that row from the
+// text. Before the editor first paints -- from ed_program.settings, which runs
+// as soon as the screen exists -- so the text is drawn where it belongs the
+// first time rather than painted twice, and before any window makes its view.
+void menu_attach(editor* ed);
+
+// Draws the bar again once the windows are started, so it shows them.
 void menu_start(editor* ed);
 
-// The header row's text into bar, at most max: the menus' names, the open
+// The bar's text into bar, at most max: the menus' names, the open
 // one in brackets, and at the right the project's program and the open
 // windows, the one on screen in brackets. Returns its length.
 int menu_bar_text(screen* scr, char* bar, int max);

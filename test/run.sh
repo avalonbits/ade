@@ -326,8 +326,12 @@ printf '#include <stdio.h>\r\n\r\nint main(void) {\r\n    printf("Hello, world!"
     > "$c/bad.c"
 under_hub "$c" 120 "ade bad.c"
 check "a long error, shown: the screen stays where it is" \
-      "$(sed -n '1s/^ \(File  Edit\).*/\1/p; 2s/ *$//p' "$c/ade.scr" 2>/dev/null | tr '\n' '|')" \
+      "$(sed -n '2s/^ \(File  Edit\).*/\1/p; 3s/ *$//p' "$c/ade.scr" 2>/dev/null | tr '\n' '|')" \
       "File  Edit| #include <stdio.h>|"
+# The title keeps the top row, the menu bar under it: the title is drawn
+# centred in a rule, and the rule's dashes are what reads back.
+check "  the title's rule on the top row, the menus under it" \
+      "$(sed -n '1s/^\(----\).*/\1/p' "$c/ade.scr" 2>/dev/null)" "----"
 
 c=$(card "$proj/bin/ade.bin")
 printf '  nop\r\n  frob a\r\n' > "$c/bad.s"

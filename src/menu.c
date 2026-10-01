@@ -147,17 +147,20 @@ int menu_bar_text(screen* scr, char* bar, int max) {
     return n;
 }
 
-// The header: the menus' names, the open one in brackets, and on the right
-// the project and the windows.
+// The row under the title: the menus' names, the open one in brackets, and
+// on the right the project and the windows.
 static void draw_bar(screen* scr, void* ctx) {
     (void) ctx;
     static char bar[128];
-    scr_bar_line(scr, 0, bar, menu_bar_text(scr, bar, (int) sizeof(bar)));
+    scr_bar_line(scr, 1, bar, menu_bar_text(scr, bar, (int) sizeof(bar)));
+}
+
+void menu_attach(editor* ed) {
+    open_menu = -1;
+    scr_set_subheader(&ed->scr_, draw_bar, NULL);
 }
 
 void menu_start(editor* ed) {
-    open_menu = -1;
-    scr_set_header(&ed->scr_, draw_bar, NULL);
     scr_header_draw(&ed->scr_);
 }
 
