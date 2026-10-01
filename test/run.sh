@@ -234,6 +234,42 @@ played() {
     fi
 }
 
+# Shared by the cases below, which each run in a shell of their own: the
+# memory left that is enough (see the memory case), and the program the Run
+# cases build and run.
+MEMORY_FLOOR_KB=16
+RUNME='#include <stdio.h>\r\nint main(void)\r\n{\r\n    FILE* f = fopen("/ran.txt", "w");\r\n    fputs("ran\\n", f);\r\n    fclose(f);\r\n    return 3;\r\n}\r\n'
+
+# Building needs acc and zap on the card; a case that builds runs only with
+# both.
+TOOLS=yes
+if [ ! -f "$ACC_BIN" ] || [ ! -f "$ZAP_BIN" ]; then
+    echo "SKIP  building: no Agon acc or zap at $ACC_BIN, $ZAP_BIN"
+    TOOLS=
+fi
+
+# user_screen <card> <what> <mode or empty>: build and run the red program --
+# first switching to <mode>, if given -- then ALT+F5 and back.
+user_screen() {
+    local c=$1 what=$2 mode=$3 px user rest
+    : > "$c/userscreen"
+    printf '#include <stdio.h>\r\nint main(void)\r\n{\r\n' > "$c/runshow.c"
+    [ -n "$mode" ] && printf '    putchar(22);\r\n    putchar(%d);\r\n' "$mode" >> "$c/runshow.c"
+    printf '    putchar(17);\r\n    putchar(129);\r\n    putchar(12);\r\n    return 0;\r\n}\r\n' \
+        >> "$c/runshow.c"
+    under_hub "$c" 150 'Set Hub$NoPause 1
+ade runshow.c'
+    px=$(tr -d '\r\n' < "$c/ade.px" 2>/dev/null)
+    echo "PIX   $px"
+    user=${px#user }
+    user=${user%% *}
+    rest=${px#* ade }
+    check "$what" \
+          "$(case "$user" in ??0000) [ "$user" != 000000 ] && echo red ;; *) echo "$user" ;; esac)" red
+    check "  and then ade's own again" "$([ -n "$px" ] && [ "${rest%% *}" != "$user" ] && echo back)" back
+}
+
+case_01() {
 # --- under hub: windows and menus ---
 c=$(card "$proj/bin/ade.bin")
 printf 'alpha\r\n' > "$c/a.txt"
@@ -253,7 +289,9 @@ check "  and the first run wrote ade's settings file" \
 check "  and nothing was saved, as answered" \
       "$(cat "$c/a.txt" "$c/b.txt" "$c/c.txt" | tr -d '\r' | tr '\n' ' ')" \
       "alpha bravo charlie "
+}
 
+case_02() {
 # --- settings ---
 # The editor's settings, from aed's library, in /config/ade.ini: applied as
 # ade starts...
@@ -276,7 +314,9 @@ window 3 closed"
 bar=$(tr -d '\r\n' < "$c/ade.bar" 2>/dev/null)
 check "the menu bar is in the footer's colours, not the text's" \
       "$(set -- $bar; [ -n "$2" ] && [ "$2" = "$6" ] && [ "$2" != "$4" ] && echo same)" same
+}
 
+case_03() {
 # ...and changed with CTRL+E and from the Options menu, applied at once and
 # written to the file.
 c=$(card "$proj/bin/ade.bin")
@@ -291,7 +331,10 @@ window 2 closed
 window 3 closed"
 check "  and written to ade.ini" \
       "$(grep '^tab = ' "$c/config/ade.ini" 2>/dev/null | tr -d '\r')" "tab = 6"
+}
 
+case_04() {
+    [ -n "$TOOLS" ] || return 0
 # ...and a font named in ade.ini is ade's on every start: the first, and
 # each return from a build, after hub has put the prompt's font back. An
 # 8x16 font -- 256 glyphs of 16 rows; blank ones read as well as any -- gives
@@ -305,7 +348,9 @@ printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/fontok.c"
 under_hub "$c" 120 "ade fontok.c"
 check "settings: the font ade.ini names, again after a build" \
       "$(wc -l < "$c/ade.scr" 2>/dev/null | tr -d ' ')" 30
+}
 
+case_05() {
 # A menu pulled down is in the bar's colours, but for the item chosen, which
 # is in the text's: a bar of them across the box. The scripted ade reads the
 # pixels back from the VDP with the File menu down and its second item chosen.
@@ -324,7 +369,9 @@ check "  and the chosen one in the text's" \
 # which grow toward each other out of one region with no guard between. The
 # scripted ade counts it in KB. Measured at 35 with aed 1.3.7 and settings
 # (ade 113 KB); the floor is there to say when that is being eaten.
-MEMORY_FLOOR_KB=16
+}
+
+case_06() {
 c=$(card "$proj/bin/ade.bin")
 for f in memory m2 m3; do
     i=0
@@ -338,15 +385,13 @@ free_kb=$(tr -d '\r\n' < "$c/ade.mem" 2>/dev/null)
 echo "MEM   three paged windows open, ${free_kb:-?} KB left"
 check "three paged windows open, $MEMORY_FLOOR_KB KB or more left" \
       "$([ "${free_kb:-0}" -ge "$MEMORY_FLOOR_KB" ] && echo yes)" yes
+}
 
+case_07() {
+    [ -n "$TOOLS" ] || return 0
 # --- under hub: building ---
 # F9 on a broken file: hub runs the tool, which fails; ade comes back on the
 # error -- its file, line and column -- and shows it, which waits for a key.
-if [ ! -f "$ACC_BIN" ] || [ ! -f "$ZAP_BIN" ]; then
-    echo "SKIP  building: no Agon acc or zap at $ACC_BIN, $ZAP_BIN"
-
-    exit $status
-fi
 c=$(card "$proj/bin/ade.bin")
 printf 'int main(void)\r\n{\r\n    return x;\r\n}\r\n' > "$c/bad.c"
 under_hub "$c" 120 "ade bad.c"
@@ -359,7 +404,10 @@ window 2 closed
 window 3 closed"
 check "  where acc said it was" "$(tr -d '\r' < "$c/ade.err" 2>/dev/null | head -1)" \
       "bad.c:3:12: error: 'x' is not declared"
+}
 
+case_08() {
+    [ -n "$TOOLS" ] || return 0
 # An error too long for the bottom row with " (press any key)" after it.
 # Written in full it wrapped, and the VDP scrolled the whole screen up a line
 # under the message: the menu bar gone and the document a row out. The
@@ -376,7 +424,10 @@ under_hub "$c" 120 "ade bad.c"
 check "a long error, shown: the screen stays where it is" \
       "$(sed -n '1s/^\(----\).*/\1/p; 3s/ *$//p' "$c/ade.scr" 2>/dev/null | tr '\n' '|')" \
       "----| #include <stdio.h>|"
+}
 
+case_09() {
+    [ -n "$TOOLS" ] || return 0
 c=$(card "$proj/bin/ade.bin")
 printf '  nop\r\n  frob a\r\n' > "$c/bad.s"
 under_hub "$c" 120 "ade bad.s"
@@ -387,7 +438,10 @@ screen 2:3
 window 1 bad.s 2:3   nop
 window 2 closed
 window 3 closed"
+}
 
+case_10() {
+    [ -n "$TOOLS" ] || return 0
 # The build carries ade's windows across: good.txt changed in window 1, and
 # good.c open and changed in window 2, on screen. Both are saved for the tool,
 # and ade comes back with both windows, each cursor where it was, and window 2
@@ -408,7 +462,10 @@ check "  every window was saved first" \
       "     return 0;
 bravoy"
 check "  the program is on the card" "$([ -s "$c/good.bin" ] && echo yes)" yes
+}
 
+case_11() {
+    [ -n "$TOOLS" ] || return 0
 # --- under hub: projects ---
 # project.ini names the program and its files: F9 builds each and links them,
 # whatever is on screen. C and assembly together, with the default rules; hub
@@ -434,7 +491,10 @@ check "  one object per file" \
       "$(for o in main.o add.o seven.o; do [ -s "$c/$o" ] && printf '%s ' $o; done)" \
       "main.o add.o seven.o "
 check "  and the program, which runs" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" 12
+}
 
+case_12() {
+    [ -n "$TOOLS" ] || return 0
 # An error in a file of the project that is not on screen: ade comes back on
 # it, in a window of its own.
 c=$(card "$proj/bin/ade.bin")
@@ -450,7 +510,10 @@ window 1 main.c 1:1 int add(int a, int b);
 window 2 add.c 3:16 int add(int a, int b)
 window 3 closed"
 check "  and nothing was linked" "$([ -e "$c/prog.bin" ] && echo linked || echo no)" no
+}
 
+case_13() {
+    [ -n "$TOOLS" ] || return 0
 # The build is build.obey, run by MOS's Obey as one of hub's jobs, so a
 # project is not held to hub's eight: here, eight files and the link.
 c=$(card "$proj/bin/ade.bin")
@@ -487,7 +550,10 @@ rm -f "$c/kept.txt"
 under_hub "$c" 240 "ade main.c"
 check "  a file added to project.ini writes it again" \
       "$([ -s "$c/f8.o" ] && echo built || echo not)$([ -e "$c/kept.txt" ] && echo ' kept')" built
+}
 
+case_14() {
+    [ -n "$TOOLS" ] || return 0
 # A project.ini that names a file nothing builds: F9 says so and builds none.
 c=$(card "$proj/bin/ade.bin")
 printf '[project]\r\nname = prog\r\nfiles = wrong.c notes.txt\r\n' > "$c/project.ini"
@@ -502,7 +568,10 @@ window 1 wrong.c 1:1 int main(void)
 window 2 closed
 window 3 closed"
 check "  and built nothing" "$([ -e "$c/wrong.o" ] && echo built || echo no)" no
+}
 
+case_15() {
+    [ -n "$TOOLS" ] || return 0
 # A project's own rules: an assembly program in one piece, zap writing the
 # binary itself (%n), and no link.
 c=$(card "$proj/bin/ade.bin")
@@ -517,7 +586,10 @@ window 1 hello.s 1:1         ret
 window 2 closed
 window 3 closed"
 check "  zap wrote the program itself" "$([ -s "$c/hello.bin" ] && echo yes)" yes
+}
 
+case_16() {
+    [ -n "$TOOLS" ] || return 0
 # --- under hub: more than one error ---
 # A tool that reports three errors -- test/tools/fail.c, standing in for acc
 # and zap, which stop at one -- as a project's rule. ade comes back on the
@@ -552,7 +624,10 @@ fi
 # --- under hub: running ---
 # CTRL+F9 builds, then hub runs the program -- on its own screen, and held for
 # a key after -- then ade. Hub$NoPause lets a script go on past that key.
-RUNME='#include <stdio.h>\r\nint main(void)\r\n{\r\n    FILE* f = fopen("/ran.txt", "w");\r\n    fputs("ran\\n", f);\r\n    fclose(f);\r\n    return 3;\r\n}\r\n'
+}
+
+case_17() {
+    [ -n "$TOOLS" ] || return 0
 c=$(card "$proj/bin/ade.bin")
 printf "$RUNME" > "$c/runme.c"
 under_hub "$c" 120 'Set Hub$NoPause 1
@@ -565,7 +640,10 @@ window 1 runme.c 1:1 #include <stdio.h>
 window 2 closed
 window 3 closed"
 check "  the program ran" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" ran
+}
 
+case_18() {
+    [ -n "$TOOLS" ] || return 0
 # Without Hub$NoPause hub waits for a key once the program ends, so the
 # program has run and ade is not back: what ade last wrote is from before.
 c=$(card "$proj/bin/ade.bin")
@@ -574,7 +652,10 @@ under_hub "$c" 60 "ade runme.c"
 check "CTRL+F9, pausing: the program ran" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" ran
 check "  and hub waits for a key before ade" \
       "$(tr -d '\r' < "$c/ade.out" 2>/dev/null | head -1)" "keys 1 of 1"
+}
 
+case_19() {
+    [ -n "$TOOLS" ] || return 0
 # A build that fails runs nothing: ade is back on the error, and a program
 # left by an earlier build -- one that would say it ran -- stays unrun.
 c=$(card "$proj/bin/ade.bin")
@@ -594,7 +675,10 @@ window 1 runbad.c 3:12 int main(void)
 window 2 closed
 window 3 closed"
 check "  and the program was not run" "$([ -e "$c/ran.txt" ] && echo ran || echo no)" no
+}
 
+case_20() {
+    [ -n "$TOOLS" ] || return 0
 # ALT+F5: what the program left on the screen. hub captured it as the
 # program ended; ade shows it until a key, then itself again. The program
 # clears the screen to red, and the script reads a pixel back from the VDP --
@@ -602,29 +686,13 @@ check "  and the program was not run" "$([ -e "$c/ran.txt" ] && echo ran || echo
 # with the mode as ade's main began and as it finished, and the mode hub
 # captured in.
 #
-# user_screen <card> <what> <mode or empty>: build and run the red program --
-# first switching to <mode>, if given -- then ALT+F5 and back.
-user_screen() {
-    local c=$1 what=$2 mode=$3 px user rest
-    : > "$c/userscreen"
-    printf '#include <stdio.h>\r\nint main(void)\r\n{\r\n' > "$c/runshow.c"
-    [ -n "$mode" ] && printf '    putchar(22);\r\n    putchar(%d);\r\n' "$mode" >> "$c/runshow.c"
-    printf '    putchar(17);\r\n    putchar(129);\r\n    putchar(12);\r\n    return 0;\r\n}\r\n' \
-        >> "$c/runshow.c"
-    under_hub "$c" 150 'Set Hub$NoPause 1
-ade runshow.c'
-    px=$(tr -d '\r\n' < "$c/ade.px" 2>/dev/null)
-    echo "PIX   $px"
-    user=${px#user }
-    user=${user%% *}
-    rest=${px#* ade }
-    check "$what" \
-          "$(case "$user" in ??0000) [ "$user" != 000000 ] && echo red ;; *) echo "$user" ;; esac)" red
-    check "  and then ade's own again" "$([ -n "$px" ] && [ "${rest%% *}" != "$user" ] && echo back)" back
-}
+
 
 user_screen "$(card "$proj/bin/ade.bin")" "ALT+F5: the program's screen, red, as it left it" ""
+}
 
+case_21() {
+    [ -n "$TOOLS" ] || return 0
 # A program that changes the mode: ade comes back from it in its own mode,
 # mode 0, and ALT+F5 shows the capture in the program's, mode 3, then
 # returns to ade's.
@@ -632,7 +700,10 @@ c=$(card "$proj/bin/ade.bin")
 user_screen "$c" "ALT+F5 after a program in mode 3: its screen, red" 3
 check "  hub captured it in mode 3, and ade ends in its own, mode 0" \
       "$(tr -d '\r\n' < "$c/ade.px" 2>/dev/null | sed 's/.* mode [0-9]* //')" "0 captured 3"
+}
 
+case_22() {
+    [ -n "$TOOLS" ] || return 0
 # A project's run line: how Run runs the program, arguments and all.
 c=$(card "$proj/bin/ade.bin")
 printf '[project]\r\nname = runargs\r\nfiles = runargs.c\r\nrun = %%n alpha beta\r\n' > "$c/project.ini"
@@ -642,6 +713,29 @@ under_hub "$c" 120 'Set Hub$NoPause 1
 ade runargs.c'
 check "CTRL+F9 in a project: run with the arguments project.ini gives" \
       "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" "3 beta"
+}
+
+# run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
+# its output kept apart; then all of it, in order. Each case has a card of its
+# own, so none waits on another. A case's checks set status in its own shell,
+# so the failures are counted from what they printed.
+ADE_JOBS=${ADE_JOBS:-4}
+run_cases() {
+    local f
+    for f in "$@"; do
+        while [ "$(jobs -rp | wc -l)" -ge "$ADE_JOBS" ]; do
+            wait -n
+        done
+        ( "$f" ) > "$W/$f.out" 2>&1 &
+    done
+    wait
+    for f in "$@"; do
+        cat "$W/$f.out"
+        grep -q '^FAIL' "$W/$f.out" && status=1
+    done
+}
+
+run_cases case_01 case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_09 case_10 case_11 case_12 case_13 case_14 case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.
