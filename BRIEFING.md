@@ -521,6 +521,9 @@ against a package made locally with aed's `mklibs.sh`.
   so the editor's first paint is already laid out that way. Attaching it
   after `ed_init_for` cost a second full paint: start-up went from 0.46 s to
   0.64 s, which the timing check caught.
+- **aed v1.5.0** (tag `c0c41e6`, sha256 `f965d5fa...f5b4`), pinned: a
+  cursor_flash setting with a row on the settings screen (aed#215). ade takes
+  it with no change, since its schema is the library's list.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made
