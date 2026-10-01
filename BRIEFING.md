@@ -524,6 +524,10 @@ against a package made locally with aed's `mklibs.sh`.
 - **aed v1.5.0** (tag `c0c41e6`, sha256 `f965d5fa...f5b4`), pinned: a
   cursor_flash setting with a row on the settings screen (aed#215). ade takes
   it with no change, since its schema is the library's list.
+- **aed v1.5.1** (tag `4cc9731`, sha256 `d72e6e91...89b5`), pinned:
+  aed#217 makes `ed_run` read the current document on every pass. It had
+  taken it once, so after a window switch ade's footer went on naming the
+  first window's file and position.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

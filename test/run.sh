@@ -311,6 +311,10 @@ strip() {
 }
 check "F3 to a second window: the bar shows both, 2 on screen" "$(strip "$c/ade.scr")" "1 [2]"
 check "  and F6 back to 1: the bar shows 1 on screen" "$(strip "$c/ade.scr2")" "[1] 2"
+# The footer names the file on screen: it went on naming the first window's,
+# drawn from the document the editor's loop started with, until aed 1.5.1.
+check "  the footer names func.h in window 2" "$(tail -1 "$c/ade.scr" 2>/dev/null)" "footer func.h"
+check "  and one.txt back in window 1" "$(tail -1 "$c/ade.scr2" 2>/dev/null)" "footer one.txt"
 }
 
 case_02() {

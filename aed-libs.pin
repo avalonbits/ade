@@ -2,5 +2,5 @@
 # tools/fetch-aed-libs.sh downloads
 #   https://github.com/avalonbits/aed/releases/download/v<version>/aed-libs-<version>.tar.gz
 # and refuses it unless it matches. Bump both together.
-version 1.5.0
-sha256 f965d5faf56709ace7571e83fa1704980139ec2a92255a6e835d35199385f5b4
+version 1.5.1
+sha256 d72e6e917c6fd7468769f08b41990e5337845b4987dcb1388700bed8796389b5
