@@ -85,6 +85,17 @@ check "  and the editor from libedui.a" \
       "$(grep -q 'libedui\.a(editor\.o)' bin/ade.map && echo yes)" yes
 AED_LIBS="$LIBS_DIR" test/frames.sh || status=1
 
+# Another package -- here the same one under another path -- and the next
+# make builds and links against it, and back again, with no make clean
+# between: the objects record the package they were built with.
+cp -r "$LIBS_DIR" "$W/other-libs"
+make AED_LIBS="$W/other-libs" >/dev/null 2>&1
+check "another aed package: ade is relinked against it" \
+      "$(grep -q 'other-libs/lib/libedui\.a(' bin/ade.map && echo yes)" yes
+make AED_LIBS="$LIBS_DIR" >/dev/null 2>&1
+check "  and back, against the pinned one" \
+      "$(grep -q 'other-libs' bin/ade.map || echo yes)" yes
+
 # --- 3. on the emulator ---
 EMU=${AGON_EMU:-$HOME/fab-agon-emulator-1.2.4}
 if [ ! -x "$EMU/fab-agon-emulator" ]; then

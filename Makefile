@@ -22,6 +22,16 @@ ifeq ($(AED_LIBS),)
 $(error no aed libraries: see the message above, or set AED_LIBS)
 endif
 
+# The package the objects were built against, kept beside them. Their
+# dependency files name its headers by path, so after a change of package --
+# a new pin, or another AED_LIBS -- the old package's headers are still there
+# and the objects look up to date, and nothing relinks against the new
+# archives. So the objects and the binary go whenever the package does.
+LIBS_STAMP := $(OBJDIR)/.aed-libs
+ifneq ($(shell cat $(LIBS_STAMP) 2>/dev/null),$(AED_LIBS))
+$(shell rm -rf $(OBJDIR) $(BINDIR); mkdir -p $(OBJDIR); echo '$(AED_LIBS)' > $(LIBS_STAMP))
+endif
+
 # hub's client library, for building: its header and libhub.a, from a hub
 # checkout -- HUB=<dir>, ~/code/devel by default.
 HUB ?= $(HOME)/code/devel
