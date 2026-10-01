@@ -56,6 +56,32 @@ static int screen_mode(void) {
     return ((volatile unsigned char*) mos_sysvars())[SYSVAR_SCRMODE];
 }
 
+// What ui_message adds after a message, which has to fit on the row with it:
+// text written past the end of the bottom row wraps, and the VDP scrolls the
+// whole screen up a line to make room for it.
+#define DISMISS_LEN 16                  // " (press any key)"
+
+// Shows `msg` on the message row and waits for a key, cut to fit the row
+// beside what ui_message adds -- and marked "..." where it was cut.
+static void say(editor* ed, const char* msg) {
+    static char fit[128];
+    int room = ed->scr_.barW_ - DISMISS_LEN - 1;
+    if (room > (int) sizeof(fit) - 1) {
+        room = (int) sizeof(fit) - 1;
+    }
+    int n = (int) strlen(msg);
+    if (n > room) {
+        n = room > 3 ? room - 3 : 0;
+        memcpy(fit, msg, (size_t) n);
+        memcpy(fit + n, "...", 3);
+        n += 3;
+    } else {
+        memcpy(fit, msg, (size_t) n);
+    }
+    fit[n] = 0;
+    ui_message(&ed->ui_, &ed->scr_, fit);
+}
+
 static session* block(void) {
     return (session*) hub_block("ADE ", sizeof(session));
 }
@@ -107,7 +133,7 @@ static bool file_command(editor* ed, char* cmd) {
     static char base[TB_FNAME_MAX];
     const char tool = name != NULL ? tool_for(name, base, TB_FNAME_MAX) : 0;
     if (tool == 0) {
-        ui_message(ui, scr, "Build what? ade builds .c with acc, .s and .asm with zap");
+        say(ed, "Build what? ade builds .c with acc, .s and .asm with zap");
         return false;
     }
 
@@ -115,11 +141,11 @@ static bool file_command(editor* ed, char* cmd) {
         ? snprintf(cmd, HUB_CMD_MAX + 1, "acc %s -o %s.bin -errors " ERR_FILE, name, base)
         : snprintf(cmd, HUB_CMD_MAX + 1, "zap %s %s.bin -c -e " ERR_FILE, name, base);
     if (n > HUB_CMD_MAX) {
-        ui_message(ui, scr, "The file's name is too long for hub to run the build");
+        say(ed, "The file's name is too long for hub to run the build");
         return false;
     }
     if (snprintf(program, sizeof(program), "%s", base) >= (int) sizeof(program)) {
-        ui_message(ui, scr, "The file's name is too long for hub to run the program");
+        say(ed, "The file's name is too long for hub to run the program");
         return false;
     }
     snprintf(run_cmd, sizeof(run_cmd), "%s", base);
@@ -133,12 +159,12 @@ static bool file_command(editor* ed, char* cmd) {
 static bool project_command(editor* ed, const project* p, char* cmd) {
     snprintf(program, sizeof(program), "%s", p->name);
     if (!proj_run(p, run_cmd, (int) sizeof(run_cmd))) {
-        ui_message(&ed->ui_, &ed->scr_, "run in " PROJ_FILE " is too long for hub");
+        say(ed, "run in " PROJ_FILE " is too long for hub");
         return false;
     }
     static char msg[80];
     if (!proj_obey(p, ERR_FILE, msg, (int) sizeof(msg))) {
-        ui_message(&ed->ui_, &ed->scr_, msg);
+        say(ed, msg);
         return false;
     }
     snprintf(cmd, HUB_CMD_MAX + 1, "Obey " PROJ_OBEY);
@@ -172,7 +198,7 @@ static void start(editor* ed, bool run) {
     const int has = proj_load(&proj, msg, (int) sizeof(msg));
     loaded = has;
     if (has < 0) {
-        ui_message(ui, scr, msg);
+        say(ed, msg);
         return;
     }
     const bool made = has > 0 ? project_command(ed, &proj, cmd)
@@ -192,20 +218,20 @@ static void start(editor* ed, bool run) {
         if (n == NULL || n[0] == 0) {
             static char msg[] = "Window 1 has no name: save it first";
             msg[7] = (char) ('1' + i);
-            ui_message(ui, scr, msg);
+            say(ed, msg);
             return;
         }
         if (!tb_save(&d->buf_)) {
             static char msg[] = "Window 1 could not be saved";
             msg[7] = (char) ('1' + i);
-            ui_message(ui, scr, msg);
+            say(ed, msg);
             return;
         }
     }
 
     session* s = block();
     if (s == NULL) {
-        ui_message(ui, scr, "hub has no room to keep ade's windows");
+        say(ed, "hub has no room to keep ade's windows");
         return;
     }
     memcpy(s->magic, MAGIC, 4);
@@ -237,7 +263,7 @@ static void start(editor* ed, bool run) {
     }
     if (!queued || hub_return_to("ade -resume") != HUB_OK) {
         memset(s->magic, 0, 4);
-        ui_message(ui, scr, "hub would not take the build");
+        say(ed, "hub would not take the build");
         return;
     }
     ed->leaving_ = true;
@@ -254,7 +280,7 @@ void build_run(editor* ed) {
 void build_user_screen(editor* ed) {
     const int mode = hub_user_screen();
     if (mode < 0) {
-        ui_message(&ed->ui_, &ed->scr_, "No program has run yet: CTRL+F9 runs one");
+        say(ed, "No program has run yet: CTRL+F9 runs one");
         return;
     }
     const int was = screen_mode();
@@ -356,6 +382,30 @@ static bool parse_error(const char* s, char* file, int fmax, int* line, int* col
     return *line > 0;
 }
 
+// What an error says, past its `file:line:column: `: the cursor is put on
+// the place, and the row is too short to say it twice.
+static const char* error_text(const char* e) {
+    const char* q = e;
+    while (*q != 0 && !(q[0] == ':' && q[1] >= '0' && q[1] <= '9')) {
+        q++;
+    }
+    for (int field = 0; field < 2 && *q == ':'; field++) {
+        q++;
+        while (*q >= '0' && *q <= '9') {
+            q++;
+        }
+    }
+    if (*q != ':') {
+        return e;                       // not that shape: all of it
+    }
+    q++;
+    while (*q == ' ') {
+        q++;
+    }
+
+    return *q != 0 ? q : e;
+}
+
 // Reads the error file into errs, and finds the errors in it.
 static void read_errors(void) {
     nerrs = 0;
@@ -413,12 +463,12 @@ static void go_to_error(editor* ed, int k) {
         show_at(ed, w, line, x);
     }
     chosen = k;
-    ui_message(&ed->ui_, &ed->scr_, errs + err_at[k]);
+    say(ed, error_text(errs + err_at[k]));
 }
 
 void build_errors(editor* ed) {
     if (nerrs == 0) {
-        ui_message(&ed->ui_, &ed->scr_, "The last build left no errors");
+        say(ed, "The last build left no errors");
         return;
     }
     screen* scr = &ed->scr_;
@@ -506,15 +556,15 @@ void build_resume(editor* ed) {
     if (!failed && s->ran) {
         static char msg[PROJ_NAME_MAX + 20];
         snprintf(msg, sizeof(msg), "%s returned %d", s->program, hub_last_result());
-        ui_message(&ed->ui_, &ed->scr_, msg);
+        say(ed, msg);
     } else if (!failed) {
-        ui_message(&ed->ui_, &ed->scr_, "Built");
+        say(ed, "Built");
     } else if (nerrs == 0) {
         static char msg[40];
         snprintf(msg, sizeof(msg), "The build failed, with %d", hub_last_result());
-        ui_message(&ed->ui_, &ed->scr_, msg);
+        say(ed, msg);
     } else if (nerrs == 1) {
-        ui_message(&ed->ui_, &ed->scr_, errs + err_at[0]);
+        say(ed, error_text(errs + err_at[0]));
     } else {
         build_errors(ed);
     }

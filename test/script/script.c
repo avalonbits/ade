@@ -208,6 +208,42 @@ static unsigned long pixel(void) {
 
 static unsigned long seen[2];
 
+// The text on the screen, read back from the VDP a character at a time with
+// VDU 23,0,&83 -- what is really there, rather than what ade meant to put
+// there -- one line per row into `path`, a cell it does not answer for as '?'.
+#define SCRCHAR      0x09
+#define PFLAG_CHAR   0x02
+#define SCRCOLS      0x13
+#define SCRROWS      0x14
+
+static void dump_screen(const char* path) {
+    volatile unsigned char* sv = mos_sysvars();
+    const int cols = sv[SCRCOLS];
+    const int rows = sv[SCRROWS];
+    static char line[130];
+    const char fh = mos_fopen(path, FA_WRITE | FA_CREATE_ALWAYS);
+    if (fh == 0) {
+        return;
+    }
+    for (int y = 0; y < rows; y++) {
+        int n = 0;
+        for (int x = 0; x < cols && n < 128; x++) {
+            const char ask[] = { 23, 0, (char) 0x83, (char) x, 0, (char) y, 0 };
+            sv[PFLAGS] &= (unsigned char) ~PFLAG_CHAR;
+            mos_puts((char*) ask, sizeof(ask), 0);
+            long i = 0;
+            while (i < 100000 && !(sv[PFLAGS] & PFLAG_CHAR)) {
+                i++;
+            }
+            const char c = (sv[PFLAGS] & PFLAG_CHAR) ? (char) sv[SCRCHAR] : '?';
+            line[n++] = c >= 32 && c < 127 ? c : (c == 0 ? ' ' : '?');
+        }
+        line[n++] = '\n';
+        mos_fwrite(fh, line, (unsigned) n);
+    }
+    mos_fclose(fh);
+}
+
 // The screen mode, from MOS's system variables: as ade started, for the user
 // screen's check that it comes back in it.
 #define SCRMODE 0x27
@@ -230,6 +266,11 @@ static bool poll(void* ctx, key_press* kp) {
     }
     if (at >= NKEYS) {
         return false;           // run out: ade waits, and the test times out
+    }
+    // A resume's screen as its first key is asked for -- what the build said,
+    // on top of the document -- and as its second is, once that is gone.
+    if (KEYS == RESUME && at < 2) {
+        dump_screen(at == 0 ? "/ade.scr" : "/ade.scr2");
     }
     if (KEYS == USERSCREEN && (at == 2 || at == 3)) {
         seen[at - 2] = pixel();

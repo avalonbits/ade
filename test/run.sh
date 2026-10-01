@@ -316,6 +316,19 @@ window 3 closed"
 check "  where acc said it was" "$(tr -d '\r' < "$c/ade.err" 2>/dev/null | head -1)" \
       "bad.c:3:12: error: 'x' is not declared"
 
+# An error too long for the bottom row with " (press any key)" after it.
+# Written in full it wrapped, and the VDP scrolled the whole screen up a line
+# under the message: the menu bar gone and the document a row out. The
+# scripted ade reads the screen back from the VDP with the message up; the
+# header and the first line must be where they belong.
+c=$(card "$proj/bin/ade.bin")
+printf '#include <stdio.h>\r\n\r\nint main(void) {\r\n    printf("Hello, world!");\r\n\r\n    return ;\r\n}\r\n' \
+    > "$c/bad.c"
+under_hub "$c" 120 "ade bad.c"
+check "a long error, shown: the screen stays where it is" \
+      "$(sed -n '1s/^ \(File  Edit\).*/\1/p; 2s/ *$//p' "$c/ade.scr" 2>/dev/null | tr '\n' '|')" \
+      "File  Edit| #include <stdio.h>|"
+
 c=$(card "$proj/bin/ade.bin")
 printf '  nop\r\n  frob a\r\n' > "$c/bad.s"
 under_hub "$c" 120 "ade bad.s"
