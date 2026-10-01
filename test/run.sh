@@ -297,6 +297,22 @@ check "  and nothing was saved, as answered" \
       "alpha bravo charlie "
 }
 
+case_01b() {
+# A second window, opened with F3 and left with F6: the bar's list of windows
+# read back from the screen each time. It was drawn as the new window cleared
+# the screen, before ade had counted it, so it still said [1] until F6.
+c=$(card "$proj/bin/ade.bin")
+printf 'first file\r\n' > "$c/one.txt"
+printf '#define FUNC 1\r\n' > "$c/func.h"
+under_hub "$c" 40 "ade one.txt"
+# strip <file>: the end of the menu bar's row, past the menus' names, as read.
+strip() {
+    sed -n '2p' "$1" 2>/dev/null | tr '?' ' ' | sed 's/ *$//' | awk -F'   +' '{print $NF}'
+}
+check "F3 to a second window: the bar shows both, 2 on screen" "$(strip "$c/ade.scr")" "1 [2]"
+check "  and F6 back to 1: the bar shows 1 on screen" "$(strip "$c/ade.scr2")" "[1] 2"
+}
+
 case_02() {
 # --- settings ---
 # The editor's settings, from aed's library, in /config/ade.ini: applied as
@@ -353,7 +369,7 @@ printf '[editor]\r\nfont = /config/aed/tall.bin\r\n' > "$c/config/ade.ini"
 printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/fontok.c"
 under_hub "$c" 120 "ade fontok.c"
 check "settings: the font ade.ini names, again after a build" \
-      "$(wc -l < "$c/ade.scr" 2>/dev/null | tr -d ' ')" 30
+      "$(grep -vc '^footer ' "$c/ade.scr" 2>/dev/null)" 30
 }
 
 case_05() {
@@ -741,7 +757,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_09 case_10 case_11 case_12 case_13 case_14 case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
+run_cases case_01 case_01b case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_09 case_10 case_11 case_12 case_13 case_14 case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

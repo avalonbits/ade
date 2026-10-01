@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
     menu_start(&ed);
 #ifdef ADE_SCRIPT
     // Before the resume: what it says waits for a key.
-    ui_set_keys(&ed.ui_, script_keys(argc > 1 ? argv[1] : NULL));
+    ui_set_keys(&ed.ui_, script_keys(&ed, argc > 1 ? argv[1] : NULL));
 #endif
     if (resuming) {
         build_resume(&ed);

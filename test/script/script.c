@@ -150,6 +150,17 @@ static const key_press PULL[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// Started on one.txt: func.h opened in a new window, the screen read back as
+// the next key is asked for; then F6, back to window 1, and the screen read
+// back again; and leave.
+static const key_press TWO[] = {
+    K(0, VK_F3),
+    K('f', VK_f), K('u', VK_u), K('n', VK_n), K('c', VK_c), K('.', VK_PERIOD),
+    K('h', VK_h), K(13, VK_RETURN),
+    K(0, VK_F6),
+    M(17, VK_q, MOD_CTRL),
+};
+
 // Started on a file whose name has "run" in it: build and run it, CTRL+F9.
 static const key_press RUN[] = {
     M(0, VK_F9, MOD_CTRL),
@@ -250,6 +261,24 @@ static unsigned long seen[2];
 #define SCRCOLS      0x13
 #define SCRROWS      0x14
 
+// The editor, for its colours: see script_keys.
+static editor* scripted;
+
+// The character at (x, y), as the VDP matches it against the text colours
+// in force: 0 when nothing matches, '?' when the VDP does not answer.
+static char char_at(int x, int y) {
+    volatile unsigned char* sv = mos_sysvars();
+    const char ask[] = { 23, 0, (char) 0x83, (char) x, 0, (char) y, 0 };
+    sv[PFLAGS] &= (unsigned char) ~PFLAG_CHAR;
+    mos_puts((char*) ask, sizeof(ask), 0);
+    long i = 0;
+    while (i < 100000 && !(sv[PFLAGS] & PFLAG_CHAR)) {
+        i++;
+    }
+
+    return (sv[PFLAGS] & PFLAG_CHAR) ? (char) sv[SCRCHAR] : '?';
+}
+
 static void dump_screen(const char* path) {
     volatile unsigned char* sv = mos_sysvars();
     const int cols = sv[SCRCOLS];
@@ -262,18 +291,32 @@ static void dump_screen(const char* path) {
     for (int y = 0; y < rows; y++) {
         int n = 0;
         for (int x = 0; x < cols && n < 128; x++) {
-            const char ask[] = { 23, 0, (char) 0x83, (char) x, 0, (char) y, 0 };
-            sv[PFLAGS] &= (unsigned char) ~PFLAG_CHAR;
-            mos_puts((char*) ask, sizeof(ask), 0);
-            long i = 0;
-            while (i < 100000 && !(sv[PFLAGS] & PFLAG_CHAR)) {
-                i++;
+            char c = char_at(x, y);
+            // The bars are in the document's colours swapped, and the VDP
+            // matches a cell against the colours in force: asked again with
+            // them swapped, a bar's text reads back too.
+            if ((c == 0 || c == ' ') && scripted != NULL) {
+                const char swap[] = { 17, scripted->scr_.bg_, 17,
+                                      (char) (scripted->scr_.fg_ + 128) };
+                const char back[] = { 17, scripted->scr_.fg_, 17,
+                                      (char) (scripted->scr_.bg_ + 128) };
+                mos_puts((char*) swap, sizeof(swap), 0);
+                const char d = char_at(x, y);
+                mos_puts((char*) back, sizeof(back), 0);
+                if (d > ' ' && d < 127) {
+                    c = d;
+                }
             }
-            const char c = (sv[PFLAGS] & PFLAG_CHAR) ? (char) sv[SCRCHAR] : '?';
             line[n++] = c >= 32 && c < 127 ? c : (c == 0 ? ' ' : '?');
         }
         line[n++] = '\n';
         mos_fwrite(fh, line, (unsigned) n);
+    }
+    // And the file the footer last showed, as the screen recorded drawing it:
+    // the footer's row does not read back, swapped colours or not.
+    if (scripted != NULL) {
+        const int k = sprintf(line, "footer %.100s\n", scripted->scr_.lastFname_);
+        mos_fwrite(fh, line, (unsigned) k);
     }
     mos_fclose(fh);
 }
@@ -303,6 +346,9 @@ static bool poll(void* ctx, key_press* kp) {
     }
     // A resume's screen as its first key is asked for -- what the build said,
     // on top of the document -- and as its second is, once that is gone.
+    if (KEYS == TWO && (at == 8 || at == 9)) {
+        dump_screen(at == 8 ? "/ade.scr" : "/ade.scr2");
+    }
     if (KEYS == RESUME && at < 2) {
         dump_screen(at == 0 ? "/ade.scr" : "/ade.scr2");
     }
@@ -327,7 +373,8 @@ static bool poll(void* ctx, key_press* kp) {
 
 static const key_source SCRIPT = { poll, NULL, NULL };
 
-const key_source* script_keys(const char* arg) {
+const key_source* script_keys(editor* ed, const char* arg) {
+    scripted = ed;
     if (arg != NULL && strcmp(arg, "-resume") == 0) {
         const char fh = mos_fopen("/errlist", FA_READ);
         const char uh = fh == 0 ? mos_fopen("/userscreen", FA_READ) : 0;
@@ -343,6 +390,9 @@ const key_source* script_keys(const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "one.txt") != NULL) {
+        KEYS = TWO;
+        NKEYS = COUNT(TWO);
     } else if (arg != NULL && strstr(arg, "pull") != NULL) {
         KEYS = PULL;
         NKEYS = COUNT(PULL);

@@ -240,6 +240,11 @@ int win_open_named(editor* ed, const char* fname) {
         case TB_OK:
             open_[slot] = true;
             current = slot;
+            // ed_doc_open drew the header as it cleared the screen, before
+            // the window was counted: the bar's list of windows did not have
+            // it yet.
+            scr_header_draw(&ed->scr_);
+
             return slot;
         case TB_TOO_LARGE:
             ui_message(&ed->ui_, &ed->scr_, "File too large, or no room for it");
@@ -316,6 +321,10 @@ void win_close(editor* ed) {
     show(ed, to);
     ed_doc_close(&docs[gone]);
     open_[gone] = false;
+
+    // Showing the window it goes back to drew the header while this one was
+    // still open, so the bar's list of windows still had it.
+    scr_header_draw(&ed->scr_);
 }
 
 void win_list(editor* ed) {
