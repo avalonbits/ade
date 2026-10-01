@@ -176,6 +176,9 @@ void menu_start(editor* ed) {
     scr_header_draw(&ed->scr_);
 }
 
+// Where the pulled-down menu was last drawn: see menu_box.
+static view box;
+
 // The pulled-down menu, in a view of its own under its name, so the rows it
 // paints are its box and nothing else. Painted without the document's
 // colouring: these rows are not the document's lines.
@@ -195,7 +198,6 @@ static void draw_menu(editor* ed, int m, int at) {
     if (w > (int) sizeof(line)) {
         w = (int) sizeof(line);
     }
-    static view box;
     scr_view_init(scr, &box);
     box.textX_ = (char) menu_col(m);
     if (box.textX_ + w > scr->barW_) {
@@ -211,10 +213,12 @@ static void draw_menu(editor* ed, int m, int at) {
     scr_set_colourer(scr, NULL, NULL, NULL);
     scr_set_view(scr, &box);
 
+    // In the bar's colours, swapped from the document's, all but the chosen
+    // item: that one in the document's own, a bar of them across the box.
     memset(line, '-', (size_t) w);
     line[0] = '+';
     line[w - 1] = '+';
-    scr_write_line(scr, box.topY_, line, w);
+    scr_write_line_sel(scr, box.topY_, line, w, 0, w);
     for (int i = 0; i < mn->n; i++) {
         int k = ui_put_at(line, 0, w, i == at ? "| > " : "|   ");
         k = ui_put_at(line, k, w, mn->items[i].label);
@@ -222,12 +226,16 @@ static void draw_menu(editor* ed, int m, int at) {
         k = ui_put_at(line, k, w, mn->items[i].keys);
         k = ui_pad_to(line, k, w, w - 1);
         k = ui_put_at(line, k, w, "|");
-        scr_write_line(scr, (char) (box.topY_ + 1 + i), line, k);
+        if (i == at) {
+            scr_write_line(scr, (char) (box.topY_ + 1 + i), line, k);
+        } else {
+            scr_write_line_sel(scr, (char) (box.topY_ + 1 + i), line, k, 0, w);
+        }
     }
     memset(line, '-', (size_t) w);
     line[0] = '+';
     line[w - 1] = '+';
-    scr_write_line(scr, (char) (box.topY_ + mn->n + 1), line, w);
+    scr_write_line_sel(scr, (char) (box.topY_ + mn->n + 1), line, w, 0, w);
 
     scr_set_view(scr, was);
     scr_set_colourer(scr, rows, cells, ctx);
@@ -279,4 +287,8 @@ void menu_open(editor* ed) {
         ed_handle(ed, kc);
         return;
     }
+}
+
+const view* menu_box(void) {
+    return &box;
 }

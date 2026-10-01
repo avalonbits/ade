@@ -48,4 +48,8 @@ int menu_bar_text(screen* scr, char* bar, int max);
 // The command F10 is bound to.
 void menu_open(editor* ed);
 
+// Where the menu pulled down last was drawn: its columns, from textX_ for
+// cols_, and its rows, from topY_ -- the border -- to bottomY_.
+const view* menu_box(void);
+
 #endif  // _MENU_H_

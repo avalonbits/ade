@@ -295,6 +295,18 @@ under_hub "$c" 120 "ade fontok.c"
 check "settings: the font ade.ini names, again after a build" \
       "$(wc -l < "$c/ade.scr" 2>/dev/null | tr -d ' ')" 30
 
+# A menu pulled down is in the bar's colours, but for the item chosen, which
+# is in the text's: a bar of them across the box. The scripted ade reads the
+# pixels back from the VDP with the File menu down and its second item chosen.
+c=$(card "$proj/bin/ade.bin")
+printf 'some text\r\n' > "$c/pull.txt"
+under_hub "$c" 40 "ade pull.txt"
+pull=$(tr -d '\r\n' < "$c/ade.pull" 2>/dev/null)
+check "a menu pulled down: its items in the bar's colours" \
+      "$(set -- $pull; [ -n "$2" ] && [ "$2" = "$6" ] && [ "$2" != "$8" ] && echo bar)" bar
+check "  and the chosen one in the text's" \
+      "$(set -- $pull; [ -n "$4" ] && [ "$4" = "$8" ] && echo text)" text
+
 # --- memory ---
 # ade at its fullest -- three windows, each on a file too big for its memory,
 # so each pages from the card -- and what is left for the heap and the stack,

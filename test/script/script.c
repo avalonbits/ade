@@ -140,6 +140,16 @@ static const key_press MEMORY[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// Started on pull.txt: the File menu pulled down, the second item chosen;
+// with it up, the pixels of an item, the chosen one, the bar and the text
+// are read back from the VDP; then out of it, and leave.
+static const key_press PULL[] = {
+    K(0, VK_F10),
+    K(0, VK_DOWN),
+    K(27, VK_ESCAPE),
+    M(17, VK_q, MOD_CTRL),
+};
+
 // Started on a file whose name has "run" in it: build and run it, CTRL+F9.
 static const key_press RUN[] = {
     M(0, VK_F9, MOD_CTRL),
@@ -211,6 +221,25 @@ static unsigned long pixel(void) {
     return pixel_at(300, 300);
 }
 
+// The pixel in the middle of a character cell, in pixel coordinates for the
+// moment it takes.
+static unsigned long cell_pixel(int col, int row) {
+    volatile unsigned char* sv = mos_sysvars();
+    const int cols = sv[0x13];
+    const int rows = sv[0x14];
+    const int cw = cols > 0 ? (sv[0x0F] | sv[0x10] << 8) / cols : 8;
+    const int ch = rows > 0 ? (sv[0x11] | sv[0x12] << 8) / rows : 8;
+    static const char pixels[] = { 23, 0, (char) 0xC0, 0 };
+    static const char logical[] = { 23, 0, (char) 0xC0, 1 };
+    mos_puts((char*) pixels, sizeof(pixels), 0);
+    const unsigned long p = pixel_at(col * cw + cw / 2, row * ch + ch / 2);
+    mos_puts((char*) logical, sizeof(logical), 0);
+
+    return p;
+}
+
+static char pulled[96];
+
 static unsigned long seen[2];
 
 // The text on the screen, read back from the VDP a character at a time with
@@ -277,6 +306,17 @@ static bool poll(void* ctx, key_press* kp) {
     if (KEYS == RESUME && at < 2) {
         dump_screen(at == 0 ? "/ade.scr" : "/ade.scr2");
     }
+    // The menu pulled down, as ESC is asked for: the blank cell just inside
+    // its right border, on the first item's row and on the chosen second's;
+    // the bar's last column; and the text area's, beside the box.
+    if (KEYS == PULL && at == 2) {
+        const view* b = menu_box();
+        const int col = b->textX_ + b->cols_ - 2;
+        const int last = mos_sysvars()[0x13] - 1;
+        sprintf(pulled, "item %06lx chosen %06lx bar %06lx text %06lx\n",
+                cell_pixel(col, b->topY_ + 1), cell_pixel(col, b->topY_ + 2),
+                cell_pixel(last, 1), cell_pixel(last, b->topY_ + 1));
+    }
     if (KEYS == USERSCREEN && (at == 2 || at == 3)) {
         seen[at - 2] = pixel();
     }
@@ -303,6 +343,9 @@ const key_source* script_keys(const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "pull") != NULL) {
+        KEYS = PULL;
+        NKEYS = COUNT(PULL);
     } else if (arg != NULL && strstr(arg, "memory") != NULL) {
         KEYS = MEMORY;
         NKEYS = COUNT(MEMORY);
@@ -435,6 +478,14 @@ void script_report(editor* ed) {
         if (bh != 0) {
             mos_fwrite(bh, out, (unsigned) n);
             mos_fclose(bh);
+        }
+    }
+
+    if (KEYS == PULL) {
+        const char ph = mos_fopen("/ade.pull", FA_WRITE | FA_CREATE_ALWAYS);
+        if (ph != 0) {
+            mos_fwrite(ph, pulled, (unsigned) strlen(pulled));
+            mos_fclose(ph);
         }
     }
 
