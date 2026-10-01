@@ -142,14 +142,20 @@ card() {
 }
 
 # under_hub <card> <seconds> <command> [paced]: boot MOS 3.0.2 with hub
-# running <command> from a script, as a person would at hub's prompt, and stop
-# the emulator after <seconds>. Whatever ade wrote is on the card. Run flat out
+# running <command> from a script, as a person would at hub's prompt; the
+# emulator stops when the script is done, or after <seconds> if it never gets
+# there. Whatever ade wrote is on the card. Run flat out
 # (-u) -- acc is a quarter of a megabyte to load and run -- unless "paced":
 # then at the Agon's own speed, for timing.
 under_hub() {
     local c=$1 secs=$2 fifo hold speed=-u
     [ "${4:-}" = paced ] && speed=
-    printf '%s\n' "$3" > "$c/script.txt"
+    # Then the emulator's own way out, from MOS's directory on the card: run
+    # once the commands are done, it stops the machine there and then, where
+    # before every case sat at the prompt until its timeout -- the whole of
+    # it, however soon ade had finished. A case that never gets this far,
+    # such as one where ade is meant still to be running, still times out.
+    printf '%s\nemulator_exit_success\n' "$3" > "$c/script.txt"
     printf 'hub -f /script.txt\r\n' > "$c/autoexec.txt"
     chmod -R u+w "$c"
     fifo=$(mktemp -u -p "$W")
