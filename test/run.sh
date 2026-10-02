@@ -287,7 +287,7 @@ printf 'alpha\r\n' > "$c/a.txt"
 printf 'bravo\r\n' > "$c/b.txt"
 printf 'charlie\r\n' > "$c/c.txt"
 under_hub "$c" 40 "ade a.txt"
-played "$c" "under hub, windows and menus, played" "keys 62 of 62
+played "$c" "under hub, windows and menus, played" "keys 60 of 60
 current 2
 at 1:4
 screen 1:4
@@ -353,6 +353,31 @@ printf 'charlie\r\n' > "$c/c.txt"
 under_hub "$c" 40 "ade nav.txt"
 check "CTRL+TAB, CTRL+SHIFT+TAB and CTRL+number go round the windows" \
       "$(cat "$c/ade.nav" 2>/dev/null)" 3132132222
+}
+
+case_01e() {
+# More windows than can be loaded: three at a time, the rest put away. Three
+# changed and unsaved, opening a fourth asks to save the one used longest ago
+# -- no opens nothing; yes saves it and puts it away. CTRL+1 then loads it
+# back, putting away the one that is saved; CTRL+0 finds no window 10.
+c=$(card "$proj/bin/ade.bin")
+printf 'one\r\n' > "$c/w1.txt"
+printf 'two\r\n' > "$c/w2.txt"
+printf 'three\r\n' > "$c/w3.txt"
+printf 'four\r\n' > "$c/w4.txt"
+under_hub "$c" 60 "ade w1.txt"
+played "$c" "four windows, three loaded: w4.txt put away for w1.txt" "keys 42 of 42
+current 3
+at 1:2
+screen 1:2
+window 1 w1.txt 1:2 Aone
+window 2 w2.txt 1:2 Btwo
+window 3 w3.txt 1:2 Cthree
+window 4 w4.txt 1:1 (put away)"
+check "  w1.txt saved to make room, w2 and w3 left as they were" \
+      "$(cat "$c/w1.txt" "$c/w2.txt" "$c/w3.txt" "$c/w4.txt" | tr -d '\r' | tr '\n' ' ')" \
+      "Aone two three four "
+check "  and the bar shows four windows, 3 on screen" "$(header "$c")" "1 2 [3] 4"
 }
 
 case_02() {
@@ -887,7 +912,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
+run_cases case_01 case_01b case_01c case_01d case_01e case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

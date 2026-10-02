@@ -24,16 +24,20 @@
 #include "editor.h"
 
 /*
- * ade's windows: the documents it has open, each shown full-screen in a view
- * of its own, one at a time.
+ * ade's windows: each a file, shown full-screen in a view of its own, one at a
+ * time. Up to ADE_WINDOWS of them, of which ADE_LOADED at most have their file
+ * loaded: each loaded one gets ADE_DOC_KB of text and an undo log, and a paged
+ * one holds two of the seven files MOS lets a program have open. Showing a
+ * window that is not loaded puts away the loaded one used longest ago whose
+ * work is saved -- keeping its name and cursor, losing its undo -- or, when
+ * none is, asks to save one first.
  *
- * Window 1 is the file ade started with, and up to two more open beside it.
- * Any window can be closed but the last, and the ones after it move down a
- * number: close window 1 of three and windows 2 and 3 are 1 and 2. Three is what memory and file handles
- * allow: each document gets ADE_DOC_KB of text and an undo log, and a paged
- * one holds two of the seven files MOS lets a program have open.
+ * Window 1 is the file ade started with. Any window can be closed but the
+ * last, and the ones after it move down a number.
  */
-#define ADE_WINDOWS 3
+#define ADE_WINDOWS 10
+#define ADE_LOADED  3
+#define ADE_NAME_MAX 128
 #define ADE_DOC_KB  48
 
 // Takes over window 1 from an editor ed_init_for has just started.
@@ -49,10 +53,17 @@ void win_finish(editor* ed);
 void win_open(editor* ed);
 void win_next(editor* ed);
 void win_prev(editor* ed);
-// To window 1, 2 or 3, and nothing when there is no such window.
+// To window 1 to 10, and nothing when there is no such window.
 void win_to_1(editor* ed);
 void win_to_2(editor* ed);
 void win_to_3(editor* ed);
+void win_to_4(editor* ed);
+void win_to_5(editor* ed);
+void win_to_6(editor* ed);
+void win_to_7(editor* ed);
+void win_to_8(editor* ed);
+void win_to_9(editor* ed);
+void win_to_10(editor* ed);
 void win_close(editor* ed);
 void win_list(editor* ed);
 void win_quit(editor* ed);
@@ -64,13 +75,23 @@ int win_open_named(editor* ed, const char* fname);
 int win_find(editor* ed, const char* fname);
 void win_go(editor* ed, int i);
 
+// A window that was open when ade left for a build, back as it was but put
+// away: loaded when it is shown. Returns its number, or -1.
+int win_restore(editor* ed, const char* fname, int line, int x);
+
 // What is open, for anything that reports on it: the document in window `i`
-// (0-based), or NULL for a free one, and which window is on screen.
+// (0-based) when it is loaded, else NULL; its file's name, loaded or not, or
+// NULL for no such window; whether it is loaded; where its cursor is, x from
+// 0; and how many windows there are.
 document* win_doc(editor* ed, int i);
+const char* win_name(editor* ed, int i);
+bool win_loaded(int i);
+void win_where(editor* ed, int i, int* line, int* x);
+int win_count(void);
 
 // Puts window i's cursor at (line, x), x from 0, and its view round it,
 // drawing nothing: the window on screen shows the old place until it is
-// repainted, and any other is painted there when it is shown.
+// repainted, and any other is painted there when it is shown, loaded or not.
 void win_place(editor* ed, int i, int line, int x);
 int win_current(void);
 

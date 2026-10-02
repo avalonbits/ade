@@ -7,8 +7,8 @@
  *
  * The card holds a.txt ("alpha"), b.txt ("bravo") and c.txt ("charlie"), and
  * ade starts on a.txt. The run types in each window, opens the other two
- * with CTRL+SHIFT+O, is told that /a.txt is window 1's a.txt already and at
- * the fourth that three are open, moves with F6 and the ALT+F6
+ * with CTRL+SHIFT+O, is told that /a.txt is window 1's a.txt already, moves
+ * with CTRL+TAB and the ALT+F6
  * list, closes window 3 without saving, undoes window 1 back to its file from
  * the Edit menu, is told Build is still to come, wanders to Options and out
  * again, and quits from the File menu without saving window 2.
@@ -49,8 +49,6 @@ static const key_press WINDOWS[] = {
     M(15, VK_O, MOD_CTRL | MOD_SHFT),
     K('c', VK_c), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
     K(13, VK_RETURN),                               // c.txt, window 3
-    M(15, VK_O, MOD_CTRL | MOD_SHFT),                                    // a fourth: three are open
-    K('k', VK_k),                                   // ...which the message waits on
     M(9, VK_TAB, MOD_CTRL),                                    // next: round to window 1
     K('z', VK_z),                                   // a: xzalpha, after the x
     M(0, VK_F6, MOD_ALT),                           // the list, at window 1
@@ -221,6 +219,36 @@ static const key_press NAV[] = {
 // Which window was on screen as each of NAV's last keys was asked for.
 static char nav_seen[16];
 static int nav_n;
+
+// Started on w1.txt: four windows, three of them loaded at a time. Each of
+// w1, w2 and w3 changed, unsaved; then w4.txt, for which one must be put away
+// and none can as it is -- so the one used longest ago, w1.txt, is to be
+// saved first: no, and nothing opens; again, yes, and it is saved and put
+// away. Then CTRL+1: w1.txt loaded back, putting away w4.txt, the one saved;
+// CTRL+0, no window 10; and leaving, not saving w2 and w3.
+static const key_press MANY[] = {
+    K('A', VK_A),                                   // w1: Aone
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('w', VK_w), K('2', VK_2), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    K('B', VK_B),                                   // w2: Btwo
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('w', VK_w), K('3', VK_3), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    K('C', VK_C),                                   // w3: Cthree
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('w', VK_w), K('4', VK_4), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    K('n', VK_n),                                   // save w1.txt? no: no w4
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('w', VK_w), K('4', VK_4), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    K('y', VK_y),                                   // yes: w4.txt, window 4
+    M('1', VK_1, MOD_CTRL),                         // w1.txt back
+    M('0', VK_0, MOD_CTRL),                         // no window 10
+    M(17, VK_q, MOD_CTRL),
+    K('n', VK_n), K('n', VK_n),                     // w2 and w3 left unsaved
+};
 
 // Started on a file whose name has "run" in it: build and run it, CTRL+F9.
 static const key_press RUN[] = {
@@ -476,6 +504,9 @@ const key_source* script_keys(editor* ed, const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "w1.txt") != NULL) {
+        KEYS = MANY;
+        NKEYS = COUNT(MANY);
     } else if (arg != NULL && strstr(arg, "nav.txt") != NULL) {
         KEYS = NAV;
         NKEYS = COUNT(NAV);
@@ -550,7 +581,7 @@ static int free_kb(void) {
 }
 
 void script_report(editor* ed) {
-    static char out[512];
+    static char out[1024];
     static char text[64];
     // Where the cursor is in the text, and where it is drawn: the row in the
     // view and the column along the line, both from 1. The two agree only if
@@ -560,8 +591,18 @@ void script_report(editor* ed) {
                     NKEYS, win_current() + 1, tb_ypos(&ed->doc_->buf_),
                     tb_xpos(&ed->doc_->buf_), v->currY_ - v->topY_ + 1,
                     v->originX_ + v->currX_ + 1);
-    for (int i = 0; i < ADE_WINDOWS; i++) {
+    // Three windows at least, as before there were more, and any past them.
+    const int shown = win_count() > 3 ? win_count() : 3;
+    for (int i = 0; i < shown; i++) {
         document* d = win_doc(ed, i);
+        if (d == NULL && win_name(ed, i) != NULL) {
+            int wl = 0;
+            int wx = 0;
+            win_where(ed, i, &wl, &wx);
+            n += sprintf(out + n, "window %d %s %d:%d (put away)\n", i + 1,
+                         win_name(ed, i), wl, wx + 1);
+            continue;
+        }
         if (d == NULL) {
             n += sprintf(out + n, "window %d closed\n", i + 1);
             continue;

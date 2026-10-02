@@ -67,8 +67,8 @@ static const app_context ADE_APP = {
 /*
  * ade's own keys: its files, leaving and its settings (CTRL+E), the same as
  * aed's. Windows: CTRL+SHIFT+O opens a file in a new one, CTRL+TAB and
- * CTRL+SHIFT+TAB go to the next and the one before, CTRL+1 to CTRL+3 to that
- * one if it is open, ALT+F3 closes the one on screen and ALT+F6 lists them.
+ * CTRL+SHIFT+TAB go to the next and the one before, CTRL+1 to CTRL+9 and
+ * CTRL+0 to windows 1 to 10 if there is one, ALT+F3 closes the one on screen and ALT+F6 lists them.
  * Building, through hub -- see build.h: CTRL+B builds, CTRL+R builds and runs,
  * ALT+F9 lists the errors it left, and ALT+F5 shows what the program left on
  * the screen. F10 opens the menus.
@@ -90,6 +90,13 @@ static const key_binding ADE_BINDINGS[] = {
     { VK_1, C, 0, win_to_1 },
     { VK_2, C, 0, win_to_2 },
     { VK_3, C, 0, win_to_3 },
+    { VK_4, C, 0, win_to_4 },
+    { VK_5, C, 0, win_to_5 },
+    { VK_6, C, 0, win_to_6 },
+    { VK_7, C, 0, win_to_7 },
+    { VK_8, C, 0, win_to_8 },
+    { VK_9, C, 0, win_to_9 },
+    { VK_0, C, 0, win_to_10 },
     { VK_F3, A, 0, win_close },
     { VK_F6, A, 0, win_list },
     // The menus own the selection, so one made before opening them is still

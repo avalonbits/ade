@@ -547,6 +547,16 @@ against a package made locally with aed's `mklibs.sh`.
   CTRL+SHIFT+TAB go round the windows, and CTRL+1 to CTRL+3 go to that window
   if it is open. CTRL+SHIFT+O opens in a new window. Turbo Pascal's F6, F9 and
   CTRL+F9 were kept as aliases at first, then removed.
+- **Ten windows, three loaded.** A window is a file and its cursor (names
+  up to 127 characters), and documents load into three slots: the editor's
+  own and two of ade's. Showing a window that isn't loaded takes a free
+  slot, or puts away the loaded window used longest ago whose work is saved.
+  That keeps its name and cursor and loses its undo. When none is saved, ade
+  asks to save the one used longest ago, and N cancels. CTRL+1 to CTRL+9 and
+  CTRL+0 go to windows 1 to 10. The build session keeps all ten, and a resume
+  restores them put away, loading only the one shown. It costs about 4.5 KB
+  of heap (2.9 KB of code, 1.4 KB for the windows), which takes the memory
+  check to its 16 KB floor: three large files open leave 16 KB.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

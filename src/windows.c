@@ -27,18 +27,30 @@
 // ade's own state, kept here rather than in the editor, which knows nothing of
 // windows. There is one ade, and one set of windows, so it is file-scope.
 //
-// Where the documents live is apart from what the windows are numbered: slot
-// 0 is the editor's own document, shown in the whole screen's view, and slots
-// 1 and 2 are ade's, each with a view of its own. The windows are an ordered
-// list of slots, numbered by their place in it, so closing one moves the
-// ones after it down a number -- the editor's own included, which is closed
-// and opened again like the others.
-static document docs[ADE_WINDOWS];      // [0] unused: slot 0 is the editor's
-static view views[ADE_WINDOWS];         // [0] unused: slot 0 has whole_
-static bool used[ADE_WINDOWS];          // which slots hold an open document
-static int order[ADE_WINDOWS];          // window i is slot order[i]
+// A window is a file and where its cursor is; a document is that file loaded
+// for editing, and only ADE_LOADED of them fit. So the windows -- up to
+// ADE_WINDOWS -- are kept apart from the slots documents load into. Slot 0 is
+// the editor's own document, shown in the whole screen's view; the others are
+// ade's, each with a view of its own. A window shown when it is not loaded
+// takes a free slot, or the slot of the loaded window used longest ago that
+// has its work saved -- which is put away, keeping only its name and cursor
+// -- or, when every loaded window has unsaved work, asks to save one.
+typedef struct {
+    char name[ADE_NAME_MAX];            // the file, kept while put away
+    signed char slot;                   // the slot it is loaded in, or -1
+    int line;                           // its cursor, kept while put away
+    int x;
+    unsigned long used;                 // when it was last on screen
+} window;
+
+static window wins[ADE_WINDOWS];
 static int nwin;
 static int current;                     // the window on screen
+static unsigned long clock_;            // counts showings, for "longest ago"
+
+static document docs[ADE_LOADED];       // [0] unused: slot 0 is the editor's
+static view views[ADE_LOADED];          // [0] unused: slot 0 has whole_
+static bool used[ADE_LOADED];           // which slots hold a document
 
 static document* slot_doc(editor* ed, int s) {
     return s == 0 ? &ed->home_ : &docs[s];
@@ -49,35 +61,67 @@ static view* slot_view(editor* ed, int s) {
 }
 
 document* win_doc(editor* ed, int i) {
-    if (i < 0 || i >= nwin) {
+    if (i < 0 || i >= nwin || wins[i].slot < 0) {
         return NULL;
     }
 
-    return slot_doc(ed, order[i]);
+    return slot_doc(ed, wins[i].slot);
 }
 
-static view* win_view(editor* ed, int i);
+const char* win_name(editor* ed, int i) {
+    if (i < 0 || i >= nwin) {
+        return NULL;
+    }
+    document* d = win_doc(ed, i);
 
-void win_place(editor* ed, int i, int line, int x) {
-    if (win_doc(ed, i) != NULL) {
-        ed_doc_place(ed, win_doc(ed, i), win_view(ed, i), line, x);
+    return d != NULL ? tb_fname(&d->buf_) : wins[i].name;
+}
+
+bool win_loaded(int i) {
+    return i >= 0 && i < nwin && wins[i].slot >= 0;
+}
+
+int win_count(void) {
+    return nwin;
+}
+
+void win_where(editor* ed, int i, int* line, int* x) {
+    document* d = win_doc(ed, i);
+    if (d != NULL) {
+        *line = tb_ypos(&d->buf_);
+        *x = tb_xpos(&d->buf_) - 1;
+    } else {
+        *line = i >= 0 && i < nwin ? wins[i].line : 1;
+        *x = i >= 0 && i < nwin ? wins[i].x : 0;
     }
 }
 
-static view* win_view(editor* ed, int i) {
-    return slot_view(ed, order[i]);
+void win_place(editor* ed, int i, int line, int x) {
+    if (i < 0 || i >= nwin) {
+        return;
+    }
+    if (wins[i].slot >= 0) {
+        ed_doc_place(ed, slot_doc(ed, wins[i].slot), slot_view(ed, wins[i].slot),
+                     line, x);
+    } else {
+        wins[i].line = line;
+        wins[i].x = x;
+    }
 }
 
 int win_strip(char* out, int max) {
     int n = 0;
-    for (int i = 0; i < nwin && n + 5 < max; i++) {
+    for (int i = 0; i < nwin && n + 6 < max; i++) {
         if (n > 0) {
             out[n++] = ' ';
         }
         if (i == current) {
             out[n++] = '[';
         }
-        out[n++] = (char) ('1' + i);
+        if (i + 1 >= 10) {
+            out[n++] = (char) ('0' + (i + 1) / 10);
+        }
+        out[n++] = (char) ('0' + (i + 1) % 10);
         if (i == current) {
             out[n++] = ']';
         }
@@ -92,30 +136,34 @@ int win_current(void) {
 }
 
 void win_start(editor* ed) {
-    (void) ed;
     memset(used, 0, sizeof(used));
     used[0] = true;
-    order[0] = 0;
+    memset(wins, 0, sizeof(wins));
+    wins[0].slot = 0;
+    const char* name = tb_fname(&ed->home_.buf_);
+    if (name != NULL) {
+        strncpy(wins[0].name, name, ADE_NAME_MAX - 1);
+    }
+    wins[0].used = clock_ = 1;
     nwin = 1;
     current = 0;
 }
 
 void win_finish(editor* ed) {
     // ed_destroy takes the editor's own document with it, so it has to be
-    // open to be taken: if its window was closed, it opens again, empty.
+    // open to be taken: if its slot was given up, it opens again, empty.
     if (!used[0]) {
         ed_doc_open(ed, &ed->home_, &ed->scr_.whole_, ADE_DOC_KB, NULL);
         used[0] = true;
     }
     ed_doc_show(ed, &ed->home_, &ed->scr_.whole_);
-    for (int s = 1; s < ADE_WINDOWS; s++) {
+    for (int s = 1; s < ADE_LOADED; s++) {
         if (used[s]) {
             ed_doc_close(&docs[s]);
             used[s] = false;
         }
     }
-    order[0] = 0;
-    nwin = 1;
+    nwin = 0;
     current = 0;
 }
 
@@ -213,15 +261,117 @@ static bool same_file(const char* a, const char* b) {
     }
 }
 
+// Window i's document put away: its name and cursor kept, the slot freed.
+static void put_away(editor* ed, int i) {
+    document* d = slot_doc(ed, wins[i].slot);
+    const char* name = tb_fname(&d->buf_);
+    strncpy(wins[i].name, name != NULL ? name : "", ADE_NAME_MAX - 1);
+    wins[i].name[ADE_NAME_MAX - 1] = 0;
+    wins[i].line = tb_ypos(&d->buf_);
+    wins[i].x = tb_xpos(&d->buf_) - 1;
+    ed_doc_close(d);
+    used[wins[i].slot] = false;
+    wins[i].slot = -1;
+}
+
+// Whether a loaded window can be put away as it is: its work saved, and a
+// name short enough to keep, to load it from again.
+static bool can_put_away(editor* ed, int i) {
+    document* d = slot_doc(ed, wins[i].slot);
+    const char* name = tb_fname(&d->buf_);
+
+    return !tb_changed(&d->buf_) && name != NULL && name[0] != 0
+           && strlen(name) < ADE_NAME_MAX;
+}
+
+// A slot for a document, other than window `keep`'s: a free one, or one a
+// window gives up -- the one used longest ago with its work saved, or, when
+// none has, the one used longest ago once it is saved, asked first. -1 when
+// the reader would rather not, or it could not be saved.
+static int free_slot(editor* ed, int keep) {
+    for (int s = 0; s < ADE_LOADED; s++) {
+        if (!used[s]) {
+            return s;
+        }
+    }
+    int clean = -1;
+    int any = -1;
+    for (int i = 0; i < nwin; i++) {
+        if (i == keep || wins[i].slot < 0) {
+            continue;
+        }
+        if (any < 0 || wins[i].used < wins[any].used) {
+            any = i;
+        }
+        if (can_put_away(ed, i) && (clean < 0 || wins[i].used < wins[clean].used)) {
+            clean = i;
+        }
+    }
+    if (clean < 0 && any >= 0) {
+        document* d = slot_doc(ed, wins[any].slot);
+        const char* name = tb_fname(&d->buf_);
+        if (name == NULL || name[0] == 0) {
+            ui_message(&ed->ui_, &ed->scr_,
+                       "Three files are open with no name: save one first");
+            return -1;
+        }
+        static char ask[ADE_NAME_MAX + 40];
+        strcpy(ask, "Save ");
+        strncat(ask, name, ADE_NAME_MAX - 1);
+        strcat(ask, " to make room?");
+        if (ui_dialog(&ed->ui_, &ed->scr_, ask) != YES_OPT) {
+            return -1;
+        }
+        if (!tb_save(&d->buf_)) {
+            ui_message(&ed->ui_, &ed->scr_, "It could not be saved");
+            return -1;
+        }
+        clean = any;
+    }
+    if (clean < 0) {
+        return -1;
+    }
+    const int s = wins[clean].slot;
+    put_away(ed, clean);
+
+    return s;
+}
+
+// Window i, loaded if it was put away and back where its cursor was; false,
+// having said why, when it could not be.
+static bool load(editor* ed, int i) {
+    if (wins[i].slot >= 0) {
+        return true;
+    }
+    const int s = free_slot(ed, i);
+    if (s < 0) {
+        return false;
+    }
+    if (ed_doc_open(ed, slot_doc(ed, s), slot_view(ed, s), ADE_DOC_KB,
+                    wins[i].name) != TB_OK) {
+        ui_message(&ed->ui_, &ed->scr_, "Cannot open its file any more");
+        return false;
+    }
+    used[s] = true;
+    wins[i].slot = (signed char) s;
+    ed_doc_place(ed, slot_doc(ed, s), slot_view(ed, s), wins[i].line, wins[i].x);
+
+    return true;
+}
+
 static void show(editor* ed, int i) {
+    if (!load(ed, i)) {
+        cmd_restore_after_modal(ed, false);
+        return;
+    }
     current = i;
-    ed_doc_show(ed, win_doc(ed, i), win_view(ed, i));
+    wins[i].used = ++clock_;
+    ed_doc_show(ed, slot_doc(ed, wins[i].slot), slot_view(ed, wins[i].slot));
 }
 
 int win_find(editor* ed, const char* fname) {
     for (int i = 0; i < nwin; i++) {
-        document* d = win_doc(ed, i);
-        if (d != NULL && same_file(tb_fname(&d->buf_), fname)) {
+        if (same_file(win_name(ed, i), fname)) {
             return i;
         }
     }
@@ -230,22 +380,29 @@ int win_find(editor* ed, const char* fname) {
 }
 
 void win_go(editor* ed, int i) {
-    if (win_doc(ed, i) != NULL) {
+    if (i >= 0 && i < nwin) {
         show(ed, i);
     }
 }
 
-int win_open_named(editor* ed, const char* fname) {
-    int slot = -1;
-    for (int s = 0; s < ADE_WINDOWS && nwin < ADE_WINDOWS; s++) {
-        if (!used[s]) {
-            slot = s;
-            break;
-        }
+int win_restore(editor* ed, const char* fname, int line, int x) {
+    (void) ed;
+    if (nwin == ADE_WINDOWS || fname == NULL || strlen(fname) >= ADE_NAME_MAX) {
+        return -1;
     }
-    if (slot < 0) {
-        ui_message(&ed->ui_, &ed->scr_,
-                   "Three windows are open: close one to open another");
+    window* w = &wins[nwin];
+    memset(w, 0, sizeof(*w));
+    strcpy(w->name, fname);
+    w->slot = -1;
+    w->line = line;
+    w->x = x;
+
+    return nwin++;
+}
+
+int win_open_named(editor* ed, const char* fname) {
+    if (nwin == ADE_WINDOWS) {
+        ui_message(&ed->ui_, &ed->scr_, "Ten windows are open: close one to open another");
         return -1;
     }
 
@@ -254,18 +411,37 @@ int win_open_named(editor* ed, const char* fname) {
     // the libraries refuse it anyway (TB_IN_USE), but a small one they allow.
     const int already = win_find(ed, fname);
     if (already >= 0) {
-        static char msg[] = "Already open in window 1";
-        msg[sizeof(msg) - 2] = (char) ('1' + already);
+        static char msg[] = "Already open in window 10";
+        const int n = already + 1;
+        int k = (int) sizeof(msg) - 3;
+        if (n >= 10) {
+            msg[k++] = (char) ('0' + n / 10);
+        }
+        msg[k++] = (char) ('0' + n % 10);
+        msg[k] = 0;
         ui_message(&ed->ui_, &ed->scr_, msg);
         return -1;
     }
+    if (strlen(fname) >= ADE_NAME_MAX) {
+        ui_message(&ed->ui_, &ed->scr_, "Name too long");
+        return -1;
+    }
 
-    // The last window, whichever slot it lives in.
+    const int slot = free_slot(ed, -1);
+    if (slot < 0) {
+        cmd_restore_after_modal(ed, false);
+        return -1;
+    }
+    // The last window, in whichever slot was free.
     switch (ed_doc_open(ed, slot_doc(ed, slot), slot_view(ed, slot), ADE_DOC_KB,
                         fname)) {
-        case TB_OK:
+        case TB_OK: {
             used[slot] = true;
-            order[nwin] = slot;
+            window* w = &wins[nwin];
+            memset(w, 0, sizeof(*w));
+            strcpy(w->name, fname);
+            w->slot = (signed char) slot;
+            w->used = ++clock_;
             current = nwin++;
             // ed_doc_open drew the header as it cleared the screen, before
             // the window was counted: the bar's list of windows did not have
@@ -273,6 +449,7 @@ int win_open_named(editor* ed, const char* fname) {
             scr_header_draw(&ed->scr_);
 
             return current;
+        }
         case TB_TOO_LARGE:
             ui_message(&ed->ui_, &ed->scr_, "File too large, or no room for it");
             break;
@@ -283,6 +460,9 @@ int win_open_named(editor* ed, const char* fname) {
             ui_message(&ed->ui_, &ed->scr_, "Already open in another window");
             break;
     }
+    // Back to the window that was on screen; a window put away to make room
+    // is still put away.
+    show(ed, current);
 
     return -1;
 }
@@ -290,8 +470,7 @@ int win_open_named(editor* ed, const char* fname) {
 void win_open(editor* ed) {
     // Said before asking for a name that could not be used anyway.
     if (nwin == ADE_WINDOWS) {
-        ui_message(&ed->ui_, &ed->scr_,
-                   "Three windows are open: close one to open another");
+        ui_message(&ed->ui_, &ed->scr_, "Ten windows are open: close one to open another");
         return;
     }
 
@@ -324,24 +503,23 @@ void win_prev(editor* ed) {
     }
 }
 
-// To window n, if it is open and not the one on screen; else nothing.
+// To window n, from 0, if there is one and it is not on screen; else nothing.
 static void to(editor* ed, int n) {
     if (n < nwin && n != current) {
         show(ed, n);
     }
 }
 
-void win_to_1(editor* ed) {
-    to(ed, 0);
-}
-
-void win_to_2(editor* ed) {
-    to(ed, 1);
-}
-
-void win_to_3(editor* ed) {
-    to(ed, 2);
-}
+void win_to_1(editor* ed) { to(ed, 0); }
+void win_to_2(editor* ed) { to(ed, 1); }
+void win_to_3(editor* ed) { to(ed, 2); }
+void win_to_4(editor* ed) { to(ed, 3); }
+void win_to_5(editor* ed) { to(ed, 4); }
+void win_to_6(editor* ed) { to(ed, 5); }
+void win_to_7(editor* ed) { to(ed, 6); }
+void win_to_8(editor* ed) { to(ed, 7); }
+void win_to_9(editor* ed) { to(ed, 8); }
+void win_to_10(editor* ed) { to(ed, 9); }
 
 void win_close(editor* ed) {
     if (nwin == 1) {
@@ -359,18 +537,23 @@ void win_close(editor* ed) {
         }
     }
     // To the window before it -- or, closing window 1, the one after, which
-    // window 1 it then is. Shown first: a document cannot be closed while it
-    // is the one on screen.
+    // is window 1 then. Shown first: a document cannot be closed while it is
+    // the one on screen. That may load it, putting another away -- never
+    // this one, which is on screen and so the last to go.
     const int gone = current;
     const int to = gone > 0 ? gone - 1 : 1;
-    const int slot = order[gone];
     show(ed, to);
-    ed_doc_close(slot_doc(ed, slot));
-    used[slot] = false;
+    if (current != to) {
+        return;                         // it could not be shown: stay as we are
+    }
+    if (wins[gone].slot >= 0) {
+        ed_doc_close(slot_doc(ed, wins[gone].slot));
+        used[wins[gone].slot] = false;
+    }
 
     // The ones after it move down a number.
     for (int i = gone; i + 1 < nwin; i++) {
-        order[i] = order[i + 1];
+        wins[i] = wins[i + 1];
     }
     nwin--;
     current = to > gone ? to - 1 : to;
@@ -387,29 +570,26 @@ void win_list(editor* ed) {
     const char bottom = ui->ypos_;
     const int width = scr->v_->cols_ < 255 ? scr->v_->cols_ : 255;
     static char line[256];
-
-    int shown[ADE_WINDOWS];
-    int n = 0;
-    int at = 0;
-    for (int i = 0; i < nwin; i++) {
-        if (i == current) {
-            at = n;
-        }
-        shown[n++] = i;
-    }
+    int at = current;
 
     for (;;) {
         char y = ui_modal_title(scr, top, width, "  WINDOWS");
-        for (int k = 0; k < n && y < bottom; k++) {
-            document* d = win_doc(ed, shown[k]);
-            const char* name = tb_fname(&d->buf_);
-            char num[2] = { (char) ('1' + shown[k]), 0 };
+        for (int k = 0; k < nwin && y < bottom; k++) {
+            const char* name = win_name(ed, k);
+            char num[3] = { 0, 0, 0 };
+            if (k + 1 >= 10) {
+                num[0] = (char) ('0' + (k + 1) / 10);
+                num[1] = (char) ('0' + (k + 1) % 10);
+            } else {
+                num[0] = (char) ('1' + k);
+            }
             int c = ui_put_at(line, 0, width, k == at ? "  > " : "    ");
             c = ui_put_at(line, c, width, num);
-            c = ui_put_at(line, c, width, "  ");
+            c = ui_put_at(line, c, width, k + 1 >= 10 ? " " : "  ");
             c = ui_put_at(line, c, width,
                           name != NULL && name[0] != 0 ? name : "(no name)");
-            if (tb_changed(&d->buf_)) {
+            document* d = win_doc(ed, k);
+            if (d != NULL && tb_changed(&d->buf_)) {
                 c = ui_put_at(line, c, width, "  *");
             }
             scr_write_line(scr, y++, line, c);
@@ -418,13 +598,13 @@ void win_list(editor* ed) {
                       "  UP/DOWN to choose, RETURN to go there, ESC to stay", 52);
 
         const key_press kp = ks_wait(ui->keys_);
-        const pick_key act = ui_modal_move(kp.vkey, &at, n - 1);
+        const pick_key act = ui_modal_move(kp.vkey, &at, nwin - 1);
         if (act == PICK_LEAVE) {
             show(ed, current);          // put back what the list covered
             return;
         }
         if (act == PICK_TAKE) {
-            show(ed, shown[at]);
+            show(ed, at);
             return;
         }
     }
@@ -432,8 +612,9 @@ void win_list(editor* ed) {
 
 void win_quit(editor* ed) {
     // Every window with unsaved work gets the question, shown as it is asked;
-    // answering cancel to any of them calls the whole thing off.
-    for (int i = 0; i < ADE_WINDOWS; i++) {
+    // answering cancel to any of them calls the whole thing off. A window
+    // put away has none: it was saved to be put away.
+    for (int i = 0; i < nwin; i++) {
         document* d = win_doc(ed, i);
         if (d == NULL || !tb_changed(&d->buf_)) {
             continue;

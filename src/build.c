@@ -43,7 +43,7 @@ typedef struct {
     unsigned char current;
     int line[ADE_WINDOWS];
     int x[ADE_WINDOWS];
-    char name[ADE_WINDOWS][TB_FNAME_MAX];
+    char name[ADE_WINDOWS][ADE_NAME_MAX];
 } session;
 
 // Changed whenever the session does, so an older ade's is not misread.
@@ -280,22 +280,22 @@ static void start(editor* ed, bool run) {
     }
 
     // Everything that needs saving is saved first: the tool reads the files,
-    // not ade's windows. A window with no name cannot be, so it stops here.
-    for (int i = 0; i < ADE_WINDOWS; i++) {
+    // not ade's windows. A window with no name cannot be, so it stops here. A
+    // window put away has nothing to save: it was saved to be put away.
+    for (int i = 0; i < win_count(); i++) {
         document* d = win_doc(ed, i);
         if (d == NULL || !tb_changed(&d->buf_)) {
             continue;
         }
         const char* n = tb_fname(&d->buf_);
+        static char msg[48];
         if (n == NULL || n[0] == 0) {
-            static char msg[] = "Window 1 has no name: save it first";
-            msg[7] = (char) ('1' + i);
+            snprintf(msg, sizeof(msg), "Window %d has no name: save it first", i + 1);
             say(ed, msg);
             return;
         }
         if (!tb_save(&d->buf_)) {
-            static char msg[] = "Window 1 could not be saved";
-            msg[7] = (char) ('1' + i);
+            snprintf(msg, sizeof(msg), "Window %d could not be saved", i + 1);
             say(ed, msg);
             return;
         }
@@ -312,14 +312,13 @@ static void start(editor* ed, bool run) {
     memcpy(s->program, program, sizeof(program));
     s->current = (unsigned char) win_current();
     for (int i = 0; i < ADE_WINDOWS; i++) {
-        document* d = win_doc(ed, i);
-        s->open[i] = d != NULL;
-        if (d == NULL) {
+        const char* name = win_name(ed, i);
+        s->open[i] = name != NULL && strlen(name) < ADE_NAME_MAX;
+        if (!s->open[i]) {
             continue;
         }
-        snprintf(s->name[i], TB_FNAME_MAX, "%s", tb_fname(&d->buf_));
-        s->line[i] = tb_ypos(&d->buf_);
-        s->x[i] = tb_xpos(&d->buf_) - 1;
+        strcpy(s->name[i], name);
+        win_where(ed, i, &s->line[i], &s->x[i]);
     }
 
     // An error left by an earlier build must not be taken for this one's.
@@ -586,10 +585,10 @@ void build_resume(editor* ed) {
     memset(s->magic, 0, 4);             // used: a later start is not a resume
 
     // Window 1 is open already: ed_init_for opened its file. The others, in
-    // order.
+    // order, put away -- each is loaded when it is shown -- where they were.
     for (int i = 1; i < ADE_WINDOWS; i++) {
         if (s->open[i]) {
-            win_open_named(ed, s->name[i]);
+            win_restore(ed, s->name[i], s->line[i], s->x[i]);
         }
     }
 
