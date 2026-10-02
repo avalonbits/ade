@@ -27,8 +27,9 @@
  * ade's windows: the documents it has open, each shown full-screen in a view
  * of its own, one at a time.
  *
- * Window 1 is the editor's own document, the one ade started with, and stays
- * open. Up to two more open beside it. Three is what memory and file handles
+ * Window 1 is the file ade started with, and up to two more open beside it.
+ * Any window can be closed but the last, and the ones after it move down a
+ * number: close window 1 of three and windows 2 and 3 are 1 and 2. Three is what memory and file handles
  * allow: each document gets ADE_DOC_KB of text and an undo log, and a paged
  * one holds two of the seven files MOS lets a program have open.
  */
@@ -38,7 +39,8 @@
 // Takes over window 1 from an editor ed_init_for has just started.
 void win_start(editor* ed);
 
-// Closes every window but the first, which ed_destroy takes with the editor.
+// Closes every window but the editor's own document, which ed_destroy takes
+// with the editor -- opened again, empty, if its window was closed.
 void win_finish(editor* ed);
 
 // The commands ade binds: open a file in a new window, go to the next one,

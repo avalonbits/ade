@@ -26,17 +26,34 @@
 
 // ade's own state, kept here rather than in the editor, which knows nothing of
 // windows. There is one ade, and one set of windows, so it is file-scope.
-static document docs[ADE_WINDOWS];      // [0] unused: window 1 is the editor's
-static view views[ADE_WINDOWS];         // [0] unused: window 1 has whole_
-static bool open_[ADE_WINDOWS];
-static int current;
+//
+// Where the documents live is apart from what the windows are numbered: slot
+// 0 is the editor's own document, shown in the whole screen's view, and slots
+// 1 and 2 are ade's, each with a view of its own. The windows are an ordered
+// list of slots, numbered by their place in it, so closing one moves the
+// ones after it down a number -- the editor's own included, which is closed
+// and opened again like the others.
+static document docs[ADE_WINDOWS];      // [0] unused: slot 0 is the editor's
+static view views[ADE_WINDOWS];         // [0] unused: slot 0 has whole_
+static bool used[ADE_WINDOWS];          // which slots hold an open document
+static int order[ADE_WINDOWS];          // window i is slot order[i]
+static int nwin;
+static int current;                     // the window on screen
+
+static document* slot_doc(editor* ed, int s) {
+    return s == 0 ? &ed->home_ : &docs[s];
+}
+
+static view* slot_view(editor* ed, int s) {
+    return s == 0 ? &ed->scr_.whole_ : &views[s];
+}
 
 document* win_doc(editor* ed, int i) {
-    if (i < 0 || i >= ADE_WINDOWS || !open_[i]) {
+    if (i < 0 || i >= nwin) {
         return NULL;
     }
 
-    return i == 0 ? &ed->home_ : &docs[i];
+    return slot_doc(ed, order[i]);
 }
 
 static view* win_view(editor* ed, int i);
@@ -48,15 +65,12 @@ void win_place(editor* ed, int i, int line, int x) {
 }
 
 static view* win_view(editor* ed, int i) {
-    return i == 0 ? &ed->scr_.whole_ : &views[i];
+    return slot_view(ed, order[i]);
 }
 
 int win_strip(char* out, int max) {
     int n = 0;
-    for (int i = 0; i < ADE_WINDOWS && n + 5 < max; i++) {
-        if (!open_[i]) {
-            continue;
-        }
+    for (int i = 0; i < nwin && n + 5 < max; i++) {
         if (n > 0) {
             out[n++] = ' ';
         }
@@ -79,19 +93,29 @@ int win_current(void) {
 
 void win_start(editor* ed) {
     (void) ed;
-    memset(open_, 0, sizeof(open_));
-    open_[0] = true;
+    memset(used, 0, sizeof(used));
+    used[0] = true;
+    order[0] = 0;
+    nwin = 1;
     current = 0;
 }
 
 void win_finish(editor* ed) {
+    // ed_destroy takes the editor's own document with it, so it has to be
+    // open to be taken: if its window was closed, it opens again, empty.
+    if (!used[0]) {
+        ed_doc_open(ed, &ed->home_, &ed->scr_.whole_, ADE_DOC_KB, NULL);
+        used[0] = true;
+    }
     ed_doc_show(ed, &ed->home_, &ed->scr_.whole_);
-    for (int i = 1; i < ADE_WINDOWS; i++) {
-        if (open_[i]) {
-            ed_doc_close(&docs[i]);
-            open_[i] = false;
+    for (int s = 1; s < ADE_WINDOWS; s++) {
+        if (used[s]) {
+            ed_doc_close(&docs[s]);
+            used[s] = false;
         }
     }
+    order[0] = 0;
+    nwin = 1;
     current = 0;
 }
 
@@ -195,7 +219,7 @@ static void show(editor* ed, int i) {
 }
 
 int win_find(editor* ed, const char* fname) {
-    for (int i = 0; i < ADE_WINDOWS; i++) {
+    for (int i = 0; i < nwin; i++) {
         document* d = win_doc(ed, i);
         if (d != NULL && same_file(tb_fname(&d->buf_), fname)) {
             return i;
@@ -213,9 +237,9 @@ void win_go(editor* ed, int i) {
 
 int win_open_named(editor* ed, const char* fname) {
     int slot = -1;
-    for (int i = 1; i < ADE_WINDOWS; i++) {
-        if (!open_[i]) {
-            slot = i;
+    for (int s = 0; s < ADE_WINDOWS && nwin < ADE_WINDOWS; s++) {
+        if (!used[s]) {
+            slot = s;
             break;
         }
     }
@@ -236,16 +260,19 @@ int win_open_named(editor* ed, const char* fname) {
         return -1;
     }
 
-    switch (ed_doc_open(ed, &docs[slot], &views[slot], ADE_DOC_KB, fname)) {
+    // The last window, whichever slot it lives in.
+    switch (ed_doc_open(ed, slot_doc(ed, slot), slot_view(ed, slot), ADE_DOC_KB,
+                        fname)) {
         case TB_OK:
-            open_[slot] = true;
-            current = slot;
+            used[slot] = true;
+            order[nwin] = slot;
+            current = nwin++;
             // ed_doc_open drew the header as it cleared the screen, before
             // the window was counted: the bar's list of windows did not have
             // it yet.
             scr_header_draw(&ed->scr_);
 
-            return slot;
+            return current;
         case TB_TOO_LARGE:
             ui_message(&ed->ui_, &ed->scr_, "File too large, or no room for it");
             break;
@@ -262,7 +289,7 @@ int win_open_named(editor* ed, const char* fname) {
 
 void win_open(editor* ed) {
     // Said before asking for a name that could not be used anyway.
-    if (win_doc(ed, 1) != NULL && win_doc(ed, 2) != NULL) {
+    if (nwin == ADE_WINDOWS) {
         ui_message(&ed->ui_, &ed->scr_,
                    "Three windows are open: close one to open another");
         return;
@@ -286,18 +313,14 @@ void win_open(editor* ed) {
 }
 
 void win_next(editor* ed) {
-    for (int step = 1; step < ADE_WINDOWS; step++) {
-        const int i = (current + step) % ADE_WINDOWS;
-        if (open_[i]) {
-            show(ed, i);
-            return;
-        }
+    if (nwin > 1) {
+        show(ed, (current + 1) % nwin);
     }
 }
 
 void win_close(editor* ed) {
-    if (current == 0) {
-        ui_message(&ed->ui_, &ed->scr_, "Window 1 stays open");
+    if (nwin == 1) {
+        ui_message(&ed->ui_, &ed->scr_, "The last window stays open");
         return;
     }
     // The same bargain as opening a file over it: the work is about to go.
@@ -310,17 +333,22 @@ void win_close(editor* ed) {
             return;
         }
     }
+    // To the window before it -- or, closing window 1, the one after, which
+    // window 1 it then is. Shown first: a document cannot be closed while it
+    // is the one on screen.
     const int gone = current;
-    int to = 0;
-    for (int i = gone - 1; i >= 0; i--) {
-        if (open_[i]) {
-            to = i;
-            break;
-        }
-    }
+    const int to = gone > 0 ? gone - 1 : 1;
+    const int slot = order[gone];
     show(ed, to);
-    ed_doc_close(&docs[gone]);
-    open_[gone] = false;
+    ed_doc_close(slot_doc(ed, slot));
+    used[slot] = false;
+
+    // The ones after it move down a number.
+    for (int i = gone; i + 1 < nwin; i++) {
+        order[i] = order[i + 1];
+    }
+    nwin--;
+    current = to > gone ? to - 1 : to;
 
     // Showing the window it goes back to drew the header while this one was
     // still open, so the bar's list of windows still had it.
@@ -338,13 +366,11 @@ void win_list(editor* ed) {
     int shown[ADE_WINDOWS];
     int n = 0;
     int at = 0;
-    for (int i = 0; i < ADE_WINDOWS; i++) {
-        if (open_[i]) {
-            if (i == current) {
-                at = n;
-            }
-            shown[n++] = i;
+    for (int i = 0; i < nwin; i++) {
+        if (i == current) {
+            at = n;
         }
+        shown[n++] = i;
     }
 
     for (;;) {

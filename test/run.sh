@@ -220,6 +220,11 @@ MK
 (cd "$proj" && make >/dev/null 2>&1)
 check "the scripted ade builds" "$([ -f "$proj/bin/ade.bin" ] && echo built)" built
 
+# strip <file>: the end of the menu bar's row, past the menus' names, as read.
+strip() {
+    sed -n '2p' "$1" 2>/dev/null | tr '?' ' ' | sed 's/ *$//' | awk -F'   +' '{print $NF}'
+}
+
 # header <card>: the right-hand end of the header row as ade finished -- the
 # project's program and the open windows -- past the menus' names.
 header() {
@@ -305,16 +310,33 @@ c=$(card "$proj/bin/ade.bin")
 printf 'first file\r\n' > "$c/one.txt"
 printf '#define FUNC 1\r\n' > "$c/func.h"
 under_hub "$c" 40 "ade one.txt"
-# strip <file>: the end of the menu bar's row, past the menus' names, as read.
-strip() {
-    sed -n '2p' "$1" 2>/dev/null | tr '?' ' ' | sed 's/ *$//' | awk -F'   +' '{print $NF}'
-}
 check "CTRL+SHIFT+O to a second window: the bar shows both, 2 on screen" "$(strip "$c/ade.scr")" "1 [2]"
 check "  and F6 back to 1: the bar shows 1 on screen" "$(strip "$c/ade.scr2")" "[1] 2"
 # The footer names the file on screen: it went on naming the first window's,
 # drawn from the document the editor's loop started with, until aed 1.5.1.
 check "  the footer names func.h in window 2" "$(grep '^footer ' "$c/ade.scr" 2>/dev/null)" "footer func.h"
 check "  and one.txt back in window 1" "$(grep '^footer ' "$c/ade.scr2" 2>/dev/null)" "footer one.txt"
+}
+
+case_01c() {
+# Any window but the last can be closed, window 1 included, and the ones
+# after it move down a number: with three open, closing window 1 makes b.txt
+# window 1 and c.txt window 2. It used to be refused: "Window 1 stays open".
+c=$(card "$proj/bin/ade.bin")
+printf 'first\r\n' > "$c/close1.txt"
+printf 'bravo\r\n' > "$c/b.txt"
+printf 'charlie\r\n' > "$c/c.txt"
+under_hub "$c" 40 "ade close1.txt"
+check "closing window 1: the others move down, b.txt window 1 of 2" \
+      "$(strip "$c/ade.scr")" "[1] 2"
+check "  and it is b.txt on screen" "$(grep '^footer ' "$c/ade.scr" 2>/dev/null)" "footer b.txt"
+played "$c" "  closing window 2 too leaves b.txt, and the last stays open" "keys 21 of 21
+current 1
+at 1:1
+screen 1:1
+window 1 b.txt 1:1 bravo
+window 2 closed
+window 3 closed"
 }
 
 case_02() {
@@ -849,7 +871,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
+run_cases case_01 case_01b case_01c case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

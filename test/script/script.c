@@ -173,6 +173,27 @@ static const key_press NEWPROJ[] = {
     K(0, VK_F9),
 };
 
+// Started on close1.txt: b.txt and c.txt in windows 2 and 3, then F6 round
+// to window 1 and ALT+F3 to close it -- b.txt is window 1 then, c.txt window
+// 2, and the screen is read back as the next key is asked for -- then F6 to
+// c.txt and closed too, back to b.txt; closing that, the last, is refused,
+// which the message waits on; and leave.
+static const key_press CLOSE[] = {
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('b', VK_b), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
+    K(13, VK_RETURN),                               // b.txt, window 2
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('c', VK_c), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
+    K(13, VK_RETURN),                               // c.txt, window 3
+    K(0, VK_F6),                                    // round to window 1
+    M(0, VK_F3, MOD_ALT),                           // ...closed: b.txt is 1
+    K(0, VK_F6),                                    // c.txt, window 2
+    M(0, VK_F3, MOD_ALT),                           // ...closed: back to b.txt
+    M(0, VK_F3, MOD_ALT),                           // the last: refused...
+    K('k', VK_k),                                   // ...which the message waits on
+    M(17, VK_q, MOD_CTRL),
+};
+
 // Started on a file whose name has "run" in it: build and run it, CTRL+F9.
 static const key_press RUN[] = {
     M(0, VK_F9, MOD_CTRL),
@@ -372,6 +393,9 @@ static bool poll(void* ctx, key_press* kp) {
     }
     // A resume's screen as its first key is asked for -- what the build said,
     // on top of the document -- and as its second is, once that is gone.
+    if (KEYS == CLOSE && at == 16) {
+        dump_screen("/ade.scr");
+    }
     if (KEYS == TWO && (at == 8 || at == 9)) {
         dump_screen(at == 8 ? "/ade.scr" : "/ade.scr2");
     }
@@ -421,6 +445,9 @@ const key_source* script_keys(editor* ed, const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "close1") != NULL) {
+        KEYS = CLOSE;
+        NKEYS = COUNT(CLOSE);
     } else if (arg != NULL && strstr(arg, "one.txt") != NULL) {
         KEYS = TWO;
         NKEYS = COUNT(TWO);
