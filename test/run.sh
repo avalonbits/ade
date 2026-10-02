@@ -330,6 +330,8 @@ check "  and CTRL+TAB back to 1: the bar shows 1 on screen" "$(strip "$c/ade.scr
 # The footer names the file on screen: it went on naming the first window's,
 # drawn from the document the editor's loop started with, until aed 1.5.1.
 check "  the footer names func.h in window 2" "$(grep '^footer ' "$c/ade.scr" 2>/dev/null)" "footer func.h"
+check "  under the title" "$(grep '^title ' "$c/ade.scr" 2>/dev/null)" \
+      "title AED: Another Development Environment"
 check "  and one.txt back in window 1" "$(grep '^footer ' "$c/ade.scr2" 2>/dev/null)" "footer one.txt"
 }
 
@@ -496,7 +498,7 @@ printf '[editor]\r\nfont = /config/aed/tall.bin\r\n' > "$c/config/ade.ini"
 printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/fontok.c"
 under_hub "$c" 120 "ade fontok.c"
 check "settings: the font ade.ini names, again after a build" \
-      "$(grep -vc '^footer \|^said ' "$c/ade.scr" 2>/dev/null)" 30
+      "$(grep -vc '^footer \|^title \|^said ' "$c/ade.scr" 2>/dev/null)" 30
 }
 
 case_05() {

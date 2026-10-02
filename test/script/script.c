@@ -467,6 +467,11 @@ static void dump_screen(const char* path) {
     if (scripted != NULL) {
         const int k = sprintf(line, "footer %.100s\n", scripted->scr_.lastFname_);
         mos_fwrite(fh, line, (unsigned) k);
+        // And the title the header row is drawn with, whose letters do not
+        // read back either.
+        const int t = sprintf(line, "title %.100s\n",
+                              scripted->scr_.title_ != NULL ? scripted->scr_.title_ : "");
+        mos_fwrite(fh, line, (unsigned) t);
     }
     // And the last thing a build said on the message row, which is the same.
     const int k = sprintf(line, "said %.100s\n", build_said());

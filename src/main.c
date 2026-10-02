@@ -125,7 +125,7 @@ static const char* ade_screen(editor* ed) {
 }
 
 static const ed_program ADE = {
-    &ADE_APP, &ADE_KEYS, ade_screen, NULL, "ade: the Agon Development Environment",
+    &ADE_APP, &ADE_KEYS, ade_screen, NULL, "AED: Another Development Environment",
 };
 
 int main(int argc, char** argv) {
