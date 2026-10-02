@@ -331,7 +331,7 @@ check "  and CTRL+TAB back to 1: the bar shows 1 on screen" "$(strip "$c/ade.scr
 # drawn from the document the editor's loop started with, until aed 1.5.1.
 check "  the footer names func.h in window 2" "$(grep '^footer ' "$c/ade.scr" 2>/dev/null)" "footer func.h"
 check "  under the title" "$(grep '^title ' "$c/ade.scr" 2>/dev/null)" \
-      "title AED: Another Development Environment"
+      "title ADE: Another Development Environment"
 check "  and one.txt back in window 1" "$(grep '^footer ' "$c/ade.scr2" 2>/dev/null)" "footer one.txt"
 }
 
