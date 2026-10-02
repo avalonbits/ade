@@ -466,21 +466,31 @@ static bool parse_error(const char* s, char* file, int fmax, int* line, int* col
     return *line > 0;
 }
 
-// What an error says, past its `file:line:column: `: the cursor is put on
-// the place, and the row is too short to say it twice.
+// What an error says, for the message row: from its line and column on --
+// `line:column: ...` -- since its file is the one on screen, named in the
+// footer. One at line 0, which is in no file, says only what is past them.
 static const char* error_text(const char* e) {
     const char* q = e;
     while (*q != 0 && !(q[0] == ':' && q[1] >= '0' && q[1] <= '9')) {
         q++;
     }
+    if (*q == 0) {
+        return e;                       // not that shape: all of it
+    }
+    const char* place = q + 1;
+    bool nowhere = true;
     for (int field = 0; field < 2 && *q == ':'; field++) {
         q++;
         while (*q >= '0' && *q <= '9') {
+            nowhere = nowhere && (field > 0 || *q == '0');
             q++;
         }
     }
     if (*q != ':') {
-        return e;                       // not that shape: all of it
+        return e;
+    }
+    if (!nowhere) {
+        return place;
     }
     q++;
     while (*q == ' ') {

@@ -554,6 +554,9 @@ window 2 closed
 window 3 closed"
 check "  where acc said it was" "$(tr -d '\r' < "$c/ade.err" 2>/dev/null | head -1)" \
       "bad.c:3:12: error: 'x' is not declared"
+check "  and says so from its line and column, the file in the footer" \
+      "$(grep '^said ' "$c/ade.scr" 2>/dev/null | tr -d '\r')" \
+      "said 3:12: error: 'x' is not declared"
 }
 
 case_08() {
