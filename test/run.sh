@@ -402,6 +402,29 @@ window 3 w3.txt 1:1 three
 window 4 w4.txt 1:1 four"
 }
 
+case_01g() {
+# Nine windows at most: f1.txt to f9.txt open, three of them loaded -- the
+# last three, the earlier put away in turn -- and a tenth refused.
+c=$(card "$proj/bin/ade.bin")
+for n in 1 2 3 4 5 6 7 8 9; do
+    printf 'f%d\r\n' $n > "$c/f$n.txt"
+done
+under_hub "$c" 60 "ade f1.txt"
+played "$c" "nine windows open, the tenth refused" "keys 67 of 67
+current 9
+at 1:1
+screen 1:1
+window 1 f1.txt 1:1 (put away)
+window 2 f2.txt 1:1 (put away)
+window 3 f3.txt 1:1 (put away)
+window 4 f4.txt 1:1 (put away)
+window 5 f5.txt 1:1 (put away)
+window 6 f6.txt 1:1 (put away)
+window 7 f7.txt 1:1 f7
+window 8 f8.txt 1:1 f8
+window 9 f9.txt 1:1 f9"
+}
+
 case_02() {
 # --- settings ---
 # The editor's settings, from aed's library, in /config/ade.ini: applied as
@@ -934,7 +957,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

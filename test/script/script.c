@@ -225,7 +225,7 @@ static int nav_n;
 // and none can as it is -- so the one used longest ago, w1.txt, is to be
 // saved first: no, and nothing opens; again, yes, and it is saved and put
 // away. Then CTRL+1: w1.txt loaded back, putting away w4.txt, the one saved;
-// CTRL+0, no window 10; and leaving, not saving w2 and w3.
+// CTRL+9, no window 9; and leaving, not saving w2 and w3.
 static const key_press MANY[] = {
     K('A', VK_A),                                   // w1: Aone
     M(15, VK_O, MOD_CTRL | MOD_SHFT),
@@ -245,7 +245,7 @@ static const key_press MANY[] = {
     K('t', VK_t), K(13, VK_RETURN),
     K('y', VK_y),                                   // yes: w4.txt, window 4
     M('1', VK_1, MOD_CTRL),                         // w1.txt back
-    M('0', VK_0, MOD_CTRL),                         // no window 10
+    M('9', VK_9, MOD_CTRL),                         // no window 9
     M(17, VK_q, MOD_CTRL),
     K('n', VK_n), K('n', VK_n),                     // w2 and w3 left unsaved
 };
@@ -264,6 +264,39 @@ static const key_press LONGNAME[] = {
     M(15, VK_O, MOD_CTRL | MOD_SHFT),
     K('w', VK_w), K('4', VK_4), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
     K('t', VK_t), K(13, VK_RETURN),
+    M(17, VK_q, MOD_CTRL),
+};
+
+// Started on f1.txt: f2.txt to f9.txt opened beside it, nine windows, the
+// earlier ones put away in turn as the later are loaded; then a tenth asked
+// for, which is refused, which the message waits on; and leave.
+static const key_press NINE[] = {
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('f', VK_f), K('2', VK_2), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('f', VK_f), K('3', VK_3), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('f', VK_f), K('4', VK_4), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('f', VK_f), K('5', VK_5), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('f', VK_f), K('6', VK_6), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('f', VK_f), K('7', VK_7), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('f', VK_f), K('8', VK_8), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('f', VK_f), K('9', VK_9), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),               // a tenth: refused...
+    K('k', VK_k),                                   // ...which the message waits on
     M(17, VK_q, MOD_CTRL),
 };
 
@@ -524,6 +557,9 @@ const key_source* script_keys(editor* ed, const char* arg) {
     } else if (arg != NULL && strstr(arg, "a_directory_with") != NULL) {
         KEYS = LONGNAME;
         NKEYS = COUNT(LONGNAME);
+    } else if (arg != NULL && strstr(arg, "f1.txt") != NULL) {
+        KEYS = NINE;
+        NKEYS = COUNT(NINE);
     } else if (arg != NULL && strstr(arg, "w1.txt") != NULL) {
         KEYS = MANY;
         NKEYS = COUNT(MANY);

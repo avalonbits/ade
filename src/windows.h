@@ -35,7 +35,7 @@
  * Window 1 is the file ade started with. Any window can be closed but the
  * last, and the ones after it move down a number.
  */
-#define ADE_WINDOWS 10
+#define ADE_WINDOWS 9
 #define ADE_LOADED  3
 // The longest name a window keeps while put away; one with a longer name
 // stays loaded, since it could not be loaded again.
@@ -55,7 +55,7 @@ void win_finish(editor* ed);
 void win_open(editor* ed);
 void win_next(editor* ed);
 void win_prev(editor* ed);
-// To window 1 to 10, and nothing when there is no such window.
+// To window 1 to 9, and nothing when there is no such window.
 void win_to_1(editor* ed);
 void win_to_2(editor* ed);
 void win_to_3(editor* ed);
@@ -65,7 +65,6 @@ void win_to_6(editor* ed);
 void win_to_7(editor* ed);
 void win_to_8(editor* ed);
 void win_to_9(editor* ed);
-void win_to_10(editor* ed);
 void win_close(editor* ed);
 void win_list(editor* ed);
 void win_quit(editor* ed);

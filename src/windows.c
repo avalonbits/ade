@@ -398,7 +398,7 @@ int win_restore(editor* ed, const char* fname, int line, int x) {
 
 int win_open_named(editor* ed, const char* fname) {
     if (nwin == ADE_WINDOWS) {
-        ui_message(&ed->ui_, &ed->scr_, "Ten windows are open: close one to open another");
+        ui_message(&ed->ui_, &ed->scr_, "Nine windows are open: close one to open another");
         return -1;
     }
 
@@ -407,14 +407,8 @@ int win_open_named(editor* ed, const char* fname) {
     // the libraries refuse it anyway (TB_IN_USE), but a small one they allow.
     const int already = win_find(ed, fname);
     if (already >= 0) {
-        static char msg[] = "Already open in window 10";
-        const int n = already + 1;
-        int k = (int) sizeof(msg) - 3;
-        if (n >= 10) {
-            msg[k++] = (char) ('0' + n / 10);
-        }
-        msg[k++] = (char) ('0' + n % 10);
-        msg[k] = 0;
+        static char msg[] = "Already open in window 1";
+        msg[sizeof(msg) - 2] = (char) ('1' + already);
         ui_message(&ed->ui_, &ed->scr_, msg);
         return -1;
     }
@@ -462,7 +456,7 @@ int win_open_named(editor* ed, const char* fname) {
 void win_open(editor* ed) {
     // Said before asking for a name that could not be used anyway.
     if (nwin == ADE_WINDOWS) {
-        ui_message(&ed->ui_, &ed->scr_, "Ten windows are open: close one to open another");
+        ui_message(&ed->ui_, &ed->scr_, "Nine windows are open: close one to open another");
         return;
     }
 
@@ -511,7 +505,6 @@ void win_to_6(editor* ed) { to(ed, 5); }
 void win_to_7(editor* ed) { to(ed, 6); }
 void win_to_8(editor* ed) { to(ed, 7); }
 void win_to_9(editor* ed) { to(ed, 8); }
-void win_to_10(editor* ed) { to(ed, 9); }
 
 void win_close(editor* ed) {
     if (nwin == 1) {
