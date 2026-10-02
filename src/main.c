@@ -71,12 +71,10 @@ static const app_context ADE_APP = {
  * one if it is open, ALT+F3 closes the one on screen and ALT+F6 lists them.
  * Building, through hub -- see build.h: CTRL+B builds, CTRL+R builds and runs,
  * ALT+F9 lists the errors it left, and ALT+F5 shows what the program left on
- * the screen. F10 opens the menus. Turbo Pascal's F6, F9 and CTRL+F9 still do
- * what they did there.
+ * the screen. F10 opens the menus.
  *
  * A key with more held comes before the same key with fewer, which would
- * match it too: CTRL+SHIFT+O before CTRL+O, CTRL+SHIFT+TAB before CTRL+TAB,
- * ALT+F6 before F6, and ALT+F9 and CTRL+F9 before F9.
+ * match it too: CTRL+SHIFT+O before CTRL+O, CTRL+SHIFT+TAB before CTRL+TAB.
  */
 static const key_binding ADE_BINDINGS[] = {
     LETTER(VK_o, VK_O, C | S, win_open),
@@ -94,14 +92,11 @@ static const key_binding ADE_BINDINGS[] = {
     { VK_3, C, 0, win_to_3 },
     { VK_F3, A, 0, win_close },
     { VK_F6, A, 0, win_list },
-    { VK_F6, 0, 0, win_next },
     // The menus own the selection, so one made before opening them is still
     // there for Copy or Cut.
     { VK_F10, 0, KC_OWNS_SEL, menu_open },
     { VK_F5, A, 0, build_user_screen },
     { VK_F9, A, 0, build_errors },
-    { VK_F9, C, 0, build_run },
-    { VK_F9, 0, 0, build },
 };
 
 #undef LETTER

@@ -546,7 +546,7 @@ against a package made locally with aed's `mklibs.sh`.
 - **Keys, Igor's choice:** CTRL+B builds and CTRL+R runs. CTRL+TAB and
   CTRL+SHIFT+TAB go round the windows, and CTRL+1 to CTRL+3 go to that window
   if it is open. CTRL+SHIFT+O opens in a new window. Turbo Pascal's F6, F9 and
-  CTRL+F9 stay as aliases.
+  CTRL+F9 were kept as aliases at first, then removed.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

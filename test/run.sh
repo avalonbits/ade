@@ -311,7 +311,7 @@ printf 'first file\r\n' > "$c/one.txt"
 printf '#define FUNC 1\r\n' > "$c/func.h"
 under_hub "$c" 40 "ade one.txt"
 check "CTRL+SHIFT+O to a second window: the bar shows both, 2 on screen" "$(strip "$c/ade.scr")" "1 [2]"
-check "  and F6 back to 1: the bar shows 1 on screen" "$(strip "$c/ade.scr2")" "[1] 2"
+check "  and CTRL+TAB back to 1: the bar shows 1 on screen" "$(strip "$c/ade.scr2")" "[1] 2"
 # The footer names the file on screen: it went on naming the first window's,
 # drawn from the document the editor's loop started with, until aed 1.5.1.
 check "  the footer names func.h in window 2" "$(grep '^footer ' "$c/ade.scr" 2>/dev/null)" "footer func.h"
@@ -343,14 +343,16 @@ case_01d() {
 # Round the windows by keys: CTRL+TAB to the next, CTRL+SHIFT+TAB to the one
 # before, CTRL+number to that one, and nothing for a window that is not
 # there. The window on screen as each key is asked for, from 3 after opening
-# them: 3, then 1, 3, 2, 1, 3, 2 after closing 3, and 2 still.
+# them: 3, then 1, 3, 2, 1, 3, 2 after closing 3, 2 still, and 2 and 2 for
+# F6 and F9, which were next window and build and are nothing now -- F9
+# building would wait on "Build what?" and never get to leaving.
 c=$(card "$proj/bin/ade.bin")
 printf 'nav\r\n' > "$c/nav.txt"
 printf 'bravo\r\n' > "$c/b.txt"
 printf 'charlie\r\n' > "$c/c.txt"
 under_hub "$c" 40 "ade nav.txt"
 check "CTRL+TAB, CTRL+SHIFT+TAB and CTRL+number go round the windows" \
-      "$(cat "$c/ade.nav" 2>/dev/null)" 31321322
+      "$(cat "$c/ade.nav" 2>/dev/null)" 3132132222
 }
 
 case_02() {
@@ -457,7 +459,7 @@ case_07() {
 c=$(card "$proj/bin/ade.bin")
 printf 'int main(void)\r\n{\r\n    return x;\r\n}\r\n' > "$c/bad.c"
 under_hub "$c" 120 "ade bad.c"
-played "$c" "F9 on a broken C file: back on acc's error" "keys 2 of 2
+played "$c" "CTRL+B on a broken C file: back on acc's error" "keys 2 of 2
 current 1
 at 3:12
 screen 3:12
@@ -508,7 +510,7 @@ case_09() {
 c=$(card "$proj/bin/ade.bin")
 printf '  nop\r\n  frob a\r\n' > "$c/bad.s"
 under_hub "$c" 120 "ade bad.s"
-played "$c" "F9 on a broken assembly file: back on zap's error" "keys 2 of 2
+played "$c" "CTRL+B on a broken assembly file: back on zap's error" "keys 2 of 2
 current 1
 at 2:3
 screen 2:3
@@ -542,7 +544,7 @@ c=$(card "$proj/bin/ade.bin")
 printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/good.c"
 printf 'bravo\r\n' > "$c/good.txt"
 under_hub "$c" 120 "ade good.txt"
-played "$c" "F9 on a good C file: built, and back where it was" "keys 2 of 2
+played "$c" "CTRL+B on a good C file: built, and back where it was" "keys 2 of 2
 current 2
 at 3:2
 screen 3:2
@@ -571,7 +573,7 @@ printf 'int add(int a, int b)\r\n{\r\n    return a + b;\r\n}\r\n' > "$c/add.c"
 printf '        XDEF    _seven\r\n        SEGMENT CODE\r\n_seven:\r\n        ld      hl, 7\r\n        ret\r\n' > "$c/seven.s"
 under_hub "$c" 180 "ade main.c
 prog"
-played "$c" "F9 in a project: every file built, and linked" "keys 2 of 2
+played "$c" "CTRL+B in a project: every file built, and linked" "keys 2 of 2
 current 1
 at 1:1
 screen 1:1
@@ -594,7 +596,7 @@ printf '[project]\r\nname = prog\r\nfiles = main.c add.c\r\n' > "$c/project.ini"
 printf 'int add(int a, int b);\r\nint main(void)\r\n{\r\n    return add(1, 2);\r\n}\r\n' > "$c/main.c"
 printf 'int add(int a, int b)\r\n{\r\n    return a + c;\r\n}\r\n' > "$c/add.c"
 under_hub "$c" 180 "ade main.c"
-played "$c" "F9 in a project, add.c broken: back on its error" "keys 2 of 2
+played "$c" "CTRL+B in a project, add.c broken: back on its error" "keys 2 of 2
 current 2
 at 3:16
 screen 3:16
@@ -622,7 +624,7 @@ printf '    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$c/main.c"
 printf '[project]\r\nname = prog\r\nfiles = %s\r\n' "$files" > "$c/project.ini"
 under_hub "$c" 240 "ade main.c
 prog"
-check "F9 in a project of eight files: built, linked and run" \
+check "CTRL+B in a project of eight files: built, linked and run" \
       "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" 28
 check "  from build.obey, which ade wrote" \
       "$(head -1 "$c/build.obey" 2>/dev/null | cut -c1-30)" "# Made by ade from project.ini"
@@ -652,7 +654,7 @@ printf '[project]\r\nname = prog\r\nfiles = wrong.c notes.txt\r\n' > "$c/project
 printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/wrong.c"
 printf 'notes\r\n' > "$c/notes.txt"
 under_hub "$c" 60 "ade wrong.c"
-played "$c" "F9 in a project that cannot be built: says why, and stays" "keys 3 of 3
+played "$c" "CTRL+B in a project that cannot be built: says why, and stays" "keys 3 of 3
 current 1
 at 1:1
 screen 1:1
@@ -683,7 +685,7 @@ check "Build -> New project: project.ini, naming newproj" \
       "$(tr -d '\r' < "$d/project.ini" 2>/dev/null | grep '^name')" "name = newproj"
 check "  with no files line: the directory is the project" \
       "$(tr -d '\r' < "$d/project.ini" 2>/dev/null | grep -c '^files')" 0
-check "  so F9 builds every file here, func.c with newproj.c" \
+check "  so CTRL+B builds every file here, func.c with newproj.c" \
       "$(tr -d '\r' < "$d/build.obey" 2>/dev/null | grep -c '^acc -c \(func\|newproj\)\.c')" 2
 check "  and the program, linked from both, runs" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" 5
 check "  its objects in build/, the program in bin/, none beside the source" \
@@ -728,7 +730,7 @@ c=$(card "$proj/bin/ade.bin")
 printf '[project]\r\nname = hello\r\nfiles = hello.s\r\n[build]\r\ns = zap %%f %%n.bin -c -e %%e\r\nlink =\r\n' > "$c/project.ini"
 printf '        ret\r\n' > "$c/hello.s"
 under_hub "$c" 120 "ade hello.s"
-played "$c" "F9 in a project with its own rules" "keys 2 of 2
+played "$c" "CTRL+B in a project with its own rules" "keys 2 of 2
 current 1
 at 1:1
 screen 1:1
@@ -782,7 +784,7 @@ c=$(card "$proj/bin/ade.bin")
 printf "$RUNME" > "$c/runme.c"
 under_hub "$c" 120 'Set Hub$NoPause 1
 ade runme.c'
-played "$c" "CTRL+F9: built, run, and back" "keys 2 of 2
+played "$c" "CTRL+R: built, run, and back" "keys 2 of 2
 current 1
 at 1:1
 screen 1:1
@@ -799,7 +801,7 @@ case_18() {
 c=$(card "$proj/bin/ade.bin")
 printf "$RUNME" > "$c/runme.c"
 under_hub "$c" 60 "ade runme.c"
-check "CTRL+F9, pausing: the program ran" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" ran
+check "CTRL+R, pausing: the program ran" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" ran
 check "  and hub waits for a key before ade" \
       "$(tr -d '\r' < "$c/ade.out" 2>/dev/null | head -1)" "keys 1 of 1"
 }
@@ -817,7 +819,7 @@ cp "$c/runme.bin" "$c/runbad.bin" 2>/dev/null
 rm -f "$c/ran.txt" "$c/ade.out"
 under_hub "$c" 120 'Set Hub$NoPause 1
 ade runbad.c'
-played "$c" "CTRL+F9 on a broken file: back on the error" "keys 2 of 2
+played "$c" "CTRL+R on a broken file: back on the error" "keys 2 of 2
 current 1
 at 3:12
 screen 3:12
@@ -861,7 +863,7 @@ printf '#include <stdio.h>\r\nint main(int argc, char** argv)\r\n{\r\n    FILE* 
 printf '    fprintf(f, "%%d %%s\\n", argc, argc > 2 ? argv[2] : "-");\r\n    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$c/runargs.c"
 under_hub "$c" 120 'Set Hub$NoPause 1
 ade runargs.c'
-check "CTRL+F9 in a project: run with the arguments project.ini gives" \
+check "CTRL+R in a project: run with the arguments project.ini gives" \
       "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" "3 beta"
 }
 

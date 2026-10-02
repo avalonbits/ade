@@ -51,7 +51,7 @@ static const key_press WINDOWS[] = {
     K(13, VK_RETURN),                               // c.txt, window 3
     M(15, VK_O, MOD_CTRL | MOD_SHFT),                                    // a fourth: three are open
     K('k', VK_k),                                   // ...which the message waits on
-    K(0, VK_F6),                                    // next: round to window 1
+    M(9, VK_TAB, MOD_CTRL),                                    // next: round to window 1
     K('z', VK_z),                                   // a: xzalpha, after the x
     M(0, VK_F6, MOD_ALT),                           // the list, at window 1
     K(0, VK_DOWN), K(0, VK_DOWN), K(13, VK_RETURN), // ...window 3
@@ -59,7 +59,7 @@ static const key_press WINDOWS[] = {
     M(0, VK_F3, MOD_ALT),                           // close window 3...
     K('n', VK_n),                                   // ...not saving; back to 2
     K('#', VK_HASH),                                // b: y#bravo, so it is 2
-    K(0, VK_F6),                                    // next: round to window 1
+    M(9, VK_TAB, MOD_CTRL),                                    // next: round to window 1
     K(0, VK_F10), K(0, VK_RIGHT), K(13, VK_RETURN), // the menus: Edit, Undo --
                                                     // x and z were one run of
                                                     // typing, so a: alpha, as
@@ -93,13 +93,13 @@ static const key_press GOOD[] = {
     K(13, VK_RETURN),                               // ...good.c, window 2
     K(0, VK_DOWN), K(0, VK_DOWN),                   // line 3
     K(' ', VK_SPACE),                               // "     return 0;"
-    K(0, VK_F9),
+    M(2, VK_b, MOD_CTRL),
 };
 
 // Started on wrong.c, in a project that cannot be built: F9 says why, which
 // waits for a key, and ade stays -- so leaving is up to the script.
 static const key_press WRONG[] = {
-    K(0, VK_F9),
+    M(2, VK_b, MOD_CTRL),
     K('k', VK_k),                                   // ...which the message waits on
     M(17, VK_q, MOD_CTRL),
 };
@@ -158,7 +158,7 @@ static const key_press TWO[] = {
     M(15, VK_O, MOD_CTRL | MOD_SHFT),
     K('f', VK_f), K('u', VK_u), K('n', VK_n), K('c', VK_c), K('.', VK_PERIOD),
     K('h', VK_h), K(13, VK_RETURN),
-    K(0, VK_F6),
+    M(9, VK_TAB, MOD_CTRL),
     M(17, VK_q, MOD_CTRL),
 };
 
@@ -170,7 +170,7 @@ static const key_press NEWPROJ[] = {
     K(0, VK_DOWN), K(0, VK_DOWN), K(13, VK_RETURN),                // ...New project
     K(13, VK_RETURN),                               // the name offered
     K('k', VK_k),                                   // ...which the message waits on
-    K(0, VK_F9),
+    M(2, VK_b, MOD_CTRL),
 };
 
 // Started on close1.txt: b.txt and c.txt in windows 2 and 3, then F6 round
@@ -185,9 +185,9 @@ static const key_press CLOSE[] = {
     M(15, VK_O, MOD_CTRL | MOD_SHFT),
     K('c', VK_c), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
     K(13, VK_RETURN),                               // c.txt, window 3
-    K(0, VK_F6),                                    // round to window 1
+    M(9, VK_TAB, MOD_CTRL),                                    // round to window 1
     M(0, VK_F3, MOD_ALT),                           // ...closed: b.txt is 1
-    K(0, VK_F6),                                    // c.txt, window 2
+    M(9, VK_TAB, MOD_CTRL),                                    // c.txt, window 2
     M(0, VK_F3, MOD_ALT),                           // ...closed: back to b.txt
     M(0, VK_F3, MOD_ALT),                           // the last: refused...
     K('k', VK_k),                                   // ...which the message waits on
@@ -197,7 +197,8 @@ static const key_press CLOSE[] = {
 // Started on nav.txt: b.txt and c.txt in windows 2 and 3, then round the
 // windows by the keys for it -- the window on screen noted as each of those
 // keys is asked for: CTRL+TAB, CTRL+SHIFT+TAB twice, CTRL+1, CTRL+3, ALT+F3
-// closing window 3, and CTRL+3 with no window 3 any more; and leave.
+// closing window 3, CTRL+3 with no window 3 any more, and F6 and F9, which
+// were next window and build and are nothing now; and leave.
 static const key_press NAV[] = {
     M(15, VK_O, MOD_CTRL | MOD_SHFT),
     K('b', VK_b), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
@@ -212,6 +213,8 @@ static const key_press NAV[] = {
     M('3', VK_3, MOD_CTRL),                         // 3
     M(0, VK_F3, MOD_ALT),                           // closed: 2
     M('3', VK_3, MOD_CTRL),                         // no window 3: still 2
+    K(0, VK_F6),                                    // F6 and F9 are nothing
+    K(0, VK_F9),                                    // now: still 2, and 2
     M(17, VK_q, MOD_CTRL),
 };
 
