@@ -40,7 +40,7 @@
 // The longest name a window keeps while put away; one with a longer name
 // stays loaded, since it could not be loaded again.
 #define ADE_NAME_MAX 64
-#define ADE_DOC_KB  48
+#define ADE_DOC_KB  40
 
 // Takes over window 1 from an editor ed_init_for has just started.
 void win_start(editor* ed);

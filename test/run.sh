@@ -248,7 +248,7 @@ played() {
 # Shared by the cases below, which each run in a shell of their own: the
 # memory left that is enough (see the memory case), and the program the Run
 # cases build and run.
-MEMORY_FLOOR_KB=16
+MEMORY_FLOOR_KB=32
 RUNME='#include <stdio.h>\r\nint main(void)\r\n{\r\n    FILE* f = fopen("/ran.txt", "w");\r\n    fputs("ran\\n", f);\r\n    fclose(f);\r\n    return 3;\r\n}\r\n'
 
 # Building needs acc and zap on the card; a case that builds runs only with
@@ -497,15 +497,16 @@ check "a menu pulled down: its items in the bar's colours" \
 check "  and the chosen one in the text's" \
       "$(set -- $pull; [ -n "$4" ] && [ "$4" = "$8" ] && echo text)" text
 
+}
+
+case_06() {
 # --- memory ---
 # ade at its fullest -- three windows, each on a file too big for its memory,
 # so each pages from the card -- and what is left for the heap and the stack,
 # which grow toward each other out of one region with no guard between. The
-# scripted ade counts it in KB. Measured at 35 with aed 1.3.7 and settings
-# (ade 113 KB); the floor is there to say when that is being eaten.
-}
-
-case_06() {
+# scripted ade counts it in KB. It was 35 with 48 KB windows, then 16 once
+# nine windows came in; with 40 KB windows, 24 KB more. The floor is there to
+# say when that is being eaten.
 c=$(card "$proj/bin/ade.bin")
 for f in memory m2 m3; do
     i=0
