@@ -19,13 +19,13 @@
 #include "menu.h"
 
 #include <agon/mos.h>
-#include <stdio.h>
 #include <string.h>
 
 #include "build.h"
 #include "cmd_ops.h"
 #include "options.h"
 #include "project.h"
+#include "text.h"
 #include "user_input.h"
 #include "windows.h"
 
@@ -133,11 +133,17 @@ int menu_bar_text(screen* scr, char* bar, int max) {
     static char right[PROJ_NAME_MAX + 60];
     const char* how = build_status();
     const char* name = build_project();
-    int r = snprintf(right, sizeof(right), "%s%s%s%s", how, how[0] != 0 ? "  " : "",
-                     name != NULL ? name : "", name != NULL ? "  " : "");
-    if (r >= (int) sizeof(right)) {
-        r = (int) sizeof(right) - 1;
+    text t;
+    text_start(&t, right, (int) sizeof(right));
+    if (how[0] != 0) {
+        text_str(&t, how);
+        text_str(&t, "  ");
     }
+    if (name != NULL) {
+        text_str(&t, name);
+        text_str(&t, "  ");
+    }
+    int r = text_len(&t);
     r += win_strip(right + r, (int) sizeof(right) - r);
     const int width = scr->barW_ < max ? scr->barW_ : max;
     const int at = width - r - 1;

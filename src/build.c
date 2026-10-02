@@ -26,6 +26,7 @@
 
 #include "cmd_ops.h"
 #include "options.h"
+#include "text.h"
 #include "project.h"
 #include "user_input.h"
 #include "windows.h"
@@ -139,18 +140,25 @@ static bool file_command(editor* ed, char* cmd) {
         return false;
     }
 
-    const int n = tool == 'c'
-        ? snprintf(cmd, HUB_CMD_MAX + 1, "acc %s -o %s.bin -errors " ERR_FILE, name, base)
-        : snprintf(cmd, HUB_CMD_MAX + 1, "zap %s %s.bin -c -e " ERR_FILE, name, base);
-    if (n > HUB_CMD_MAX) {
+    text t;
+    text_start(&t, cmd, HUB_CMD_MAX + 1);
+    text_str(&t, tool == 'c' ? "acc " : "zap ");
+    text_str(&t, name);
+    text_str(&t, tool == 'c' ? " -o " : " ");
+    text_str(&t, base);
+    text_str(&t, tool == 'c' ? ".bin -errors " ERR_FILE : ".bin -c -e " ERR_FILE);
+    if (t.cut) {
         say(ed, "The file's name is too long for hub to run the build");
         return false;
     }
-    if (snprintf(program, sizeof(program), "%s", base) >= (int) sizeof(program)) {
+    text_start(&t, program, (int) sizeof(program));
+    text_str(&t, base);
+    if (t.cut) {
         say(ed, "The file's name is too long for hub to run the program");
         return false;
     }
-    snprintf(run_cmd, sizeof(run_cmd), "%s", base);
+    text_start(&t, run_cmd, (int) sizeof(run_cmd));
+    text_str(&t, base);
 
     return true;
 }
@@ -159,7 +167,9 @@ static bool file_command(editor* ed, char* cmd) {
 // again if project.ini has changed since it last was. False with a message
 // shown when it cannot be.
 static bool project_command(editor* ed, const project* p, char* cmd) {
-    snprintf(program, sizeof(program), "%s", p->name);
+    text t;
+    text_start(&t, program, (int) sizeof(program));
+    text_str(&t, p->name);
     if (!proj_run(p, run_cmd, (int) sizeof(run_cmd))) {
         say(ed, "run in " PROJ_FILE " is too long for hub");
         return false;
@@ -170,7 +180,8 @@ static bool project_command(editor* ed, const project* p, char* cmd) {
         return false;
     }
     proj_dirs();
-    snprintf(cmd, HUB_CMD_MAX + 1, "Obey " PROJ_OBEY);
+    text_start(&t, cmd, HUB_CMD_MAX + 1);
+    text_str(&t, "Obey " PROJ_OBEY);
 
     return true;
 }
@@ -253,8 +264,11 @@ void build_new_project(editor* ed) {
     // Read again, for the header, which names it from now on.
     loaded = 2;
     scr_header_draw(&ed->scr_);
-    snprintf(msg, sizeof(msg), "Project %s: F9 builds every .c, .s and .asm here",
-             chosen);
+    text t;
+    text_start(&t, msg, (int) sizeof(msg));
+    text_str(&t, "Project ");
+    text_str(&t, chosen);
+    text_str(&t, ": CTRL+B builds every .c, .s and .asm here");
     say(ed, msg);
 }
 
@@ -290,12 +304,20 @@ static void start(editor* ed, bool run) {
         const char* n = tb_fname(&d->buf_);
         static char msg[48];
         if (n == NULL || n[0] == 0) {
-            snprintf(msg, sizeof(msg), "Window %d has no name: save it first", i + 1);
+            text t;
+            text_start(&t, msg, (int) sizeof(msg));
+            text_str(&t, "Window ");
+            text_int(&t, i + 1);
+            text_str(&t, " has no name: save it first");
             say(ed, msg);
             return;
         }
         if (!tb_save(&d->buf_)) {
-            snprintf(msg, sizeof(msg), "Window %d could not be saved", i + 1);
+            text t;
+            text_start(&t, msg, (int) sizeof(msg));
+            text_str(&t, "Window ");
+            text_int(&t, i + 1);
+            text_str(&t, " could not be saved");
             say(ed, msg);
             return;
         }
@@ -630,11 +652,14 @@ void build_resume(editor* ed) {
     }
     // How it went, on the menu bar until the next build: drawn with the
     // screen, so before it is shown.
+    text t;
+    text_start(&t, status, (int) sizeof(status));
     if (!failed && s->ran) {
-        snprintf(status, sizeof(status), "%.24s returned %d", s->program,
-                 hub_last_result());
+        text_strn(&t, s->program, 24);
+        text_str(&t, " returned ");
+        text_int(&t, hub_last_result());
     } else {
-        snprintf(status, sizeof(status), "%s", failed ? "failed" : "built");
+        text_str(&t, failed ? "failed" : "built");
     }
     show_at(ed, target, line, x);
 
@@ -647,7 +672,9 @@ void build_resume(editor* ed) {
     }
     if (nerrs == 0) {
         static char msg[40];
-        snprintf(msg, sizeof(msg), "The build failed, with %d", hub_last_result());
+        text_start(&t, msg, (int) sizeof(msg));
+        text_str(&t, "The build failed, with ");
+        text_int(&t, hub_last_result());
         say(ed, msg);
     } else if (nerrs == 1) {
         say(ed, error_text(errs + err_at[0]));

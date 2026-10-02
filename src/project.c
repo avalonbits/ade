@@ -19,21 +19,38 @@
 #include "project.h"
 
 #include <agon/mos.h>
-#include <stdio.h>
 #include <string.h>
 
 #include "ini.h"
+#include "text.h"
 
 #define TEXT_MAX 2048
 
 // Objects go in build/, the program in bin/, both under the project's
 // directory, so the source is all that is left beside project.ini.
-static const char RULE_C[] = "acc -c %f -o " PROJ_OBJ_DIR "/%b.o -errors %e";
-static const char RULE_S[] = "zap %f " PROJ_OBJ_DIR "/%b.o -f acc -c -e %e";
-static const char RULE_LINK[] = "acc %o -o " PROJ_BIN_DIR "/%n.bin -errors %e";
-static const char RULE_RUN[] = PROJ_BIN_DIR "/%n";
+#define RULE_C_TEXT    "acc -c %f -o " PROJ_OBJ_DIR "/%b.o -errors %e"
+#define RULE_S_TEXT    "zap %f " PROJ_OBJ_DIR "/%b.o -f acc -c -e %e"
+#define RULE_LINK_TEXT "acc %o -o " PROJ_BIN_DIR "/%n.bin -errors %e"
+#define RULE_RUN_TEXT  PROJ_BIN_DIR "/%n"
+static const char RULE_C[] = RULE_C_TEXT;
+static const char RULE_S[] = RULE_S_TEXT;
+static const char RULE_LINK[] = RULE_LINK_TEXT;
+static const char RULE_RUN[] = RULE_RUN_TEXT;
 
-static char text[TEXT_MAX];
+static char text_[TEXT_MAX];
+
+// What went wrong, into msg: up to three pieces, end to end; NULL for none.
+static void fail(char* msg, int max, const char* a, const char* b, const char* c) {
+    text t;
+    text_start(&t, msg, max);
+    text_str(&t, a);
+    if (b != NULL) {
+        text_str(&t, b);
+    }
+    if (c != NULL) {
+        text_str(&t, c);
+    }
+}
 
 // FNV-1a, 32 bits, over s[0, n), carried on from `h`.
 static unsigned long hash(unsigned long h, const char* s, int n) {
@@ -104,11 +121,16 @@ static bool read_names(char list[][PROJ_NAME_MAX], int* n, int most, const char*
             break;
         }
         if (*n == most) {
-            snprintf(msg, (size_t) max, PROJ_FILE ": at most %d %s", most, what);
+            text t;
+            text_start(&t, msg, max);
+            text_str(&t, PROJ_FILE ": at most ");
+            text_int(&t, most);
+            text_str(&t, " ");
+            text_str(&t, what);
             return false;
         }
         if (!copy(list[*n], PROJ_NAME_MAX, s + b, i - b)) {
-            snprintf(msg, (size_t) max, PROJ_FILE ": a name in %s is too long", what);
+            fail(msg, max, PROJ_FILE ": a name in ", what, " is too long");
             return false;
         }
         (*n)++;
@@ -144,7 +166,7 @@ static bool scan_directory(project* p, char* msg, int max) {
     static DIR dir;
     static FILINFO info;
     if (ffs_dopen(&dir, ".") != 0) {
-        snprintf(msg, (size_t) max, "The directory could not be read");
+        fail(msg, max, "The directory could not be read", NULL, NULL);
         return false;
     }
     bool ok = true;
@@ -158,12 +180,17 @@ static bool scan_directory(project* p, char* msg, int max) {
         }
         const int len = (int) strlen(info.fname);
         if (p->nfiles == PROJ_FILES) {
-            snprintf(msg, (size_t) max,
-                     "More than %d files to build here: list them in " PROJ_FILE,
-                     PROJ_FILES);
+            text t;
+            text_start(&t, msg, max);
+            text_str(&t, "More than ");
+            text_int(&t, PROJ_FILES);
+            text_str(&t, " files to build here: list them in " PROJ_FILE);
             ok = false;
         } else if (!copy(p->files[p->nfiles], PROJ_NAME_MAX, info.fname, len)) {
-            snprintf(msg, (size_t) max, "%.40s: the name is too long", info.fname);
+            text t;
+            text_start(&t, msg, max);
+            text_strn(&t, info.fname, 40);
+            text_str(&t, ": the name is too long");
             ok = false;
         } else {
             // Into its place by name, the ones after it moved along one.
@@ -187,16 +214,20 @@ int proj_load(project* p, char* msg, int max) {
     if (fh == 0) {
         return 0;
     }
-    const int n = (int) mos_fread(fh, text, sizeof(text));
+    const int n = (int) mos_fread(fh, text_, sizeof(text_));
     mos_fclose(fh);
-    if (n >= (int) sizeof(text)) {
-        snprintf(msg, (size_t) max, PROJ_FILE " is longer than %d bytes", TEXT_MAX - 1);
+    if (n >= (int) sizeof(text_)) {
+        text t;
+        text_start(&t, msg, max);
+        text_str(&t, PROJ_FILE " is longer than ");
+        text_int(&t, TEXT_MAX - 1);
+        text_str(&t, " bytes");
         return -1;
     }
 
     memset(p, 0, sizeof(*p));
     // The file and ade's defaults: either changing makes a new build.obey.
-    p->sum = hash(2166136261UL, text, n);
+    p->sum = hash(2166136261UL, text_, n);
     p->sum = hash(p->sum, RULE_C, (int) sizeof(RULE_C));
     p->sum = hash(p->sum, RULE_S, (int) sizeof(RULE_S));
     p->sum = hash(p->sum, RULE_LINK, (int) sizeof(RULE_LINK));
@@ -211,10 +242,10 @@ int proj_load(project* p, char* msg, int max) {
     int i = 0;
     while (i < n) {
         const int start = i;
-        while (i < n && text[i] != '\n') {
+        while (i < n && text_[i] != '\n') {
             i++;
         }
-        const line ln = ini_read_line(text, start, i);
+        const line ln = ini_read_line(text_, start, i);
         i++;
         if (ln.kind == LINE_SECTION) {
             section = ln.name;
@@ -260,14 +291,17 @@ int proj_load(project* p, char* msg, int max) {
             }
         }
         if (!fits) {
-            snprintf(msg, (size_t) max, PROJ_FILE ": %.*s is too long",
-                     ln.namelen, ln.name);
+            text t;
+            text_start(&t, msg, max);
+            text_str(&t, PROJ_FILE ": ");
+            text_strn(&t, ln.name, ln.namelen);
+            text_str(&t, " is too long");
             return -1;
         }
     }
 
     if (p->name[0] == 0) {
-        snprintf(msg, (size_t) max, PROJ_FILE " names no program: name = ...");
+        fail(msg, max, PROJ_FILE " names no program: name = ...", NULL, NULL);
         return -1;
     }
     // No files line: the directory is the project. The names it found go
@@ -280,17 +314,17 @@ int proj_load(project* p, char* msg, int max) {
             p->sum = hash(p->sum, p->files[f], (int) strlen(p->files[f]) + 1);
         }
         if (p->nfiles == 0) {
-            snprintf(msg, (size_t) max, "No .c, .s or .asm files here to build");
+            fail(msg, max, "No .c, .s or .asm files here to build", NULL, NULL);
             return -1;
         }
     }
     if (p->nfiles == 0) {
-        snprintf(msg, (size_t) max, PROJ_FILE " lists no files: files = ...");
+        fail(msg, max, PROJ_FILE " lists no files: files = ...", NULL, NULL);
         return -1;
     }
     for (int f = 0; f < p->nfiles; f++) {
         if (rule_for(p, p->files[f]) == NULL) {
-            snprintf(msg, (size_t) max, PROJ_FILE ": nothing builds %s", p->files[f]);
+            fail(msg, max, PROJ_FILE ": nothing builds ", p->files[f], NULL);
             return -1;
         }
     }
@@ -377,9 +411,12 @@ bool proj_run(const project* p, char* out, int max) {
 
 bool proj_obey(const project* p, const char* err, char* msg, int max) {
     static char head[80];
-    const int hn = snprintf(head, sizeof(head),
-                            "# Made by ade from " PROJ_FILE " %08lx: edits last until it changes\r\n",
-                            p->sum);
+    text h;
+    text_start(&h, head, (int) sizeof(head));
+    text_str(&h, "# Made by ade from " PROJ_FILE " ");
+    text_hex(&h, p->sum, 8);
+    text_str(&h, ": edits last until it changes\r\n");
+    const int hn = text_len(&h);
 
     // Made from this project.ini already: left as it is.
     static char was[80];
@@ -396,14 +433,18 @@ bool proj_obey(const project* p, const char* err, char* msg, int max) {
     const int jobs = proj_jobs(p);
     for (int i = 0; i < jobs; i++) {
         if (!proj_job(p, i, err, cmd, PROJ_CMD_MAX + 1)) {
-            snprintf(msg, (size_t) max, "Command %d of " PROJ_FILE " is longer than %d",
-                     i + 1, PROJ_CMD_MAX);
+            text t;
+            text_start(&t, msg, max);
+            text_str(&t, "Command ");
+            text_int(&t, i + 1);
+            text_str(&t, " of " PROJ_FILE " is longer than ");
+            text_int(&t, PROJ_CMD_MAX);
             return false;
         }
     }
     fh = mos_fopen(PROJ_OBEY, FA_WRITE | FA_CREATE_ALWAYS);
     if (fh == 0) {
-        snprintf(msg, (size_t) max, PROJ_OBEY " could not be written");
+        fail(msg, max, PROJ_OBEY " could not be written", NULL, NULL);
         return false;
     }
     bool ok = (int) mos_fwrite(fh, head, (unsigned) hn) == hn;
@@ -417,7 +458,7 @@ bool proj_obey(const project* p, const char* err, char* msg, int max) {
     mos_fclose(fh);
     if (!ok) {
         mos_del(PROJ_OBEY);             // half a build is worse than none
-        snprintf(msg, (size_t) max, PROJ_OBEY " could not be written");
+        fail(msg, max, PROJ_OBEY " could not be written", NULL, NULL);
     }
 
     return ok;
@@ -427,49 +468,55 @@ bool proj_create(const char* name, char* msg, int max) {
     const char was = mos_fopen(PROJ_FILE, FA_READ);
     if (was != 0) {
         mos_fclose(was);
-        snprintf(msg, (size_t) max, PROJ_FILE " is here already: F9 builds from it");
+        fail(msg, max, PROJ_FILE " is here already: CTRL+B builds from it", NULL, NULL);
         return false;
     }
     static char fresh[1024];
-    const int n = snprintf(fresh, sizeof(fresh),
-        "; An ade project. F9 builds every .c, .s and .asm file in this\r\n"
-        "; directory, into build/, and links them into bin/%s.bin; CTRL+F9\r\n"
+    text t;
+    text_start(&t, fresh, (int) sizeof(fresh));
+    text_str(&t,
+        "; An ade project. CTRL+B builds every .c, .s and .asm file in this\r\n"
+        "; directory, into build/, and links them into bin/");
+    text_str(&t, name);
+    text_str(&t, ".bin; CTRL+R\r\n"
         "; builds it and runs it.\r\n"
         "\r\n"
         "[project]\r\n"
-        "name = %s\r\n"
+        "name = ");
+    text_str(&t, name);
+    text_str(&t, "\r\n"
         "\r\n"
         "; Only some of the files, in this order, instead of all of them:\r\n"
         ";files = main.c util.c\r\n"
         "; All of them but these:\r\n"
         ";exclude = scratch.c\r\n"
-        "; How CTRL+F9 runs the program, from bin/, %%n being its name:\r\n"
-        ";run = %%n\r\n"
+        "; How CTRL+R runs the program, %n being its name:\r\n"
+        ";run = " RULE_RUN_TEXT "\r\n"
         "\r\n"
         "; How each kind of file is built, and the link. These are what ade\r\n"
-        "; does without them: %%f is the file, %%b the file less its extension,\r\n"
-        "; %%o every object, as build/%%b.o, %%n the program, %%e the file errors\r\n"
+        "; does without them: %f is the file, %b the file less its extension,\r\n"
+        "; %o every object, as build/%b.o, %n the program, %e the file errors\r\n"
         "; go to.\r\n"
         ";[build]\r\n"
-        ";c = %s\r\n"
-        ";s = %s\r\n"
-        ";asm = %s\r\n"
-        ";link = %s\r\n",
-        name, name, RULE_C, RULE_S, RULE_S, RULE_LINK);
-    if (n <= 0 || n >= (int) sizeof(fresh)) {
-        snprintf(msg, (size_t) max, "The program's name is too long");
+        ";c = " RULE_C_TEXT "\r\n"
+        ";s = " RULE_S_TEXT "\r\n"
+        ";asm = " RULE_S_TEXT "\r\n"
+        ";link = " RULE_LINK_TEXT "\r\n");
+    const int n = text_len(&t);
+    if (t.cut) {
+        fail(msg, max, "The program's name is too long", NULL, NULL);
         return false;
     }
     const char fh = mos_fopen(PROJ_FILE, FA_WRITE | FA_CREATE_NEW);
     if (fh == 0) {
-        snprintf(msg, (size_t) max, PROJ_FILE " could not be written");
+        fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
         return false;
     }
     const bool ok = (int) mos_fwrite(fh, fresh, (unsigned) n) == n;
     mos_fclose(fh);
     if (!ok) {
         mos_del(PROJ_FILE);
-        snprintf(msg, (size_t) max, PROJ_FILE " could not be written");
+        fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
     }
 
     return ok;

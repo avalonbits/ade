@@ -557,6 +557,15 @@ against a package made locally with aed's `mklibs.sh`.
   restores them put away, loading only the one shown. It costs about 4.5 KB
   of heap (2.9 KB of code, 1.4 KB for the windows), which takes the memory
   check to its 16 KB floor: three large files open leave 16 KB.
+- **Memory got back, at Igor's choice:**
+  - window names kept to 64 bytes, with a longer path staying loaded;
+  - nine windows, CTRL+1 to CTRL+9;
+  - 40 KB per loaded window, not 48;
+  - no `snprintf`: `src/text.c` builds strings piece by piece, and agondev's
+    nanoprintf (about 4 KB) is no longer linked. ade is 118.6 KB.
+  
+  Three large files open now leave 40 KB in the scripted build, which still
+  links the formatter for its reports; the check's floor is 32 KB.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made
