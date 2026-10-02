@@ -28,27 +28,11 @@
 #include "options.h"
 #include "text.h"
 #include "project.h"
+#include "session.h"
 #include "user_input.h"
 #include "windows.h"
 
 #define ERR_FILE "/ade.err"
-
-// What survives the build, in hub's block "ADE ": which files were open, in
-// which windows, where each cursor was, and which window was on screen.
-typedef struct {
-    char magic[4];                      // MAGIC once written
-    bool ran;                           // the program was queued after the build
-    char program[PROJ_NAME_MAX];        // ...and what it is called
-    unsigned char mode;                 // the screen mode ade was in
-    unsigned char open[ADE_WINDOWS];
-    unsigned char current;
-    int line[ADE_WINDOWS];
-    int x[ADE_WINDOWS];
-    char name[ADE_WINDOWS][TB_FNAME_MAX];  // in hub's memory, not ade's
-} session;
-
-// Changed whenever the session does, so an older ade's is not misread.
-#define MAGIC "ADE3"
 
 // The screen mode, from MOS's system variables.
 #define SYSVAR_SCRMODE 0x27
@@ -86,7 +70,12 @@ static void say(editor* ed, const char* msg) {
 }
 
 static session* block(void) {
-    return (session*) hub_block("ADE ", sizeof(session));
+    return (session*) hub_block(SESSION_TAG, sizeof(session));
+}
+
+// The session in `s`, if one was written and not yet resumed -- by this ade.
+static bool kept(const session* s) {
+    return s != NULL && memcmp(s->magic, MAGIC, 4) == 0 && s->size == sizeof(session);
 }
 
 // The name without its extension, and which tool builds it -- 'c' for acc,
@@ -329,6 +318,7 @@ static void start(editor* ed, bool run) {
         return;
     }
     memcpy(s->magic, MAGIC, 4);
+    s->size = sizeof(session);
     s->mode = (unsigned char) screen_mode();
     s->ran = run;
     memcpy(s->program, program, sizeof(program));
@@ -407,7 +397,7 @@ void build_user_screen(editor* ed) {
 
 void build_resume_screen(void) {
     const session* s = block();
-    if (s == NULL || memcmp(s->magic, MAGIC, 4) != 0 || s->mode == screen_mode()) {
+    if (!kept(s) || s->mode == screen_mode()) {
         return;
     }
     const char mode[] = { 22, (char) s->mode };
@@ -416,7 +406,7 @@ void build_resume_screen(void) {
 
 const char* build_first_file(void) {
     session* s = block();
-    if (s == NULL || memcmp(s->magic, MAGIC, 4) != 0 || !s->open[0]) {
+    if (!kept(s) || !s->open[0]) {
         return NULL;
     }
 
@@ -601,7 +591,7 @@ void build_errors(editor* ed) {
 
 void build_resume(editor* ed) {
     session* s = block();
-    if (s == NULL || memcmp(s->magic, MAGIC, 4) != 0) {
+    if (!kept(s)) {
         return;
     }
     memset(s->magic, 0, 4);             // used: a later start is not a resume

@@ -220,6 +220,21 @@ MK
 (cd "$proj" && make >/dev/null 2>&1)
 check "the scripted ade builds" "$([ -f "$proj/bin/ade.bin" ] && echo built)" built
 
+# plant, from test/tools: a session left in hub's block for ade -resume to
+# find, as ade's own or as another layout's -- built the same way, against
+# ade's session.h.
+plant="$W/plant"
+mkdir -p "$plant/src"
+cp test/tools/plant.c "$plant/src/"
+cat > "$plant/Makefile" <<MK
+NAME=plant
+include \$(shell agondev-config --makefile)
+CFLAGS += -I$PWD/src -I$LIBS_ABS/include/core -I$LIBS_ABS/include/ui -I$HUB/include
+LIBS := $HUB/build/lib/agondev/libhub.a
+MK
+(cd "$plant" && make >/dev/null 2>&1)
+check "plant builds" "$([ -f "$plant/bin/plant.bin" ] && echo built)" built
+
 # strip <file>: the end of the menu bar's row, past the menus' names, as read.
 strip() {
     sed -n '2p' "$1" 2>/dev/null | tr '?' ' ' | sed 's/ *$//' | awk -F'   +' '{print $NF}'
@@ -938,6 +953,24 @@ check "CTRL+R in a project: run with the arguments project.ini gives" \
       "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" "3 beta"
 }
 
+# A session in hub's block that another ade left -- the same MAGIC, another
+# layout -- is not taken for this one's: hub keeps a block between ades and
+# grows it for a bigger one, keeping its bytes. ade -resume then starts with
+# no file. Its own session, planted the same way, is resumed.
+case_23() {
+local c
+for how in own other; do
+    c=$(card "$proj/bin/ade.bin")
+    cp "$plant/bin/plant.bin" "$c/bin/"
+    printf 'planted\r\n' > "$c/planted.txt"
+    under_hub "$c" 60 "plant $how
+ade -resume"
+    eval "foot_$how=\$(grep '^footer ' \"\$c/ade.scr\" 2>/dev/null)"
+done
+check "ade -resume takes its own session" "$foot_own" "footer planted.txt"
+check "  and not one of another layout" "$foot_other" "footer [NO FILE]"
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -958,7 +991,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.
