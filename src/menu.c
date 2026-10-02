@@ -49,7 +49,7 @@ typedef struct {
 #define OWN KC_OWNS_SEL
 
 static const menu_item FILE_ITEMS[] = {
-    { "Open in new window", "F3",         win_open,     0, NULL },
+    { "Open in new window", "CTRL+SHIFT+O", win_open,   0, NULL },
     { "Open here",          "CTRL+O",     cmd_open,     0, NULL },
     { "Save",               "CTRL+S",     ed_cmd_save,  0, NULL },
     { "Save as",            "CTRL+ALT+S", cmd_save_as,  0, NULL },

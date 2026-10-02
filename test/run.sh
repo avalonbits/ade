@@ -298,7 +298,7 @@ check "  and nothing was saved, as answered" \
 }
 
 case_01b() {
-# A second window, opened with F3 and left with F6: the bar's list of windows
+# A second window, opened with CTRL+SHIFT+O and left with F6: the bar's list of windows
 # read back from the screen each time. It was drawn as the new window cleared
 # the screen, before ade had counted it, so it still said [1] until F6.
 c=$(card "$proj/bin/ade.bin")
@@ -309,7 +309,7 @@ under_hub "$c" 40 "ade one.txt"
 strip() {
     sed -n '2p' "$1" 2>/dev/null | tr '?' ' ' | sed 's/ *$//' | awk -F'   +' '{print $NF}'
 }
-check "F3 to a second window: the bar shows both, 2 on screen" "$(strip "$c/ade.scr")" "1 [2]"
+check "CTRL+SHIFT+O to a second window: the bar shows both, 2 on screen" "$(strip "$c/ade.scr")" "1 [2]"
 check "  and F6 back to 1: the bar shows 1 on screen" "$(strip "$c/ade.scr2")" "[1] 2"
 # The footer names the file on screen: it went on naming the first window's,
 # drawn from the document the editor's loop started with, until aed 1.5.1.

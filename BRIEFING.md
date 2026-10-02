@@ -346,7 +346,7 @@ against a package made locally with aed's `mklibs.sh`.
   which ade now pins (sha256 `7f2d0e06...cabc`); a plain `make` builds ade.
 - **B2 is written** (`src/windows.c`): up to three windows, full-screen, one
   on screen at a time. Window 1 is the file ade started with and stays open;
-  48 KiB each. F3 opens a file in a new window (and says so at three, or when
+  48 KiB each. F3 (CTRL+SHIFT+O since Igor asked) opens a file in a new window (and says so at three, or when
   that file is already in a window -- names are resolved, so `a.txt` and
   `/a.txt` are one); F6 next; ALT+F3 closes the one shown, asking about
   unsaved work, and goes back to the previous; ALT+F6 lists them; CTRL+Q asks

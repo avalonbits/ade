@@ -6,9 +6,9 @@
  * The windows and the menus:
  *
  * The card holds a.txt ("alpha"), b.txt ("bravo") and c.txt ("charlie"), and
- * ade starts on a.txt. The run types in each window, opens the other two with
- * F3, is told that /a.txt is window 1's a.txt already and at the fourth that three
- * are open, moves with F6 and the ALT+F6
+ * ade starts on a.txt. The run types in each window, opens the other two
+ * with CTRL+SHIFT+O, is told that /a.txt is window 1's a.txt already and at
+ * the fourth that three are open, moves with F6 and the ALT+F6
  * list, closes window 3 without saving, undoes window 1 back to its file from
  * the Edit menu, is told Build is still to come, wanders to Options and out
  * again, and quits from the File menu without saving window 2.
@@ -36,20 +36,20 @@
 
 static const key_press WINDOWS[] = {
     K('x', VK_x),                                   // a: xalpha
-    K(0, VK_F3),                                    // open in a new window...
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),                                    // open in a new window...
     K('b', VK_b), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
     K(13, VK_RETURN),                               // ...b.txt, window 2
     K('y', VK_y),                                   // b: ybravo
-    K(0, VK_F3),                                    // /a.txt: a.txt again...
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),                                    // /a.txt: a.txt again...
     K('/', VK_SLASH),
     K('a', VK_a), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
     K(13, VK_RETURN),                               // ...is window 1's
     K('m', VK_m),                                   // ...which the message waits on
     K('2', VK_2),                                   // b: y2bravo -- still window 2
-    K(0, VK_F3),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
     K('c', VK_c), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
     K(13, VK_RETURN),                               // c.txt, window 3
-    K(0, VK_F3),                                    // a fourth: three are open
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),                                    // a fourth: three are open
     K('k', VK_k),                                   // ...which the message waits on
     K(0, VK_F6),                                    // next: round to window 1
     K('z', VK_z),                                   // a: xzalpha, after the x
@@ -87,7 +87,7 @@ static const key_press BUILD[] = {
 static const key_press GOOD[] = {
     K(0, VK_END),                                   // good.txt: after "bravo"
     K('y', VK_y),                                   // bravoy
-    K(0, VK_F3),                                    // open in a new window...
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),                                    // open in a new window...
     K('g', VK_g), K('o', VK_o), K('o', VK_o), K('d', VK_d), K('.', VK_PERIOD),
     K('c', VK_c),
     K(13, VK_RETURN),                               // ...good.c, window 2
@@ -132,10 +132,10 @@ static const key_press SETTINGS[] = {
 // three too big for a window's memory, so each pages from the card -- ade at
 // its fullest -- and leave. The report then says how much memory is left.
 static const key_press MEMORY[] = {
-    K(0, VK_F3),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
     K('m', VK_m), K('2', VK_2), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
     K('t', VK_t), K(13, VK_RETURN),
-    K(0, VK_F3),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
     K('m', VK_m), K('3', VK_3), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
     K('t', VK_t), K(13, VK_RETURN),
     M(17, VK_q, MOD_CTRL),
@@ -155,7 +155,7 @@ static const key_press PULL[] = {
 // the next key is asked for; then F6, back to window 1, and the screen read
 // back again; and leave.
 static const key_press TWO[] = {
-    K(0, VK_F3),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
     K('f', VK_f), K('u', VK_u), K('n', VK_n), K('c', VK_c), K('.', VK_PERIOD),
     K('h', VK_h), K(13, VK_RETURN),
     K(0, VK_F6),

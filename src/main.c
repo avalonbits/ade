@@ -58,6 +58,7 @@ static const app_context ADE_APP = {
 
 #define C MOD_CTRL
 #define A MOD_ALT
+#define S MOD_SHFT
 
 // Both cases of a letter: MOS reports the shifted one when SHIFT is held.
 #define LETTER(lo, up, mods, cmd) \
@@ -65,14 +66,17 @@ static const app_context ADE_APP = {
 
 /*
  * ade's own keys: its files, leaving and its settings (CTRL+E), the same as
- * aed's, and its windows and menus, on the keys Turbo Pascal gave them -- F3
- * opens a file in a new window, F6 goes to the next, ALT+F3 closes the one on
- * screen, ALT+F6 lists them, and F10 opens the menus. F9 builds, through hub
- * -- see build.h -- ALT+F9 lists the errors it left, CTRL+F9 builds and
- * runs, and ALT+F5 shows what the program left on the screen. ALT+F3, ALT+F6,
- * ALT+F9 and CTRL+F9 come before F3, F6 and F9, which would match them too.
+ * aed's; CTRL+SHIFT+O opens a file in a new window; and its windows and menus
+ * on the keys Turbo Pascal gave them -- F6 goes to the next window, ALT+F3
+ * closes the one on screen, ALT+F6 lists them, and F10 opens the menus. F9
+ * builds, through hub -- see build.h -- ALT+F9 lists the errors it left,
+ * CTRL+F9 builds and runs, and ALT+F5 shows what the program left on the
+ * screen. A key with more held comes before the same key with fewer, which
+ * would match it too: CTRL+SHIFT+O before CTRL+O, ALT+F6 before F6, and
+ * ALT+F9 and CTRL+F9 before F9.
  */
 static const key_binding ADE_BINDINGS[] = {
+    LETTER(VK_o, VK_O, C | S, win_open),
     LETTER(VK_o, VK_O, C, cmd_open),
     LETTER(VK_s, VK_S, C | A, cmd_save_as),
     LETTER(VK_s, VK_S, C, ed_cmd_save),
@@ -80,7 +84,6 @@ static const key_binding ADE_BINDINGS[] = {
     LETTER(VK_e, VK_E, C, ade_cmd_settings),
     { VK_F3, A, 0, win_close },
     { VK_F6, A, 0, win_list },
-    { VK_F3, 0, 0, win_open },
     { VK_F6, 0, 0, win_next },
     // The menus own the selection, so one made before opening them is still
     // there for Copy or Cut.
@@ -92,6 +95,7 @@ static const key_binding ADE_BINDINGS[] = {
 };
 
 #undef LETTER
+#undef S
 #undef A
 #undef C
 
