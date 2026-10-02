@@ -62,6 +62,11 @@ void build_errors(editor* ed);
 // first file to open is `first_file` -- see build_first_file.
 void build_resume(editor* ed);
 
+// Build -> New project: asks for the program's name and writes a project.ini
+// for it, with no list of files -- every .c, .s and .asm in the directory is
+// the project -- unless there is one already, which is left as it is.
+void build_new_project(editor* ed);
+
 // The name project.ini gives the program, or NULL without a project: read
 // the first time it is asked for, and again at each build.
 const char* build_project(void);

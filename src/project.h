@@ -28,7 +28,10 @@
  *
  *   [project]
  *   name = hello                   ; the program: hello.bin
- *   files = main.c util.c fast.s   ; each built, in order, then linked
+ *   files = main.c util.c fast.s   ; each built, in order, then linked --
+ *                                  ; or, with no files line, every .c, .s
+ *                                  ; and .asm in the directory, by name
+ *   exclude = scratch.c            ; with no files line: all but these
  *   run = %n -v data.txt           ; how Run runs it: %n, the program, alone
  *                                  ; unless this says otherwise
  *
@@ -54,6 +57,7 @@
 #define PROJ_FILE       "project.ini"
 #define PROJ_OBEY       "build.obey"
 #define PROJ_FILES      32
+#define PROJ_EXCLUDE    8
 #define PROJ_NAME_MAX   64
 
 // The longest command: an Obey line is read into 256 bytes, with its end.
@@ -61,8 +65,11 @@
 
 typedef struct {
     char name[PROJ_NAME_MAX];
+    bool listed;                        // files named in a files line
     int nfiles;
     char files[PROJ_FILES][PROJ_NAME_MAX];
+    int nexclude;
+    char exclude[PROJ_EXCLUDE][PROJ_NAME_MAX];
     char c[PROJ_CMD_MAX + 1];
     char s[PROJ_CMD_MAX + 1];
     char asm_[PROJ_CMD_MAX + 1];
@@ -85,6 +92,12 @@ bool proj_job(const project* p, int i, const char* err, char* out, int max);
 // How Run runs the program: `run` with its % names put in. False when it is
 // longer than `max` allows.
 bool proj_run(const project* p, char* out, int max);
+
+// Writes a fresh PROJ_FILE naming the program `name`, with no files line --
+// so every source file in the directory is the project -- and what else it
+// may say in comments. False with why in `msg` when there is one already or
+// it cannot be written.
+bool proj_create(const char* name, char* msg, int max);
 
 // Makes sure PROJ_OBEY holds the project's commands, writing it when it was
 // made from another project.ini or not at all. False with what went wrong in

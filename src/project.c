@@ -24,7 +24,7 @@
 
 #include "ini.h"
 
-#define TEXT_MAX 1024
+#define TEXT_MAX 2048
 
 static const char RULE_C[] = "acc -c %f -o %b.o -errors %e";
 static const char RULE_S[] = "zap %f %b.o -f acc -c -e %e";
@@ -84,8 +84,11 @@ static const char* rule_for(const project* p, const char* file) {
     return NULL;
 }
 
-// The files in `s[0, len)`, split at spaces and commas.
-static bool read_files(project* p, const char* s, int len, char* msg, int max) {
+// The names in `s[0, len)`, split at spaces and commas, into `list` after
+// the *n already there, at most `most` of them. `what` names the setting for
+// a message.
+static bool read_names(char list[][PROJ_NAME_MAX], int* n, int most, const char* s,
+                       int len, const char* what, char* msg, int max) {
     int i = 0;
     while (i < len) {
         while (i < len && (s[i] == ' ' || s[i] == '\t' || s[i] == ',')) {
@@ -98,18 +101,83 @@ static bool read_files(project* p, const char* s, int len, char* msg, int max) {
         if (i == b) {
             break;
         }
-        if (p->nfiles == PROJ_FILES) {
-            snprintf(msg, (size_t) max, PROJ_FILE ": at most %d files", PROJ_FILES);
+        if (*n == most) {
+            snprintf(msg, (size_t) max, PROJ_FILE ": at most %d %s", most, what);
             return false;
         }
-        if (!copy(p->files[p->nfiles], PROJ_NAME_MAX, s + b, i - b)) {
-            snprintf(msg, (size_t) max, PROJ_FILE ": a file's name is too long");
+        if (!copy(list[*n], PROJ_NAME_MAX, s + b, i - b)) {
+            snprintf(msg, (size_t) max, PROJ_FILE ": a name in %s is too long", what);
             return false;
         }
-        p->nfiles++;
+        (*n)++;
     }
 
     return true;
+}
+
+// Whether `name` is one of the project's excluded files, case aside: FAT
+// names are not told apart by case.
+static bool excluded(const project* p, const char* name) {
+    for (int i = 0; i < p->nexclude; i++) {
+        const char* a = p->exclude[i];
+        const char* b = name;
+        while (*a != 0 && *b != 0
+               && (*a | 0x20) == (*b | 0x20)) {
+            a++;
+            b++;
+        }
+        if (*a == 0 && *b == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// With no files line, the project is every file in the directory that a rule
+// builds, but those excluded, in order of name: a directory lists in whatever
+// order it was written in, and the link should not depend on that.
+static bool scan_directory(project* p, char* msg, int max) {
+    // Static: a FILINFO carries a 256-byte name.
+    static DIR dir;
+    static FILINFO info;
+    if (ffs_dopen(&dir, ".") != 0) {
+        snprintf(msg, (size_t) max, "The directory could not be read");
+        return false;
+    }
+    bool ok = true;
+    while (ok) {
+        if (ffs_dread(&dir, &info) != 0 || info.fname[0] == 0) {
+            break;
+        }
+        if ((info.fattrib & AM_DIR) != 0 || rule_for(p, info.fname) == NULL
+                || excluded(p, info.fname)) {
+            continue;
+        }
+        const int len = (int) strlen(info.fname);
+        if (p->nfiles == PROJ_FILES) {
+            snprintf(msg, (size_t) max,
+                     "More than %d files to build here: list them in " PROJ_FILE,
+                     PROJ_FILES);
+            ok = false;
+        } else if (!copy(p->files[p->nfiles], PROJ_NAME_MAX, info.fname, len)) {
+            snprintf(msg, (size_t) max, "%.40s: the name is too long", info.fname);
+            ok = false;
+        } else {
+            // Into its place by name, the ones after it moved along one.
+            int at = p->nfiles++;
+            while (at > 0 && strcmp(p->files[at - 1], p->files[at]) > 0) {
+                static char t[PROJ_NAME_MAX];   // static: off the frame
+                memcpy(t, p->files[at], sizeof(t));
+                memcpy(p->files[at], p->files[at - 1], sizeof(t));
+                memcpy(p->files[at - 1], t, sizeof(t));
+                at--;
+            }
+        }
+    }
+    ffs_dclose(&dir);
+
+    return ok;
 }
 
 int proj_load(project* p, char* msg, int max) {
@@ -163,7 +231,14 @@ int proj_load(project* p, char* msg, int max) {
             } else if (ini_name_is(ln.name, ln.namelen, "run")) {
                 fits = copy(p->run, PROJ_CMD_MAX + 1, ln.value, ln.valuelen);
             } else if (ini_name_is(ln.name, ln.namelen, "files")) {
-                if (!read_files(p, ln.value, ln.valuelen, msg, max)) {
+                p->listed = true;
+                if (!read_names(p->files, &p->nfiles, PROJ_FILES, ln.value,
+                                ln.valuelen, "files", msg, max)) {
+                    return -1;
+                }
+            } else if (ini_name_is(ln.name, ln.namelen, "exclude")) {
+                if (!read_names(p->exclude, &p->nexclude, PROJ_EXCLUDE, ln.value,
+                                ln.valuelen, "excluded files", msg, max)) {
                     return -1;
                 }
             }
@@ -192,6 +267,20 @@ int proj_load(project* p, char* msg, int max) {
     if (p->name[0] == 0) {
         snprintf(msg, (size_t) max, PROJ_FILE " names no program: name = ...");
         return -1;
+    }
+    // No files line: the directory is the project. The names it found go
+    // into the sum, so a file added or taken away makes a new build.obey.
+    if (!p->listed) {
+        if (!scan_directory(p, msg, max)) {
+            return -1;
+        }
+        for (int f = 0; f < p->nfiles; f++) {
+            p->sum = hash(p->sum, p->files[f], (int) strlen(p->files[f]) + 1);
+        }
+        if (p->nfiles == 0) {
+            snprintf(msg, (size_t) max, "No .c, .s or .asm files here to build");
+            return -1;
+        }
     }
     if (p->nfiles == 0) {
         snprintf(msg, (size_t) max, PROJ_FILE " lists no files: files = ...");
@@ -326,6 +415,56 @@ bool proj_obey(const project* p, const char* err, char* msg, int max) {
     if (!ok) {
         mos_del(PROJ_OBEY);             // half a build is worse than none
         snprintf(msg, (size_t) max, PROJ_OBEY " could not be written");
+    }
+
+    return ok;
+}
+
+bool proj_create(const char* name, char* msg, int max) {
+    const char was = mos_fopen(PROJ_FILE, FA_READ);
+    if (was != 0) {
+        mos_fclose(was);
+        snprintf(msg, (size_t) max, PROJ_FILE " is here already: F9 builds from it");
+        return false;
+    }
+    static char fresh[1024];
+    const int n = snprintf(fresh, sizeof(fresh),
+        "; An ade project. F9 builds every .c, .s and .asm file in this\r\n"
+        "; directory and links them into %s.bin; CTRL+F9 builds it and runs it.\r\n"
+        "\r\n"
+        "[project]\r\n"
+        "name = %s\r\n"
+        "\r\n"
+        "; Only some of the files, in this order, instead of all of them:\r\n"
+        ";files = main.c util.c\r\n"
+        "; All of them but these:\r\n"
+        ";exclude = scratch.c\r\n"
+        "; How CTRL+F9 runs the program, %%n being its name:\r\n"
+        ";run = %%n\r\n"
+        "\r\n"
+        "; How each kind of file is built, and the link. These are what ade\r\n"
+        "; does without them: %%f is the file, %%b the file less its extension,\r\n"
+        "; %%o every object, %%n the program, %%e the file errors go to.\r\n"
+        ";[build]\r\n"
+        ";c = %s\r\n"
+        ";s = %s\r\n"
+        ";asm = %s\r\n"
+        ";link = %s\r\n",
+        name, name, RULE_C, RULE_S, RULE_S, RULE_LINK);
+    if (n <= 0 || n >= (int) sizeof(fresh)) {
+        snprintf(msg, (size_t) max, "The program's name is too long");
+        return false;
+    }
+    const char fh = mos_fopen(PROJ_FILE, FA_WRITE | FA_CREATE_NEW);
+    if (fh == 0) {
+        snprintf(msg, (size_t) max, PROJ_FILE " could not be written");
+        return false;
+    }
+    const bool ok = (int) mos_fwrite(fh, fresh, (unsigned) n) == n;
+    mos_fclose(fh);
+    if (!ok) {
+        mos_del(PROJ_FILE);
+        snprintf(msg, (size_t) max, PROJ_FILE " could not be written");
     }
 
     return ok;

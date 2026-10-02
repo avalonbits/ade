@@ -189,6 +189,66 @@ const char* build_project(void) {
     return loaded > 0 ? proj.name : NULL;
 }
 
+void build_new_project(editor* ed) {
+    // The program's name, offered as the file on screen's without its
+    // directory or extension: the usual case is a project named for the file
+    // holding main.
+    static char offer[PROJ_NAME_MAX];
+    offer[0] = 0;
+    const char* name = tb_fname(&ed->doc_->buf_);
+    if (name != NULL) {
+        const char* slash = strrchr(name, '/');
+        const char* from = slash != NULL ? slash + 1 : name;
+        const char* dot = strrchr(from, '.');
+        int len = dot != NULL ? (int) (dot - from) : (int) strlen(from);
+        if (len >= (int) sizeof(offer)) {
+            len = 0;
+        }
+        memcpy(offer, from, (size_t) len);
+        offer[len] = 0;
+    }
+
+    char* typed = NULL;
+    int sz = 0;
+    const RESPONSE got = ui_text(&ed->ui_, &ed->scr_, "Name the program:", offer,
+                                 &typed, &sz);
+    if (got != YES_OPT || sz <= 0) {
+        cmd_restore_after_modal(ed, false);
+        return;
+    }
+    // A name of its own: it is the program's file, name.bin, and %n in the
+    // rules, so nothing that would make those something else.
+    static char chosen[PROJ_NAME_MAX];
+    int bad = sz >= (int) sizeof(chosen);
+    for (int i = 0; i < sz; i++) {
+        const char c = typed[i];
+        if (c <= ' ') {
+            bad = 1;
+        }
+        if (c == '/' || c == '.' || c == ':') {
+            bad = 1;
+        }
+    }
+    if (bad) {
+        say(ed, "A program's name is one word, with no '/', '.' or ':'");
+        return;
+    }
+    memcpy(chosen, typed, (size_t) sz);
+    chosen[sz] = 0;
+
+    static char msg[80];
+    if (!proj_create(chosen, msg, (int) sizeof(msg))) {
+        say(ed, msg);
+        return;
+    }
+    // Read again, for the header, which names it from now on.
+    loaded = 2;
+    scr_header_draw(&ed->scr_);
+    snprintf(msg, sizeof(msg), "Project %s: F9 builds every .c, .s and .asm here",
+             chosen);
+    say(ed, msg);
+}
+
 // Builds, then with `run` runs what was built, and comes back.
 static void start(editor* ed, bool run) {
     user_input* ui = &ed->ui_;

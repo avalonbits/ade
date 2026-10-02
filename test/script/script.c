@@ -162,6 +162,17 @@ static const key_press TWO[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// Started on newproj.c: Build -> New project, the name it offers taken, what
+// it says waited past, and F9. Where there is a project.ini already, what it
+// says instead is that, which the same key waits past.
+static const key_press NEWPROJ[] = {
+    K(0, VK_F10), K(0, VK_RIGHT), K(0, VK_RIGHT), K(0, VK_RIGHT),  // Build...
+    K(0, VK_DOWN), K(0, VK_DOWN), K(13, VK_RETURN),                // ...New project
+    K(13, VK_RETURN),                               // the name offered
+    K('k', VK_k),                                   // ...which the message waits on
+    K(0, VK_F9),
+};
+
 // Started on a file whose name has "run" in it: build and run it, CTRL+F9.
 static const key_press RUN[] = {
     M(0, VK_F9, MOD_CTRL),
@@ -282,8 +293,11 @@ static char char_at(int x, int y) {
 
 static void dump_screen(const char* path) {
     volatile unsigned char* sv = mos_sysvars();
-    const int cols = sv[SCRCOLS];
-    const int rows = sv[SCRROWS];
+    // The screen's size as the editor laid it out, which it read once: MOS's
+    // copy is the VDP's answer to the last mode question asked, and can be a
+    // different one's by the time this asks.
+    const int cols = scripted != NULL ? scripted->scr_.barW_ + 1 : sv[SCRCOLS];
+    const int rows = scripted != NULL ? scripted->scr_.rows_ : sv[SCRROWS];
     static char line[130];
     const char fh = mos_fopen(path, FA_WRITE | FA_CREATE_ALWAYS);
     if (fh == 0) {
@@ -403,6 +417,9 @@ const key_source* script_keys(editor* ed, const char* arg) {
     } else if (arg != NULL && strstr(arg, "memory") != NULL) {
         KEYS = MEMORY;
         NKEYS = COUNT(MEMORY);
+    } else if (arg != NULL && strstr(arg, "newproj") != NULL) {
+        KEYS = NEWPROJ;
+        NKEYS = COUNT(NEWPROJ);
     } else if (arg != NULL && strstr(arg, "tabs") != NULL) {
         KEYS = TABS;
         NKEYS = COUNT(TABS);

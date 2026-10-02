@@ -528,6 +528,16 @@ against a package made locally with aed's `mklibs.sh`.
   aed#217 makes `ed_run` read the current document on every pass. It had
   taken it once, so after a window switch ade's footer went on naming the
   first window's file and position.
+- **Projects without a file list** (Igor's choice, option 3 of three). ade
+  never makes a project by itself: Build -> New project asks for the
+  program's name, offering the file on screen's, and writes a commented
+  `project.ini` with no `files =` line, refusing if there is one. A project
+  without `files =` is every `.c`, `.s` and `.asm` in the directory, by
+  name, minus `exclude =`. The names found go into `build.obey`'s checksum,
+  so adding or removing a file rebuilds it, and ade never rewrites
+  `project.ini`. An explicit `files =` still works as before.
+  `project.ini` may now be 2 KB. With this the memory left at ade's fullest
+  went from 29 to 23 KB, still over the 16 KB floor.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

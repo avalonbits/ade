@@ -611,6 +611,55 @@ window 3 closed"
 check "  and built nothing" "$([ -e "$c/wrong.o" ] && echo built || echo no)" no
 }
 
+case_15a() {
+    [ -n "$TOOLS" ] || return 0
+# Build -> New project writes a project.ini with no list of files, so the
+# project is every .c, .s and .asm in the directory: newproj.c calling add()
+# in func.c is built, linked and run.
+c=$(card "$proj/bin/ade.bin")
+printf '#include <stdio.h>\r\n#include "func.h"\r\n\r\nint main(void)\r\n{\r\n' > "$c/newproj.c"
+printf '    FILE* f = fopen("/ran.txt", "w");\r\n    fprintf(f, "%%d\\n", add(2, 3));\r\n' >> "$c/newproj.c"
+printf '    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$c/newproj.c"
+printf 'int add(int a, int b);\r\n' > "$c/func.h"
+printf 'int add(int a, int b)\r\n{\r\n    return a + b;\r\n}\r\n' > "$c/func.c"
+under_hub "$c" 180 "ade newproj.c
+newproj"
+check "Build -> New project: project.ini, naming newproj" \
+      "$(tr -d '\r' < "$c/project.ini" 2>/dev/null | grep '^name')" "name = newproj"
+check "  with no files line: the directory is the project" \
+      "$(tr -d '\r' < "$c/project.ini" 2>/dev/null | grep -c '^files')" 0
+check "  so F9 builds every file here, func.c with newproj.c" \
+      "$(tr -d '\r' < "$c/build.obey" 2>/dev/null | grep -c '^acc -c \(func\|newproj\)\.c')" 2
+check "  and the program, linked from both, runs" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" 5
+
+# A file added to the directory, project.ini as it was, is in the next build:
+# the names found go into build.obey's checksum.
+printf 'int extra(void)\r\n{\r\n    return 1;\r\n}\r\n' > "$c/extra.c"
+under_hub "$c" 180 "ade newproj.c"
+check "  a file added to the directory is built next time" \
+      "$([ -s "$c/extra.o" ] && echo built || echo not)" built
+
+# New project, asked again, leaves the project.ini there as it was -- a line
+# added to it by hand included.
+printf '; mine\r\n' >> "$c/project.ini"
+cp "$c/project.ini" "$c/project.was"
+under_hub "$c" 180 "ade newproj.c"
+check "  and New project leaves the project.ini there alone" \
+      "$(cmp -s "$c/project.ini" "$c/project.was" && echo same || echo changed)" same
+}
+
+case_15b() {
+    [ -n "$TOOLS" ] || return 0
+# exclude = leaves a file of the directory out of the project.
+c=$(card "$proj/bin/ade.bin")
+printf '[project]\r\nname = ex\r\nexclude = scratch.c\r\n' > "$c/project.ini"
+printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/ex.c"
+printf 'this is not C\r\n' > "$c/scratch.c"
+under_hub "$c" 120 "ade ex.c"
+check "a project excluding scratch.c builds without it" \
+      "$([ -s "$c/ex.bin" ] && [ ! -e "$c/scratch.o" ] && echo built)" built
+}
+
 case_15() {
     [ -n "$TOOLS" ] || return 0
 # A project's own rules: an assembly program in one piece, zap writing the
@@ -776,7 +825,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_10 case_11 case_12 case_13 case_14 case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
+run_cases case_01 case_01b case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.
