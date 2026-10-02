@@ -169,6 +169,7 @@ static bool project_command(editor* ed, const project* p, char* cmd) {
         say(ed, msg);
         return false;
     }
+    proj_dirs();
     snprintf(cmd, HUB_CMD_MAX + 1, "Obey " PROJ_OBEY);
 
     return true;

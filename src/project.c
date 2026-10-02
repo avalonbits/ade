@@ -26,10 +26,12 @@
 
 #define TEXT_MAX 2048
 
-static const char RULE_C[] = "acc -c %f -o %b.o -errors %e";
-static const char RULE_S[] = "zap %f %b.o -f acc -c -e %e";
-static const char RULE_LINK[] = "acc %o -o %n.bin -errors %e";
-static const char RULE_RUN[] = "%n";
+// Objects go in build/, the program in bin/, both under the project's
+// directory, so the source is all that is left beside project.ini.
+static const char RULE_C[] = "acc -c %f -o " PROJ_OBJ_DIR "/%b.o -errors %e";
+static const char RULE_S[] = "zap %f " PROJ_OBJ_DIR "/%b.o -f acc -c -e %e";
+static const char RULE_LINK[] = "acc %o -o " PROJ_BIN_DIR "/%n.bin -errors %e";
+static const char RULE_RUN[] = PROJ_BIN_DIR "/%n";
 
 static char text[TEXT_MAX];
 
@@ -348,6 +350,7 @@ static bool expand(const project* p, const char* rule, const char* file,
         case 'o':
             for (int f = 0; f < p->nfiles && ok; f++) {
                 ok = (f == 0 || put(out, max, &at, " ", 1))
+                     && put(out, max, &at, PROJ_OBJ_DIR "/", (int) sizeof(PROJ_OBJ_DIR "/") - 1)
                      && put(out, max, &at, p->files[f], base_len(p->files[f]))
                      && put(out, max, &at, ".o", 2);
             }
@@ -430,7 +433,8 @@ bool proj_create(const char* name, char* msg, int max) {
     static char fresh[1024];
     const int n = snprintf(fresh, sizeof(fresh),
         "; An ade project. F9 builds every .c, .s and .asm file in this\r\n"
-        "; directory and links them into %s.bin; CTRL+F9 builds it and runs it.\r\n"
+        "; directory, into build/, and links them into bin/%s.bin; CTRL+F9\r\n"
+        "; builds it and runs it.\r\n"
         "\r\n"
         "[project]\r\n"
         "name = %s\r\n"
@@ -439,12 +443,13 @@ bool proj_create(const char* name, char* msg, int max) {
         ";files = main.c util.c\r\n"
         "; All of them but these:\r\n"
         ";exclude = scratch.c\r\n"
-        "; How CTRL+F9 runs the program, %%n being its name:\r\n"
+        "; How CTRL+F9 runs the program, from bin/, %%n being its name:\r\n"
         ";run = %%n\r\n"
         "\r\n"
         "; How each kind of file is built, and the link. These are what ade\r\n"
         "; does without them: %%f is the file, %%b the file less its extension,\r\n"
-        "; %%o every object, %%n the program, %%e the file errors go to.\r\n"
+        "; %%o every object, as build/%%b.o, %%n the program, %%e the file errors\r\n"
+        "; go to.\r\n"
         ";[build]\r\n"
         ";c = %s\r\n"
         ";s = %s\r\n"
@@ -468,4 +473,10 @@ bool proj_create(const char* name, char* msg, int max) {
     }
 
     return ok;
+}
+
+void proj_dirs(void) {
+    // A directory that is there already is the usual case, and not an error.
+    mos_mkdir(PROJ_OBJ_DIR);
+    mos_mkdir(PROJ_BIN_DIR);
 }

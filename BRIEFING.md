@@ -538,6 +538,11 @@ against a package made locally with aed's `mklibs.sh`.
   `project.ini`. An explicit `files =` still works as before.
   `project.ini` may now be 2 KB. With this the memory left at ade's fullest
   went from 29 to 23 KB, still over the 16 KB floor.
+- **Project builds go to `build/` and `bin/`.** The default rules write each
+  object to `build/%b.o` (`%o` expands to those) and link `bin/%n.bin`, and
+  Run starts `bin/%n`. ade makes both directories as a project build starts:
+  the tools won't, and a MKDIR in `build.obey` would fail and stop Obey once
+  they exist. Single-file F9 still writes `name.bin` beside the file.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

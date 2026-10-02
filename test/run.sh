@@ -529,7 +529,7 @@ window 2 closed
 window 3 closed"
 check "  and the header names the project's program" "$(header "$c")" "prog  [1]"
 check "  one object per file" \
-      "$(for o in main.o add.o seven.o; do [ -s "$c/$o" ] && printf '%s ' $o; done)" \
+      "$(for o in main.o add.o seven.o; do [ -s "$c/build/$o" ] && printf '%s ' $o; done)" \
       "main.o add.o seven.o "
 check "  and the program, which runs" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" 12
 }
@@ -550,7 +550,7 @@ screen 3:16
 window 1 main.c 1:1 int add(int a, int b);
 window 2 add.c 3:16 int add(int a, int b)
 window 3 closed"
-check "  and nothing was linked" "$([ -e "$c/prog.bin" ] && echo linked || echo no)" no
+check "  and nothing was linked" "$([ -e "$c/bin/prog.bin" ] && echo linked || echo no)" no
 }
 
 case_13() {
@@ -590,7 +590,7 @@ printf '[project]\r\nname = prog\r\nfiles = %s f8.c\r\n' "$files" > "$c/project.
 rm -f "$c/kept.txt"
 under_hub "$c" 240 "ade main.c"
 check "  a file added to project.ini writes it again" \
-      "$([ -s "$c/f8.o" ] && echo built || echo not)$([ -e "$c/kept.txt" ] && echo ' kept')" built
+      "$([ -s "$c/build/f8.o" ] && echo built || echo not)$([ -e "$c/kept.txt" ] && echo ' kept')" built
 }
 
 case_14() {
@@ -615,37 +615,46 @@ case_15a() {
     [ -n "$TOOLS" ] || return 0
 # Build -> New project writes a project.ini with no list of files, so the
 # project is every .c, .s and .asm in the directory: newproj.c calling add()
-# in func.c is built, linked and run.
+# in func.c is built, into build/ and bin/, linked and run. In a directory of
+# its own, as a project would be, whose bin/ is not the card's.
 c=$(card "$proj/bin/ade.bin")
-printf '#include <stdio.h>\r\n#include "func.h"\r\n\r\nint main(void)\r\n{\r\n' > "$c/newproj.c"
-printf '    FILE* f = fopen("/ran.txt", "w");\r\n    fprintf(f, "%%d\\n", add(2, 3));\r\n' >> "$c/newproj.c"
-printf '    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$c/newproj.c"
-printf 'int add(int a, int b);\r\n' > "$c/func.h"
-printf 'int add(int a, int b)\r\n{\r\n    return a + b;\r\n}\r\n' > "$c/func.c"
-under_hub "$c" 180 "ade newproj.c
-newproj"
+mkdir -p "$c/p"
+d=$c/p
+printf '#include <stdio.h>\r\n#include "func.h"\r\n\r\nint main(void)\r\n{\r\n' > "$d/newproj.c"
+printf '    FILE* f = fopen("/ran.txt", "w");\r\n    fprintf(f, "%%d\\n", add(2, 3));\r\n' >> "$d/newproj.c"
+printf '    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$d/newproj.c"
+printf 'int add(int a, int b);\r\n' > "$d/func.h"
+printf 'int add(int a, int b)\r\n{\r\n    return a + b;\r\n}\r\n' > "$d/func.c"
+under_hub "$c" 180 "cd /p
+ade newproj.c
+bin/newproj"
 check "Build -> New project: project.ini, naming newproj" \
-      "$(tr -d '\r' < "$c/project.ini" 2>/dev/null | grep '^name')" "name = newproj"
+      "$(tr -d '\r' < "$d/project.ini" 2>/dev/null | grep '^name')" "name = newproj"
 check "  with no files line: the directory is the project" \
-      "$(tr -d '\r' < "$c/project.ini" 2>/dev/null | grep -c '^files')" 0
+      "$(tr -d '\r' < "$d/project.ini" 2>/dev/null | grep -c '^files')" 0
 check "  so F9 builds every file here, func.c with newproj.c" \
-      "$(tr -d '\r' < "$c/build.obey" 2>/dev/null | grep -c '^acc -c \(func\|newproj\)\.c')" 2
+      "$(tr -d '\r' < "$d/build.obey" 2>/dev/null | grep -c '^acc -c \(func\|newproj\)\.c')" 2
 check "  and the program, linked from both, runs" "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" 5
+check "  its objects in build/, the program in bin/, none beside the source" \
+      "$(cd "$d" && ls build/func.o build/newproj.o bin/newproj.bin *.o 2>/dev/null | tr '\n' ' ')" \
+      "bin/newproj.bin build/func.o build/newproj.o "
 
 # A file added to the directory, project.ini as it was, is in the next build:
 # the names found go into build.obey's checksum.
-printf 'int extra(void)\r\n{\r\n    return 1;\r\n}\r\n' > "$c/extra.c"
-under_hub "$c" 180 "ade newproj.c"
+printf 'int extra(void)\r\n{\r\n    return 1;\r\n}\r\n' > "$d/extra.c"
+under_hub "$c" 180 "cd /p
+ade newproj.c"
 check "  a file added to the directory is built next time" \
-      "$([ -s "$c/extra.o" ] && echo built || echo not)" built
+      "$([ -s "$d/build/extra.o" ] && echo built || echo not)" built
 
 # New project, asked again, leaves the project.ini there as it was -- a line
 # added to it by hand included.
-printf '; mine\r\n' >> "$c/project.ini"
-cp "$c/project.ini" "$c/project.was"
-under_hub "$c" 180 "ade newproj.c"
+printf '; mine\r\n' >> "$d/project.ini"
+cp "$d/project.ini" "$d/project.was"
+under_hub "$c" 180 "cd /p
+ade newproj.c"
 check "  and New project leaves the project.ini there alone" \
-      "$(cmp -s "$c/project.ini" "$c/project.was" && echo same || echo changed)" same
+      "$(cmp -s "$d/project.ini" "$d/project.was" && echo same || echo changed)" same
 }
 
 case_15b() {
@@ -657,7 +666,7 @@ printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/ex.c"
 printf 'this is not C\r\n' > "$c/scratch.c"
 under_hub "$c" 120 "ade ex.c"
 check "a project excluding scratch.c builds without it" \
-      "$([ -s "$c/ex.bin" ] && [ ! -e "$c/scratch.o" ] && echo built)" built
+      "$([ -s "$c/bin/ex.bin" ] && [ ! -e "$c/build/scratch.o" ] && echo built)" built
 }
 
 case_15() {
@@ -796,7 +805,7 @@ case_22() {
     [ -n "$TOOLS" ] || return 0
 # A project's run line: how Run runs the program, arguments and all.
 c=$(card "$proj/bin/ade.bin")
-printf '[project]\r\nname = runargs\r\nfiles = runargs.c\r\nrun = %%n alpha beta\r\n' > "$c/project.ini"
+printf '[project]\r\nname = runargs\r\nfiles = runargs.c\r\nrun = bin/%%n alpha beta\r\n' > "$c/project.ini"
 printf '#include <stdio.h>\r\nint main(int argc, char** argv)\r\n{\r\n    FILE* f = fopen("/ran.txt", "w");\r\n' > "$c/runargs.c"
 printf '    fprintf(f, "%%d %%s\\n", argc, argc > 2 ? argv[2] : "-");\r\n    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$c/runargs.c"
 under_hub "$c" 120 'Set Hub$NoPause 1

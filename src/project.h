@@ -32,17 +32,19 @@
  *                                  ; or, with no files line, every .c, .s
  *                                  ; and .asm in the directory, by name
  *   exclude = scratch.c            ; with no files line: all but these
- *   run = %n -v data.txt           ; how Run runs it: %n, the program, alone
- *                                  ; unless this says otherwise
+ *   run = bin/%n -v data.txt       ; how Run runs it: bin/%n, the program,
+ *                                  ; alone unless this says otherwise
  *
  *   [build]                        ; optional -- these are the defaults
- *   c = acc -c %f -o %b.o -errors %e
- *   s = zap %f %b.o -f acc -c -e %e
- *   asm = zap %f %b.o -f acc -c -e %e
- *   link = acc %o -o %n.bin -errors %e
+ *   c = acc -c %f -o build/%b.o -errors %e
+ *   s = zap %f build/%b.o -f acc -c -e %e
+ *   asm = zap %f build/%b.o -f acc -c -e %e
+ *   link = acc %o -o bin/%n.bin -errors %e
  *
- * In a command, %f is the file, %b the file without its extension, %o every
- * file's %b.o in order, %n the program's name, %e the file a tool writes its
+ * Objects go in build/ and the program in bin/, both made as the build
+ * starts, so only the source is beside project.ini. In a command, %f is the
+ * file, %b the file without its extension, %o every file's build/%b.o in
+ * order, %n the program's name, %e the file a tool writes its
  * error to, and %% a percent sign. An empty link runs no link: a program
  * assembled in one piece, `s = zap %f %n.bin -c -e %e`, needs none.
  *
@@ -55,6 +57,8 @@
  */
 
 #define PROJ_FILE       "project.ini"
+#define PROJ_OBJ_DIR    "build"
+#define PROJ_BIN_DIR    "bin"
 #define PROJ_OBEY       "build.obey"
 #define PROJ_FILES      32
 #define PROJ_EXCLUDE    8
@@ -98,6 +102,9 @@ bool proj_run(const project* p, char* out, int max);
 // may say in comments. False with why in `msg` when there is one already or
 // it cannot be written.
 bool proj_create(const char* name, char* msg, int max);
+
+// Makes PROJ_OBJ_DIR and PROJ_BIN_DIR, where they are not there already.
+void proj_dirs(void);
 
 // Makes sure PROJ_OBEY holds the project's commands, writing it when it was
 // made from another project.ini or not at all. False with what went wrong in
