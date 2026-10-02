@@ -37,7 +37,9 @@
  */
 #define ADE_WINDOWS 10
 #define ADE_LOADED  3
-#define ADE_NAME_MAX 128
+// The longest name a window keeps while put away; one with a longer name
+// stays loaded, since it could not be loaded again.
+#define ADE_NAME_MAX 64
 #define ADE_DOC_KB  48
 
 // Takes over window 1 from an editor ed_init_for has just started.

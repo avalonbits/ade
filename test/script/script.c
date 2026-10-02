@@ -250,6 +250,23 @@ static const key_press MANY[] = {
     K('n', VK_n), K('n', VK_n),                     // w2 and w3 left unsaved
 };
 
+// Started on a file whose path is too long for a window to keep put away:
+// w2.txt, w3.txt and w4.txt opened beside it, none changed. Making room for
+// w4.txt, the window used longest ago is window 1 -- which cannot be put
+// away, so w2.txt is; and leave.
+static const key_press LONGNAME[] = {
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('w', VK_w), K('2', VK_2), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('w', VK_w), K('3', VK_3), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('w', VK_w), K('4', VK_4), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x),
+    K('t', VK_t), K(13, VK_RETURN),
+    M(17, VK_q, MOD_CTRL),
+};
+
 // Started on a file whose name has "run" in it: build and run it, CTRL+F9.
 static const key_press RUN[] = {
     M(18, VK_r, MOD_CTRL),                          // CTRL+R
@@ -504,6 +521,9 @@ const key_source* script_keys(editor* ed, const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "a_directory_with") != NULL) {
+        KEYS = LONGNAME;
+        NKEYS = COUNT(LONGNAME);
     } else if (arg != NULL && strstr(arg, "w1.txt") != NULL) {
         KEYS = MANY;
         NKEYS = COUNT(MANY);

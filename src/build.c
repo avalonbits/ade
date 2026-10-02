@@ -43,7 +43,7 @@ typedef struct {
     unsigned char current;
     int line[ADE_WINDOWS];
     int x[ADE_WINDOWS];
-    char name[ADE_WINDOWS][ADE_NAME_MAX];
+    char name[ADE_WINDOWS][TB_FNAME_MAX];  // in hub's memory, not ade's
 } session;
 
 // Changed whenever the session does, so an older ade's is not misread.
@@ -313,7 +313,7 @@ static void start(editor* ed, bool run) {
     s->current = (unsigned char) win_current();
     for (int i = 0; i < ADE_WINDOWS; i++) {
         const char* name = win_name(ed, i);
-        s->open[i] = name != NULL && strlen(name) < ADE_NAME_MAX;
+        s->open[i] = name != NULL && strlen(name) < TB_FNAME_MAX;
         if (!s->open[i]) {
             continue;
         }
@@ -586,9 +586,13 @@ void build_resume(editor* ed) {
 
     // Window 1 is open already: ed_init_for opened its file. The others, in
     // order, put away -- each is loaded when it is shown -- where they were.
+    // One whose name is too long to keep put away is loaded now instead.
     for (int i = 1; i < ADE_WINDOWS; i++) {
-        if (s->open[i]) {
-            win_restore(ed, s->name[i], s->line[i], s->x[i]);
+        if (s->open[i] && win_restore(ed, s->name[i], s->line[i], s->x[i]) < 0) {
+            const int w = win_open_named(ed, s->name[i]);
+            if (w >= 0) {
+                win_place(ed, w, s->line[i], s->x[i]);
+            }
         }
     }
 

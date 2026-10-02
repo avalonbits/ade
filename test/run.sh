@@ -380,6 +380,28 @@ check "  w1.txt saved to make room, w2 and w3 left as they were" \
 check "  and the bar shows four windows, 3 on screen" "$(header "$c")" "1 2 [3] 4"
 }
 
+case_01f() {
+# A window keeps its file's name to load it from again only up to 63
+# characters: one with a longer path stays loaded. Window 1's path is 69
+# long, so making room for w4.txt puts away w2.txt, though window 1 is the
+# one used longest ago.
+c=$(card "$proj/bin/ade.bin")
+mkdir -p "$c/a_directory_with_a_long_name/another_directory_long/third_one"
+printf 'one\r\n' > "$c/a_directory_with_a_long_name/another_directory_long/third_one/w1.txt"
+printf 'two\r\n' > "$c/w2.txt"
+printf 'three\r\n' > "$c/w3.txt"
+printf 'four\r\n' > "$c/w4.txt"
+under_hub "$c" 60 "ade /a_directory_with_a_long_name/another_directory_long/third_one/w1.txt"
+played "$c" "a long path stays loaded: w2.txt put away instead" "keys 25 of 25
+current 4
+at 1:1
+screen 1:1
+window 1 /a_directory_with_a_long_name/another_directory_long/third_one/w1.txt 1:1 one
+window 2 w2.txt 1:1 (put away)
+window 3 w3.txt 1:1 three
+window 4 w4.txt 1:1 four"
+}
+
 case_02() {
 # --- settings ---
 # The editor's settings, from aed's library, in /config/ade.ini: applied as
@@ -912,7 +934,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

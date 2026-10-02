@@ -140,10 +140,6 @@ void win_start(editor* ed) {
     used[0] = true;
     memset(wins, 0, sizeof(wins));
     wins[0].slot = 0;
-    const char* name = tb_fname(&ed->home_.buf_);
-    if (name != NULL) {
-        strncpy(wins[0].name, name, ADE_NAME_MAX - 1);
-    }
     wins[0].used = clock_ = 1;
     nwin = 1;
     current = 0;
@@ -422,11 +418,6 @@ int win_open_named(editor* ed, const char* fname) {
         ui_message(&ed->ui_, &ed->scr_, msg);
         return -1;
     }
-    if (strlen(fname) >= ADE_NAME_MAX) {
-        ui_message(&ed->ui_, &ed->scr_, "Name too long");
-        return -1;
-    }
-
     const int slot = free_slot(ed, -1);
     if (slot < 0) {
         cmd_restore_after_modal(ed, false);
@@ -437,9 +428,10 @@ int win_open_named(editor* ed, const char* fname) {
                         fname)) {
         case TB_OK: {
             used[slot] = true;
+            // The name is the document's while it is loaded; kept here only
+            // to put it away, and a name too long to keep never is.
             window* w = &wins[nwin];
             memset(w, 0, sizeof(*w));
-            strcpy(w->name, fname);
             w->slot = (signed char) slot;
             w->used = ++clock_;
             current = nwin++;
