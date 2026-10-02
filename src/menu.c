@@ -54,7 +54,8 @@ static const menu_item FILE_ITEMS[] = {
     { "Save",               "CTRL+S",     ed_cmd_save,  0, NULL },
     { "Save as",            "CTRL+ALT+S", cmd_save_as,  0, NULL },
     { "Close window",       "ALT+F3",     win_close,    0, NULL },
-    { "Next window",        "F6",         win_next,     0, NULL },
+    { "Next window",        "CTRL+TAB",   win_next,     0, NULL },
+    { "Previous window",    "CTRL+SHIFT+TAB", win_prev, 0, NULL },
     { "Window list",        "ALT+F6",     win_list,     0, NULL },
     { "Quit",               "CTRL+Q",     win_quit,     0, NULL },
 };
@@ -74,12 +75,12 @@ static const menu_item SEARCH_ITEMS[] = {
     { "Go to line",         "CTRL+G",     cmd_goto,       0,   NULL },
 };
 static const menu_item BUILD_ITEMS[] = {
-    { "Build",              "F9",         build, 0, NULL },
+    { "Build",              "CTRL+B",     build, 0, NULL },
     { "Errors",             "ALT+F9",     build_errors, 0, NULL },
     { "New project",        "",           build_new_project, 0, NULL },
 };
 static const menu_item RUN_ITEMS[] = {
-    { "Run",                "CTRL+F9",    build_run, 0, NULL },
+    { "Run",                "CTRL+R",     build_run, 0, NULL },
     { "User screen",        "ALT+F5",     build_user_screen, 0, NULL },
 };
 static const menu_item OPTIONS_ITEMS[] = {

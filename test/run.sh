@@ -287,7 +287,7 @@ printf 'alpha\r\n' > "$c/a.txt"
 printf 'bravo\r\n' > "$c/b.txt"
 printf 'charlie\r\n' > "$c/c.txt"
 under_hub "$c" 40 "ade a.txt"
-played "$c" "under hub, windows and menus, played" "keys 61 of 61
+played "$c" "under hub, windows and menus, played" "keys 62 of 62
 current 2
 at 1:4
 screen 1:4
@@ -337,6 +337,20 @@ screen 1:1
 window 1 b.txt 1:1 bravo
 window 2 closed
 window 3 closed"
+}
+
+case_01d() {
+# Round the windows by keys: CTRL+TAB to the next, CTRL+SHIFT+TAB to the one
+# before, CTRL+number to that one, and nothing for a window that is not
+# there. The window on screen as each key is asked for, from 3 after opening
+# them: 3, then 1, 3, 2, 1, 3, 2 after closing 3, and 2 still.
+c=$(card "$proj/bin/ade.bin")
+printf 'nav\r\n' > "$c/nav.txt"
+printf 'bravo\r\n' > "$c/b.txt"
+printf 'charlie\r\n' > "$c/c.txt"
+under_hub "$c" 40 "ade nav.txt"
+check "CTRL+TAB, CTRL+SHIFT+TAB and CTRL+number go round the windows" \
+      "$(cat "$c/ade.nav" 2>/dev/null)" 31321322
 }
 
 case_02() {
@@ -871,7 +885,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
+run_cases case_01 case_01b case_01c case_01d case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

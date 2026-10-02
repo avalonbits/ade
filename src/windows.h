@@ -48,6 +48,11 @@ void win_finish(editor* ed);
 // asks about every window with unsaved changes rather than only the one shown.
 void win_open(editor* ed);
 void win_next(editor* ed);
+void win_prev(editor* ed);
+// To window 1, 2 or 3, and nothing when there is no such window.
+void win_to_1(editor* ed);
+void win_to_2(editor* ed);
+void win_to_3(editor* ed);
 void win_close(editor* ed);
 void win_list(editor* ed);
 void win_quit(editor* ed);

@@ -543,6 +543,10 @@ against a package made locally with aed's `mklibs.sh`.
   Run starts `bin/%n`. ade makes both directories as a project build starts:
   the tools won't, and a MKDIR in `build.obey` would fail and stop Obey once
   they exist. Single-file F9 still writes `name.bin` beside the file.
+- **Keys, Igor's choice:** CTRL+B builds and CTRL+R runs. CTRL+TAB and
+  CTRL+SHIFT+TAB go round the windows, and CTRL+1 to CTRL+3 go to that window
+  if it is open. CTRL+SHIFT+O opens in a new window. Turbo Pascal's F6, F9 and
+  CTRL+F9 stay as aliases.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made

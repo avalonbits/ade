@@ -71,13 +71,13 @@ static const key_press WINDOWS[] = {
     K(0, VK_F10), K(0, VK_LEFT), K(27, VK_ESCAPE),  // round to Options, and out
     K(0, VK_F10),                                   // File...
     K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN),
-    K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN),
+    K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN),
     K(13, VK_RETURN),                               // ...Quit: only 2 is unsaved
     K('n', VK_n),                                   // ...leave it as it was
 };
 // Started on a source file: build it, F9. hub runs the tool, and ade again.
 static const key_press BUILD[] = {
-    K(0, VK_F9),
+    M(2, VK_b, MOD_CTRL),                           // CTRL+B
 };
 
 // Started on good.txt, with more for the build to carry across: good.txt
@@ -194,9 +194,34 @@ static const key_press CLOSE[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// Started on nav.txt: b.txt and c.txt in windows 2 and 3, then round the
+// windows by the keys for it -- the window on screen noted as each of those
+// keys is asked for: CTRL+TAB, CTRL+SHIFT+TAB twice, CTRL+1, CTRL+3, ALT+F3
+// closing window 3, and CTRL+3 with no window 3 any more; and leave.
+static const key_press NAV[] = {
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('b', VK_b), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
+    K(13, VK_RETURN),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('c', VK_c), K('.', VK_PERIOD), K('t', VK_t), K('x', VK_x), K('t', VK_t),
+    K(13, VK_RETURN),                               // 3 on screen
+    M(9, VK_TAB, MOD_CTRL),                         // round to 1
+    M(9, VK_TAB, MOD_CTRL | MOD_SHFT),              // back round to 3
+    M(9, VK_TAB, MOD_CTRL | MOD_SHFT),              // 2
+    M('1', VK_1, MOD_CTRL),                         // 1
+    M('3', VK_3, MOD_CTRL),                         // 3
+    M(0, VK_F3, MOD_ALT),                           // closed: 2
+    M('3', VK_3, MOD_CTRL),                         // no window 3: still 2
+    M(17, VK_q, MOD_CTRL),
+};
+
+// Which window was on screen as each of NAV's last keys was asked for.
+static char nav_seen[16];
+static int nav_n;
+
 // Started on a file whose name has "run" in it: build and run it, CTRL+F9.
 static const key_press RUN[] = {
-    M(0, VK_F9, MOD_CTRL),
+    M(18, VK_r, MOD_CTRL),                          // CTRL+R
 };
 
 // Started by hub after the build: an error waits for a key, which ESC is,
@@ -393,6 +418,9 @@ static bool poll(void* ctx, key_press* kp) {
     }
     // A resume's screen as its first key is asked for -- what the build said,
     // on top of the document -- and as its second is, once that is gone.
+    if (KEYS == NAV && at >= 14 && nav_n < (int) sizeof(nav_seen) - 1) {
+        nav_seen[nav_n++] = (char) ('1' + win_current());
+    }
     if (KEYS == CLOSE && at == 16) {
         dump_screen("/ade.scr");
     }
@@ -445,6 +473,9 @@ const key_source* script_keys(editor* ed, const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "nav.txt") != NULL) {
+        KEYS = NAV;
+        NKEYS = COUNT(NAV);
     } else if (arg != NULL && strstr(arg, "close1") != NULL) {
         KEYS = CLOSE;
         NKEYS = COUNT(CLOSE);
@@ -589,6 +620,14 @@ void script_report(editor* ed) {
         if (bh != 0) {
             mos_fwrite(bh, out, (unsigned) n);
             mos_fclose(bh);
+        }
+    }
+
+    if (KEYS == NAV) {
+        const char vh = mos_fopen("/ade.nav", FA_WRITE | FA_CREATE_ALWAYS);
+        if (vh != 0) {
+            mos_fwrite(vh, nav_seen, (unsigned) nav_n);
+            mos_fclose(vh);
         }
     }
 

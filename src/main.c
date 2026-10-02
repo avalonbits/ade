@@ -66,14 +66,17 @@ static const app_context ADE_APP = {
 
 /*
  * ade's own keys: its files, leaving and its settings (CTRL+E), the same as
- * aed's; CTRL+SHIFT+O opens a file in a new window; and its windows and menus
- * on the keys Turbo Pascal gave them -- F6 goes to the next window, ALT+F3
- * closes the one on screen, ALT+F6 lists them, and F10 opens the menus. F9
- * builds, through hub -- see build.h -- ALT+F9 lists the errors it left,
- * CTRL+F9 builds and runs, and ALT+F5 shows what the program left on the
- * screen. A key with more held comes before the same key with fewer, which
- * would match it too: CTRL+SHIFT+O before CTRL+O, ALT+F6 before F6, and
- * ALT+F9 and CTRL+F9 before F9.
+ * aed's. Windows: CTRL+SHIFT+O opens a file in a new one, CTRL+TAB and
+ * CTRL+SHIFT+TAB go to the next and the one before, CTRL+1 to CTRL+3 to that
+ * one if it is open, ALT+F3 closes the one on screen and ALT+F6 lists them.
+ * Building, through hub -- see build.h: CTRL+B builds, CTRL+R builds and runs,
+ * ALT+F9 lists the errors it left, and ALT+F5 shows what the program left on
+ * the screen. F10 opens the menus. Turbo Pascal's F6, F9 and CTRL+F9 still do
+ * what they did there.
+ *
+ * A key with more held comes before the same key with fewer, which would
+ * match it too: CTRL+SHIFT+O before CTRL+O, CTRL+SHIFT+TAB before CTRL+TAB,
+ * ALT+F6 before F6, and ALT+F9 and CTRL+F9 before F9.
  */
 static const key_binding ADE_BINDINGS[] = {
     LETTER(VK_o, VK_O, C | S, win_open),
@@ -82,6 +85,13 @@ static const key_binding ADE_BINDINGS[] = {
     LETTER(VK_s, VK_S, C, ed_cmd_save),
     LETTER(VK_q, VK_Q, C, win_quit),
     LETTER(VK_e, VK_E, C, ade_cmd_settings),
+    LETTER(VK_b, VK_B, C, build),
+    LETTER(VK_r, VK_R, C, build_run),
+    { VK_TAB, C | S, 0, win_prev },
+    { VK_TAB, C, 0, win_next },
+    { VK_1, C, 0, win_to_1 },
+    { VK_2, C, 0, win_to_2 },
+    { VK_3, C, 0, win_to_3 },
     { VK_F3, A, 0, win_close },
     { VK_F6, A, 0, win_list },
     { VK_F6, 0, 0, win_next },

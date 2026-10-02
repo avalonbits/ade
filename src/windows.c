@@ -318,6 +318,31 @@ void win_next(editor* ed) {
     }
 }
 
+void win_prev(editor* ed) {
+    if (nwin > 1) {
+        show(ed, (current + nwin - 1) % nwin);
+    }
+}
+
+// To window n, if it is open and not the one on screen; else nothing.
+static void to(editor* ed, int n) {
+    if (n < nwin && n != current) {
+        show(ed, n);
+    }
+}
+
+void win_to_1(editor* ed) {
+    to(ed, 0);
+}
+
+void win_to_2(editor* ed) {
+    to(ed, 1);
+}
+
+void win_to_3(editor* ed) {
+    to(ed, 2);
+}
+
 void win_close(editor* ed) {
     if (nwin == 1) {
         ui_message(&ed->ui_, &ed->scr_, "The last window stays open");
