@@ -63,11 +63,13 @@ static int screen_mode(void) {
 
 // Shows `msg` on the message row and waits for a key, cut to fit the row
 // beside what ui_message adds -- and marked "..." where it was cut.
+static char said[128];
+
 static void say(editor* ed, const char* msg) {
-    static char fit[128];
+    char* fit = said;
     int room = ed->scr_.barW_ - DISMISS_LEN - 1;
-    if (room > (int) sizeof(fit) - 1) {
-        room = (int) sizeof(fit) - 1;
+    if (room > (int) sizeof(said) - 1) {
+        room = (int) sizeof(said) - 1;
     }
     int n = (int) strlen(msg);
     if (n > room) {
@@ -342,8 +344,9 @@ static void show_at(editor* ed, int w, int line, int x) {
 }
 
 // What the last build said: the error file, each line a string, and where
-// the lines of the form `file:line:column: ...` start -- the errors. Kept
-// until the next build, for the list.
+// each starts -- the errors, most of the form `file:line:column: ...`, but
+// some with no place in a file to give. Kept until the next build, for the
+// list.
 #define ERR_MAX 16
 static char errs[1024];
 static int err_at[ERR_MAX];
@@ -421,7 +424,6 @@ static void read_errors(void) {
     }
     errs[n] = 0;
 
-    static char file[TB_FNAME_MAX];
     int start = 0;
     while (start < n && nerrs < ERR_MAX) {
         int end = start;
@@ -429,9 +431,10 @@ static void read_errors(void) {
             end++;
         }
         errs[end] = 0;
-        int line = 0;
-        int col = 0;
-        if (parse_error(errs + start, file, TB_FNAME_MAX, &line, &col)) {
+        // Every line is an error, whether it says where or not: a link's
+        // "'add' is called but never defined" has no place in a file, and
+        // acc writes it as at acc:0:0.
+        if (errs[start] != 0) {
             err_at[nerrs++] = start;
         }
         start = end + 1;
@@ -447,7 +450,10 @@ static void read_errors(void) {
 static int error_window(editor* ed, int k, int* line, int* x) {
     static char file[TB_FNAME_MAX];
     int col = 0;
-    parse_error(errs + err_at[k], file, TB_FNAME_MAX, line, &col);
+    // An error with no line in a file has nowhere to go: the cursor stays.
+    if (!parse_error(errs + err_at[k], file, TB_FNAME_MAX, line, &col)) {
+        return -1;
+    }
     *x = col > 0 ? col - 1 : 0;
     const int w = win_find(ed, file);
 
@@ -568,4 +574,8 @@ void build_resume(editor* ed) {
     } else {
         build_errors(ed);
     }
+}
+
+const char* build_said(void) {
+    return said;
 }

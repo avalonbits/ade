@@ -27,6 +27,7 @@
 
 #include <hub/hub.h>
 
+#include "build.h"
 #include "menu.h"
 #include "windows.h"
 
@@ -318,6 +319,9 @@ static void dump_screen(const char* path) {
         const int k = sprintf(line, "footer %.100s\n", scripted->scr_.lastFname_);
         mos_fwrite(fh, line, (unsigned) k);
     }
+    // And the last thing a build said on the message row, which is the same.
+    const int k = sprintf(line, "said %.100s\n", build_said());
+    mos_fwrite(fh, line, (unsigned) k);
     mos_fclose(fh);
 }
 

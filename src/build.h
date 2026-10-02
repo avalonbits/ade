@@ -74,6 +74,10 @@ void build_user_screen(editor* ed);
 // program run in between may have changed it, and hub does not put it back.
 void build_resume_screen(void);
 
+// The last thing a build said on the message row, as it was shown -- for the
+// scripted test, which cannot read that row back off the screen.
+const char* build_said(void);
+
 // The file window 1 held when the build began, for ed_init_for to open on
 // resume; NULL when there is no session to go back to.
 const char* build_first_file(void);

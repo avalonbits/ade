@@ -313,8 +313,8 @@ check "F3 to a second window: the bar shows both, 2 on screen" "$(strip "$c/ade.
 check "  and F6 back to 1: the bar shows 1 on screen" "$(strip "$c/ade.scr2")" "[1] 2"
 # The footer names the file on screen: it went on naming the first window's,
 # drawn from the document the editor's loop started with, until aed 1.5.1.
-check "  the footer names func.h in window 2" "$(tail -1 "$c/ade.scr" 2>/dev/null)" "footer func.h"
-check "  and one.txt back in window 1" "$(tail -1 "$c/ade.scr2" 2>/dev/null)" "footer one.txt"
+check "  the footer names func.h in window 2" "$(grep '^footer ' "$c/ade.scr" 2>/dev/null)" "footer func.h"
+check "  and one.txt back in window 1" "$(grep '^footer ' "$c/ade.scr2" 2>/dev/null)" "footer one.txt"
 }
 
 case_02() {
@@ -373,7 +373,7 @@ printf '[editor]\r\nfont = /config/aed/tall.bin\r\n' > "$c/config/ade.ini"
 printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/fontok.c"
 under_hub "$c" 120 "ade fontok.c"
 check "settings: the font ade.ini names, again after a build" \
-      "$(grep -vc '^footer ' "$c/ade.scr" 2>/dev/null)" 30
+      "$(grep -vc '^footer \|^said ' "$c/ade.scr" 2>/dev/null)" 30
 }
 
 case_05() {
@@ -450,6 +450,21 @@ under_hub "$c" 120 "ade bad.c"
 check "a long error, shown: the screen stays where it is" \
       "$(sed -n '1s/^\(----\).*/\1/p; 3s/ *$//p' "$c/ade.scr" 2>/dev/null | tr '\n' '|')" \
       "----| #include <stdio.h>|"
+}
+
+case_08b() {
+    [ -n "$TOOLS" ] || return 0
+# A function called and defined nowhere: acc finds it as it links, where
+# there is no line to point at, and writes it as at acc:0:0. It is shown as
+# acc wrote it, the cursor left where it was; it used to be dropped, for
+# "The build failed, with 100".
+c=$(card "$proj/bin/ade.bin")
+printf '#include "func.h"\r\n\r\nint main(void)\r\n{\r\n    return add(2, 3);\r\n}\r\n' > "$c/call.c"
+printf 'int add(int a, int b);\r\n' > "$c/func.h"
+under_hub "$c" 120 "ade call.c"
+check "an error with no place in a file: shown as acc wrote it" \
+      "$(grep '^said ' "$c/ade.scr" 2>/dev/null | tr -d '\r')" \
+      "said error: 'add' is called but never defined"
 }
 
 case_09() {
@@ -761,7 +776,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_09 case_10 case_11 case_12 case_13 case_14 case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
+run_cases case_01 case_01b case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_10 case_11 case_12 case_13 case_14 case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.
