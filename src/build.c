@@ -175,6 +175,14 @@ static bool project_command(editor* ed, const project* p, char* cmd) {
     return true;
 }
 
+// How the last build went, for the menu bar: "built", "failed", or what the
+// program run after it returned; empty until there has been one.
+static char status[40];
+
+const char* build_status(void) {
+    return status;
+}
+
 // The project in the current directory, as last read: at F9, or for the
 // header the first time it asks. `loaded` is proj_load's answer, and 2 for
 // not read yet.
@@ -252,6 +260,7 @@ void build_new_project(editor* ed) {
 
 // Builds, then with `run` runs what was built, and comes back.
 static void start(editor* ed, bool run) {
+    status[0] = 0;
     user_input* ui = &ed->ui_;
     screen* scr = &ed->scr_;
 
@@ -616,17 +625,24 @@ void build_resume(editor* ed) {
             win_place(ed, w, s->line[i], s->x[i]);
         }
     }
+    // How it went, on the menu bar until the next build: drawn with the
+    // screen, so before it is shown.
+    if (!failed && s->ran) {
+        snprintf(status, sizeof(status), "%.24s returned %d", s->program,
+                 hub_last_result());
+    } else {
+        snprintf(status, sizeof(status), "%s", failed ? "failed" : "built");
+    }
     show_at(ed, target, line, x);
 
-    // A message is on the footer, which the loop repaints after it; with more
-    // than one error, the list, from which each can be gone to.
-    if (!failed && s->ran) {
-        static char msg[PROJ_NAME_MAX + 20];
-        snprintf(msg, sizeof(msg), "%s returned %d", s->program, hub_last_result());
-        say(ed, msg);
-    } else if (!failed) {
-        say(ed, "Built");
-    } else if (nerrs == 0) {
+    // A build that worked goes straight back to the editor: the bar says so,
+    // and there is nothing to read that needs a key to get past. One that
+    // failed says why, which waits; with more than one error, the list, from
+    // which each can be gone to.
+    if (!failed) {
+        return;
+    }
+    if (nerrs == 0) {
         static char msg[40];
         snprintf(msg, sizeof(msg), "The build failed, with %d", hub_last_result());
         say(ed, msg);

@@ -126,16 +126,16 @@ int menu_bar_text(screen* scr, char* bar, int max) {
         bar[n++] = ' ';
     }
 
-    // On the right, what is being worked on: the project's program, if there
-    // is a project.ini, and the open windows, the one on screen in brackets.
-    static char right[PROJ_NAME_MAX + 16];
-    int r = 0;
+    // On the right, what is being worked on: how the last build went, if
+    // there has been one, the project's program, if there is a project.ini,
+    // and the open windows, the one on screen in brackets.
+    static char right[PROJ_NAME_MAX + 60];
+    const char* how = build_status();
     const char* name = build_project();
-    if (name != NULL) {
-        r = snprintf(right, sizeof(right), "%s  ", name);
-        if (r >= (int) sizeof(right)) {
-            r = (int) sizeof(right) - 1;
-        }
+    int r = snprintf(right, sizeof(right), "%s%s%s%s", how, how[0] != 0 ? "  " : "",
+                     name != NULL ? name : "", name != NULL ? "  " : "");
+    if (r >= (int) sizeof(right)) {
+        r = (int) sizeof(right) - 1;
     }
     r += win_strip(right + r, (int) sizeof(right) - r);
     const int width = scr->barW_ < max ? scr->barW_ : max;

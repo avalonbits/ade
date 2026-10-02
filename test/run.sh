@@ -481,6 +481,21 @@ window 2 closed
 window 3 closed"
 }
 
+case_09b() {
+    [ -n "$TOOLS" ] || return 0
+# A build that works comes straight back to the editor: the bar says built,
+# and nothing waits for a key -- the resume is given only CTRL+Q, which a
+# message waiting would take for itself, and ade would not leave.
+c=$(card "$proj/bin/ade.bin")
+: > "$c/nowait"
+printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/okay.c"
+under_hub "$c" 120 "ade okay.c"
+# The bar as the resumed ade left it: a resume stuck on a message never gets
+# that far, and what is there is the build's run, before it said anything.
+check "a build that works: no key to press, and the bar says built" \
+      "$(header "$c")" "built  [1]"
+}
+
 case_10() {
     [ -n "$TOOLS" ] || return 0
 # The build carries ade's windows across: good.txt changed in window 1, and
@@ -527,7 +542,7 @@ screen 1:1
 window 1 main.c 1:1 #include <stdio.h>
 window 2 closed
 window 3 closed"
-check "  and the header names the project's program" "$(header "$c")" "prog  [1]"
+check "  and the bar says it built, and names the project's program" "$(header "$c")" "built  prog  [1]"
 check "  one object per file" \
       "$(for o in main.o add.o seven.o; do [ -s "$c/build/$o" ] && printf '%s ' $o; done)" \
       "main.o add.o seven.o "
@@ -715,7 +730,7 @@ screen 4:1
 window 1 main.c 4:1 int add(int a, int b);
 window 2 add.c 1:3 int add(int a, int b)
 window 3 closed"
-    check "  and the header shows add.c's window beside it" "$(header "$c")" "prog  [1] 2"
+    check "  and the bar says it failed, with add.c's window" "$(header "$c")" "failed  prog  [1] 2"
 else
     echo "SKIP  more than one error: no host acc at $ACC_DIR/bin/acc to build test/tools/fail.c"
 fi
@@ -834,7 +849,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
+run_cases case_01 case_01b case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

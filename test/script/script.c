@@ -178,11 +178,12 @@ static const key_press RUN[] = {
     M(0, VK_F9, MOD_CTRL),
 };
 
-// Started by hub after the build: what it says -- the error, or that it was
-// built -- waits for a key; then, every window having been saved before the
-// build, leaving asks nothing.
+// Started by hub after the build: an error waits for a key, which ESC is,
+// and a build that worked waits for nothing, which ESC also does nothing to;
+// then, every window having been saved before the build, leaving asks
+// nothing.
 static const key_press RESUME[] = {
-    K('k', VK_k),                                   // the error, or "Built"
+    K(27, VK_ESCAPE),                               // past an error; else nothing
     M(17, VK_q, MOD_CTRL),
 };
 
@@ -204,9 +205,16 @@ static const key_press ERRLIST[] = {
 // A pixel is read off the screen as each of the last two keys is asked for:
 // with the program's screen up, and with ade's back.
 static const key_press USERSCREEN[] = {
-    K('k', VK_k),                                   // "... returned 0"
+    K(27, VK_ESCAPE),                               // nothing: nothing waits
     M(0, VK_F5, MOD_ALT),                           // the program's screen...
     K('k', VK_k),                                   // ...and back
+    M(17, VK_q, MOD_CTRL),
+};
+
+// Resumed after a build that worked, when /nowait is on the card: nothing
+// to get past, so straight to leaving. A resume that waited on a message
+// would take this key for it, and ade would not leave.
+static const key_press NOWAIT[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
@@ -396,6 +404,7 @@ const key_source* script_keys(editor* ed, const char* arg) {
     if (arg != NULL && strcmp(arg, "-resume") == 0) {
         const char fh = mos_fopen("/errlist", FA_READ);
         const char uh = fh == 0 ? mos_fopen("/userscreen", FA_READ) : 0;
+        const char nw = fh == 0 && uh == 0 ? mos_fopen("/nowait", FA_READ) : 0;
         if (fh != 0) {
             mos_fclose(fh);
             KEYS = ERRLIST;
@@ -404,6 +413,10 @@ const key_source* script_keys(editor* ed, const char* arg) {
             mos_fclose(uh);
             KEYS = USERSCREEN;
             NKEYS = COUNT(USERSCREEN);
+        } else if (nw != 0) {
+            mos_fclose(nw);
+            KEYS = NOWAIT;
+            NKEYS = COUNT(NOWAIT);
         } else {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);

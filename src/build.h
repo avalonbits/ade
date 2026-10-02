@@ -79,6 +79,10 @@ void build_user_screen(editor* ed);
 // program run in between may have changed it, and hub does not put it back.
 void build_resume_screen(void);
 
+// How the last build went, for the menu bar: "built", "failed", or what the
+// program run after it returned -- "demo returned 0" -- and "" before any.
+const char* build_status(void);
+
 // The last thing a build said on the message row, as it was shown -- for the
 // scripted test, which cannot read that row back off the screen.
 const char* build_said(void);
