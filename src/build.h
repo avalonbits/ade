@@ -87,6 +87,11 @@ const char* build_status(void);
 // scripted test, which cannot read that row back off the screen.
 const char* build_said(void);
 
+// Whether each mode change ade made coming back -- from a build, or from
+// ALT+F5 -- had finished before it went on: 'y' or 'n' each, oldest first.
+// For the scripted test, which cannot slow the VDP down to see it.
+const char* build_modes_settled(void);
+
 // The file window 1 held when the build began, for ed_init_for to open on
 // resume; NULL when there is no session to go back to.
 const char* build_first_file(void);

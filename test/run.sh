@@ -943,6 +943,13 @@ c=$(card "$proj/bin/ade.bin")
 user_screen "$c" "ALT+F5 after a program in mode 3: its screen, red" 3
 check "  hub captured it in mode 3, and ade ends in its own, mode 0" \
       "$(tr -d '\r\n' < "$c/ade.px" 2>/dev/null | sed 's/.* mode [0-9]* //')" "0 captured 3"
+# Each mode change ade made coming back had finished -- MOS had the VDP's
+# answer, and the new mode -- before ade laid the screen out for it. On
+# hardware the answer comes well after the VDU 22, and a layout read sooner
+# is the old mode's; the emulator answers within a frame or so, but not
+# before the next instruction.
+check "  and ade waited for its mode to be back before laying it out" \
+      "$(tr -d '\r\n' < "$c/ade.mode" 2>/dev/null)" "settled y"
 }
 
 case_22() {

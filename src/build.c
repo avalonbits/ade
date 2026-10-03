@@ -41,6 +41,38 @@ static int screen_mode(void) {
     return ((volatile unsigned char*) mos_sysvars())[SYSVAR_SCRMODE];
 }
 
+// Waiting for a mode change to finish: about three seconds of frames, a
+// bound reached only by a VDP that never answers.
+#define MODE_FRAMES 180
+
+// How each set_mode went, oldest first -- 'y' settled, 'n' not -- for the
+// scripted test.
+static char settled[8];
+static int nsettled;
+
+// Puts the screen in `mode`, and returns once the change has finished. MOS
+// learns the new screen only when the VDP's mode packet arrives, and on
+// hardware that is well after the VDU 22: laid out sooner, the screen is laid
+// out for the old mode, which shows as a blank text area. The VDP takes
+// commands in order, so asking for the mode after the change is answered
+// once the change is done -- aed's scr_resume waits the same way.
+static void set_mode(int mode) {
+    const char vdu[] = { 22, (char) mode, 23, 0, (char) 0x86 };
+    volatile uint8_t* sysvar = mos_sysvars();
+    sysvar[sysvar_vdp_pflags] = 0;
+    mos_puts((char*) vdu, sizeof(vdu), 0);
+    bool done = false;
+    for (int i = 0; i < MODE_FRAMES && !done; i++) {
+        done = (sysvar[sysvar_vdp_pflags] & vdp_pflag_mode) != 0;
+        if (!done) {
+            waitvblank();
+        }
+    }
+    if (nsettled < (int) sizeof(settled) - 1) {
+        settled[nsettled++] = done && screen_mode() == mode ? 'y' : 'n';
+    }
+}
+
 // What ui_message adds after a message, which has to fit on the row with it:
 // text written past the end of the bottom row wraps, and the VDP scrolls the
 // whole screen up a line to make room for it.
@@ -387,8 +419,7 @@ void build_user_screen(editor* ed) {
     // Back to ade's mode, which takes the font and colours with it, so ade's
     // settings go back on before the screen is painted again.
     if (mode != was) {
-        const char back[] = { 22, (char) was };
-        mos_puts((char*) back, sizeof(back), 0);
+        set_mode(was);
         ade_settings(ed);
     }
     scr_footer_invalidate(&ed->scr_);
@@ -400,8 +431,7 @@ void build_resume_screen(void) {
     if (!kept(s) || s->mode == screen_mode()) {
         return;
     }
-    const char mode[] = { 22, (char) s->mode };
-    mos_puts((char*) mode, sizeof(mode), 0);
+    set_mode(s->mode);
 }
 
 const char* build_first_file(void) {
@@ -685,4 +715,8 @@ void build_resume(editor* ed) {
 
 const char* build_said(void) {
     return said;
+}
+
+const char* build_modes_settled(void) {
+    return settled;
 }

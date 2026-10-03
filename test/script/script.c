@@ -701,6 +701,12 @@ void script_report(editor* ed) {
             mos_fwrite(ph, out, (unsigned) n);
             mos_fclose(ph);
         }
+        n = sprintf(out, "settled %s\n", build_modes_settled());
+        const char mh = mos_fopen("/ade.mode", FA_WRITE | FA_CREATE_ALWAYS);
+        if (mh != 0) {
+            mos_fwrite(mh, out, (unsigned) n);
+            mos_fclose(mh);
+        }
     }
 
     // The colour of the menu bar's last column, of the text area's under it,
