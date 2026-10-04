@@ -1,4 +1,4 @@
-# ade: the Agon Development Environment
+# ade: Another Development Environment
 
 This is the briefing for building **ade**. Read all of it before writing code.
 It records the decisions already made, what has been measured in AED's source,
@@ -566,6 +566,43 @@ against a package made locally with aed's `mklibs.sh`.
   
   Three large files open now leave 40 KB in the scripted build, which still
   links the formatter for its reports; the check's floor is 32 KB.
+- **hub 0.4.2 grows a block** (`f6ed056` in `~/code/devel`, done by the hub
+  session at ade's request). On Igor's emulator CTRL+B said "hub has no room
+  to keep ade's windows": the same hub session had run an older ade, whose
+  `ADE ` block was 860 bytes, and hub returned NULL for a tag that exists
+  smaller than asked. Blocks are never freed, but they don't outlive a fresh
+  hub start either -- `hub.blk` is read back only after a warm reset or a
+  moslet -- so `exit` then `hub` clears them. From 0.4.2 asking for more
+  grows the block: in place if it is the last, else copied to the end with
+  the old space lost until hub starts afresh. Old bytes are kept, the rest
+  zeroed; a growth that won't fit returns NULL and leaves the block alone.
+- **The session records its size** (`cbf6e49`). Growth keeps the old bytes,
+  and the layout had changed three times under magic `ADE3`, so ade resumes
+  a session only when the magic and `sizeof(session)` both match. The layout
+  is in `src/session.h`; `test/tools/plant.c`, built with agondev, leaves a
+  session in hub's block for `ade -resume` to find, as ade's own or another
+  size's, and `case_23` checks that only its own is resumed.
+- **Mode changes wait for the VDP** (`e039e44`). On hardware MOS learns a
+  new mode only when the VDP's mode packet arrives, well after the VDU 22, and
+  a layout read sooner is the old mode's -- KISS showed it as a blank text
+  area with only the footer. aed 1.6.2's `scr_resume` waits for it, but ade
+  sets the mode itself: `set_mode` in `build.c` follows the VDU 22 with
+  VDU 23,0,&86 and waits for the answer, up to 180 frames. It is used coming
+  back from CTRL+R (`build_resume_screen`) and from ALT+F5. The scripted ade
+  reports in `/ade.mode` whether each change had settled; the ALT+F5 mode 3
+  case checks it, and cut to one look the emulator hasn't answered yet and it
+  fails. That case comes back from its build already in mode 0, which hub
+  restores, so the CTRL+R path is the same code but only hardware shows it.
+- **aed v1.6.2** (tag `7cef425`, sha256 `2d062f9b...0e95`), pinned
+  (`f84fd3e`): 1.6.0 and 1.6.1 were aed's own CTRL+R, and 1.6.2 is the
+  `scr_resume` wait above. aed's session block is `AED `, apart from ade's.
+- **Errors show their line and column** (`350aedd`): the message row says
+  `9:40: error: expected ';', found '}'`, leaving out only the file, which the
+  footer names. One at line 0 (acc's `acc:0:0:` for an error in no file) is
+  still shown without its place.
+- **The title is "ADE: Another Development Environment"** (`e8c069d`). The
+  scripted ade writes it into its screen dump, since the header's letters do
+  not read back, and the window case checks it.
 - **Stack frames are checked** (`test/frames.sh`, aed's check over ade's
   sources): the largest is 71 bytes (`menu_open`), with no escapes.
 ## Decisions made
