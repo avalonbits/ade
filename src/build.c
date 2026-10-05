@@ -201,6 +201,10 @@ static bool project_command(editor* ed, const project* p, char* cmd) {
         return false;
     }
     proj_dirs();
+    if (!proj_list(p, msg, (int) sizeof(msg))) {
+        say(ed, msg);
+        return false;
+    }
     text_start(&t, cmd, HUB_CMD_MAX + 1);
     text_str(&t, "Obey " PROJ_OBEY);
 

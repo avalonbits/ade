@@ -39,12 +39,14 @@
  *   c = acc -c %f -o build/%b.o -errors %e
  *   s = zap %f build/%b.o -f acc -c -e %e
  *   asm = zap %f build/%b.o -f acc -c -e %e
- *   link = acc %o -o bin/%n.bin -errors %e
+ *   link = acc @%l -o bin/%n.bin -errors %e
  *
  * Objects go in build/ and the program in bin/, both made as the build
  * starts, so only the source is beside project.ini. In a command, %f is the
  * file, %b the file without its extension, %o every file's build/%b.o in
- * order, %n the program's name, %e the file a tool writes its
+ * order, %l build/%n.lnk, which lists them a line each for acc's @ -- a
+ * command line holds only fifteen or so -- %n the program's name, %e the
+ * file a tool writes its
  * error to, and %% a percent sign. An empty link runs no link: a program
  * assembled in one piece, `s = zap %f %n.bin -c -e %e`, needs none.
  *
@@ -60,6 +62,7 @@
 #define PROJ_OBJ_DIR    "build"
 #define PROJ_BIN_DIR    "bin"
 #define PROJ_OBEY       "build.obey"
+#define PROJ_LIST_EXT   ".lnk"
 #define PROJ_FILES      32
 #define PROJ_EXCLUDE    8
 #define PROJ_NAME_MAX   64
@@ -105,6 +108,13 @@ bool proj_create(const char* name, char* msg, int max);
 
 // Makes PROJ_OBJ_DIR and PROJ_BIN_DIR, where they are not there already.
 void proj_dirs(void);
+
+// Writes the file %l names, PROJ_OBJ_DIR/<name>.lnk: every object, one a
+// line, for the link to read with acc's @ -- a command line holds only so
+// many. Written on every build, after proj_dirs, so it is there whatever has
+// been done to PROJ_OBJ_DIR; not at all without a link. False with why in
+// `msg` when it cannot be.
+bool proj_list(const project* p, char* msg, int max);
 
 // Makes sure PROJ_OBEY holds the project's commands, writing it when it was
 // made from another project.ini or not at all. False with what went wrong in

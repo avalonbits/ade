@@ -983,6 +983,34 @@ check "ade -resume takes its own session" "$foot_own" "footer planted.txt"
 check "  and not one of another layout" "$foot_other" "footer [NO FILE]"
 }
 
+# A project as big as ade takes, 32 files with long names: a link line
+# naming every object would be 590 characters, and MOS cuts a command at
+# 255. The link reads them from build/prog.lnk with acc's @ instead.
+case_24() {
+    [ -n "$TOOLS" ] || return 0
+local c n
+c=$(card "$proj/bin/ade.bin")
+: > "$c/main.c"
+for n in $(seq -w 1 31); do
+    printf 'int module_%s(void)\r\n{\r\n    return %d;\r\n}\r\n' $n $((10#$n)) > "$c/module_$n.c"
+    printf 'int module_%s(void);\r\n' $n >> "$c/main.c"
+done
+printf '#include <stdio.h>\r\nint main(void)\r\n{\r\n    int sum = 0;\r\n    FILE* f;\r\n' >> "$c/main.c"
+for n in $(seq -w 1 31); do
+    printf '    sum += module_%s();\r\n' $n >> "$c/main.c"
+done
+printf '    f = fopen("/ran.txt", "w");\r\n    fprintf(f, "%%d\\n", sum);\r\n    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$c/main.c"
+printf '[project]\r\nname = prog\r\n' > "$c/project.ini"
+under_hub "$c" 600 "ade main.c
+prog"
+check "CTRL+B in a project of 32 files: built, linked and run" \
+      "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" 496
+check "  linked from build/prog.lnk, an object a line" \
+      "$(tr -d '\r' < "$c/build/prog.lnk" 2>/dev/null | grep -c '^build/.*\.o$')" 32
+check "  and no line of build.obey past MOS's 255" \
+      "$(tr -d '\r' < "$c/build.obey" 2>/dev/null | awk 'length > 250 { n++ } END { print n + 0 }')" 0
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -1003,7 +1031,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

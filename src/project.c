@@ -30,7 +30,9 @@
 // directory, so the source is all that is left beside project.ini.
 #define RULE_C_TEXT    "acc -c %f -o " PROJ_OBJ_DIR "/%b.o -errors %e"
 #define RULE_S_TEXT    "zap %f " PROJ_OBJ_DIR "/%b.o -f acc -c -e %e"
-#define RULE_LINK_TEXT "acc %o -o " PROJ_BIN_DIR "/%n.bin -errors %e"
+// The link names its objects through a file, %l, since MOS cuts a command
+// at 255 characters: a link line naming them was full at fifteen or so.
+#define RULE_LINK_TEXT "acc @%l -o " PROJ_BIN_DIR "/%n.bin -errors %e"
 #define RULE_RUN_TEXT  PROJ_BIN_DIR "/%n"
 static const char RULE_C[] = RULE_C_TEXT;
 static const char RULE_S[] = RULE_S_TEXT;
@@ -381,6 +383,11 @@ static bool expand(const project* p, const char* rule, const char* file,
         case 'e':
             ok = put(out, max, &at, err, (int) strlen(err));
             break;
+        case 'l':
+            ok = put(out, max, &at, PROJ_OBJ_DIR "/", (int) sizeof(PROJ_OBJ_DIR "/") - 1)
+                 && put(out, max, &at, p->name, (int) strlen(p->name))
+                 && put(out, max, &at, PROJ_LIST_EXT, (int) sizeof(PROJ_LIST_EXT) - 1);
+            break;
         case 'o':
             for (int f = 0; f < p->nfiles && ok; f++) {
                 ok = (f == 0 || put(out, max, &at, " ", 1))
@@ -464,6 +471,40 @@ bool proj_obey(const project* p, const char* err, char* msg, int max) {
     return ok;
 }
 
+bool proj_list(const project* p, char* msg, int max) {
+    if (p->link[0] == 0) {
+        return true;
+    }
+    static char path[PROJ_NAME_MAX + 16];
+    if (!expand(p, "%l", "", "", path, (int) sizeof(path))) {
+        fail(msg, max, "The program's name is too long", NULL, NULL);
+        return false;
+    }
+    const char fh = mos_fopen(path, FA_WRITE | FA_CREATE_ALWAYS);
+    if (fh == 0) {
+        fail(msg, max, path, " could not be written", NULL);
+        return false;
+    }
+    static char line[PROJ_NAME_MAX + 16];
+    bool ok = true;
+    for (int f = 0; f < p->nfiles && ok; f++) {
+        text t;
+        text_start(&t, line, (int) sizeof(line));
+        text_str(&t, PROJ_OBJ_DIR "/");
+        text_strn(&t, p->files[f], base_len(p->files[f]));
+        text_str(&t, ".o\r\n");
+        const int n = text_len(&t);
+        ok = (int) mos_fwrite(fh, line, (unsigned) n) == n;
+    }
+    mos_fclose(fh);
+    if (!ok) {
+        mos_del(path);
+        fail(msg, max, path, " could not be written", NULL);
+    }
+
+    return ok;
+}
+
 bool proj_create(const char* name, char* msg, int max) {
     const char was = mos_fopen(PROJ_FILE, FA_READ);
     if (was != 0) {
@@ -495,8 +536,8 @@ bool proj_create(const char* name, char* msg, int max) {
         "\r\n"
         "; How each kind of file is built, and the link. These are what ade\r\n"
         "; does without them: %f is the file, %b the file less its extension,\r\n"
-        "; %o every object, as build/%b.o, %n the program, %e the file errors\r\n"
-        "; go to.\r\n"
+        "; %o every object, as build/%b.o, %l a file listing them, build/%n.lnk,\r\n"
+        "; for acc's @, %n the program, %e the file errors go to.\r\n"
         ";[build]\r\n"
         ";c = " RULE_C_TEXT "\r\n"
         ";s = " RULE_S_TEXT "\r\n"
