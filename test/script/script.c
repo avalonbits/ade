@@ -360,6 +360,39 @@ static const key_press BANNER_KEYS[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// viewer.txt, started in /proj: the file viewer. Into src/ and open inner.c
+// in a new window; narrow to beta.c by typing; CTRL+O, a new fresh.c over it;
+// a directory with F7 and one from its row; and ../x.c, outside, refused.
+static const key_press VIEWER[] = {
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),               // the viewer, on src/
+    K(13, VK_RETURN),                               // into src/...
+    K(13, VK_RETURN),                               // ...inner.c, window 2
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('b', VK_b), K('e', VK_e), K('t', VK_t),       // beta.c alone...
+    K(13, VK_RETURN),                               // ...window 3
+    M(15, VK_o, MOD_CTRL),                          // here, in 3:
+    K('f', VK_f), K('r', VK_r), K('e', VK_e), K('s', VK_s), K('h', VK_h),
+    K('.', VK_PERIOD), K('c', VK_c),
+    K(13, VK_RETURN),                               // no such file: a new one
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K(0, VK_F7),                                    // a new directory...
+    K('m', VK_m), K('a', VK_a), K('d', VK_d), K('e', VK_e),
+    K(13, VK_RETURN),                               // ...made
+    K(27, VK_ESCAPE),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K(0, VK_UP), K(13, VK_RETURN),                  // [ New directory ]...
+    K('n', VK_n), K('e', VK_e), K('w', VK_w),
+    K(13, VK_RETURN),                               // ...new
+    K(27, VK_ESCAPE),
+    M(15, VK_O, MOD_CTRL | MOD_SHFT),
+    K('.', VK_PERIOD), K('.', VK_PERIOD), K('/', VK_SLASH),
+    K('x', VK_x), K('.', VK_PERIOD), K('c', VK_c),
+    K(13, VK_RETURN),                               // outside: refused...
+    K('k', VK_k),                                   // ...which the message waits on
+    K(27, VK_ESCAPE),
+    M(17, VK_q, MOD_CTRL),
+};
+
 #define COUNT(a) ((int) (sizeof(a) / sizeof(a[0])))
 
 static const key_press* KEYS = WINDOWS;
@@ -528,6 +561,10 @@ static bool poll(void* ctx, key_press* kp) {
     if (KEYS == TWO && (at == 8 || at == 9)) {
         dump_screen(at == 8 ? "/ade.scr" : "/ade.scr2");
     }
+    // The viewer at the top, and in src/, as each is up.
+    if (KEYS == VIEWER && (at == 1 || at == 2)) {
+        dump_screen(at == 1 ? "/ade.scr" : "/ade.scr2");
+    }
     if (KEYS == BANNER_KEYS && at == 0) {
         dump_screen("/ade.scr");
     }
@@ -582,6 +619,9 @@ const key_source* script_keys(editor* ed, const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "viewer.txt") != NULL) {
+        KEYS = VIEWER;
+        NKEYS = COUNT(VIEWER);
     } else if (arg != NULL && strstr(arg, "shell.txt") != NULL) {
         KEYS = SHELL;
         NKEYS = COUNT(SHELL);

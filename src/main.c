@@ -80,7 +80,7 @@ static const app_context ADE_APP = {
  */
 static const key_binding ADE_BINDINGS[] = {
     LETTER(VK_o, VK_O, C | S, win_open),
-    LETTER(VK_o, VK_O, C, cmd_open),
+    LETTER(VK_o, VK_O, C, win_open_here),
     LETTER(VK_s, VK_S, C | A, cmd_save_as),
     LETTER(VK_s, VK_S, C, ed_cmd_save),
     LETTER(VK_q, VK_Q, C, win_quit),

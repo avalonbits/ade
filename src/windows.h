@@ -53,6 +53,16 @@ void win_finish(editor* ed);
 // close the one on screen, and choose from a list of them. And leaving, which
 // asks about every window with unsaved changes rather than only the one shown.
 void win_open(editor* ed);
+
+// CTRL+O: the file viewer, and the file chosen opened in the window on
+// screen, in place of the one there -- kept first if it has changes. A file
+// open in another window is gone to instead.
+void win_open_here(editor* ed);
+
+// `path` as one spelling per file: under the current directory, with "." and
+// ".." folded away and any drive dropped, as "/dir/file". Empty when it cannot
+// be worked out.
+void win_resolve(char* out, int max, const char* path);
 void win_next(editor* ed);
 void win_prev(editor* ed);
 // To window 1 to 9, and nothing when there is no such window.

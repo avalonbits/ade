@@ -50,7 +50,7 @@ typedef struct {
 
 static const menu_item FILE_ITEMS[] = {
     { "Open in new window", "CTRL+SHIFT+O", win_open,   0, NULL },
-    { "Open here",          "CTRL+O",     cmd_open,     0, NULL },
+    { "Open here",          "CTRL+O",     win_open_here, 0, NULL },
     { "Save",               "CTRL+S",     ed_cmd_save,  0, NULL },
     { "Save as",            "CTRL+ALT+S", cmd_save_as,  0, NULL },
     { "Close window",       "ALT+F3",     win_close,    0, NULL },

@@ -278,10 +278,16 @@ played() {
     fi
 }
 
+# mem_end <map>: where a build's memory ends -- the end of .bss, past which
+# the heap starts -- as a number.
+mem_end() {
+    awk '$1 == ".bss" && $2 ~ /^0x/ { printf "%d\n", strtonum($2) + strtonum($3); exit }' "$1"
+}
+
 # Shared by the cases below, which each run in a shell of their own: the
 # memory left that is enough (see the memory case), and the program the Run
 # cases build and run.
-MEMORY_FLOOR_KB=32
+MEMORY_FLOOR_KB=40
 RUNME='#include <stdio.h>\r\nint main(void)\r\n{\r\n    FILE* f = fopen("/ran.txt", "w");\r\n    fputs("ran\\n", f);\r\n    fclose(f);\r\n    return 3;\r\n}\r\n'
 
 # Building needs acc and zap on the card; a case that builds runs only with
@@ -542,6 +548,12 @@ case_06() {
 # scripted ade counts it in KB. It was 35 with 48 KB windows, then 16 once
 # nine windows came in; with 40 KB windows, 24 KB more. The floor is there to
 # say when that is being eaten.
+#
+# The scripted ade is bigger than ade -- its keys, its reports, the formatter
+# they print with -- and grows with every case, so what it counts is the real
+# build's less that much. Both builds' maps say where their memory ends: the
+# difference goes back on, and the floor is the real ade's. It was 31 KB for
+# the scripted ade with the file viewer in, about 47 for ade.
 c=$(card "$proj/bin/ade.bin")
 for f in memory m2 m3; do
     i=0
@@ -551,10 +563,12 @@ for f in memory m2 m3; do
     done > "$c/$f.txt"
 done
 under_hub "$c" 60 "ade memory.txt"
-free_kb=$(tr -d '\r\n' < "$c/ade.mem" 2>/dev/null)
-echo "MEM   three paged windows open, ${free_kb:-?} KB left"
+scripted_kb=$(tr -d '\r\n' < "$c/ade.mem" 2>/dev/null)
+extra_kb=$(( ($(mem_end "$proj/bin/ade.map") - $(mem_end bin/ade.map)) / 1024 ))
+free_kb=$(( ${scripted_kb:-0} + extra_kb ))
+echo "MEM   three paged windows open: ${scripted_kb:-?} KB left in the scripted ade, $extra_kb KB bigger, so $free_kb in ade"
 check "three paged windows open, $MEMORY_FLOOR_KB KB or more left" \
-      "$([ "${free_kb:-0}" -ge "$MEMORY_FLOOR_KB" ] && echo yes)" yes
+      "$([ -n "$scripted_kb" ] && [ "$free_kb" -ge "$MEMORY_FLOOR_KB" ] && echo yes)" yes
 }
 
 case_07() {
@@ -1106,6 +1120,34 @@ for how in scanned listed; do
 done
 }
 
+# The file viewer, CTRL+O and CTRL+SHIFT+O, in a project at /proj: see VIEWER
+# in test/script/script.c for the keys.
+case_29() {
+local c
+c=$(card "$proj/bin/ade.bin")
+mkdir -p "$c/proj/src"
+printf 'view\r\n' > "$c/proj/viewer.txt"
+printf 'int a;\r\n' > "$c/proj/alpha.c"
+printf 'int b;\r\n' > "$c/proj/beta.c"
+printf 'int i;\r\n' > "$c/proj/src/inner.c"
+under_hub "$c" 120 "cd proj
+ade viewer.txt"
+check "the viewer: directories first, then files, with a new-directory row" \
+      "$(sed -n '3,10p' "$c/ade.scr" 2>/dev/null | sed 's/^ *//; s/ *$//' | grep . | tr '\n' '|')" \
+      "OPEN IN A NEW WINDOW|In /|[ New directory ]|> src/|alpha.c|beta.c|viewer.txt|"
+check "  in src/: .. back up, and its file" \
+      "$(sed -n '3,10p' "$c/ade.scr2" 2>/dev/null | sed 's/^ *//; s/ *$//' | grep . | tr '\n' '|')" \
+      "OPEN IN A NEW WINDOW|In /src|[ New directory ]|../|> inner.c|"
+check "  every key taken" "$(grep '^keys ' "$c/ade.out" 2>/dev/null | tr -d '\r')" "keys 44 of 44"
+check "  inner.c from src/, beta.c by typing, then fresh.c over it" \
+      "$(grep '^window [0-9] ' "$c/ade.out" 2>/dev/null | awk '$3 != "closed" {print $3}' | tr '\n' ' ')" \
+      "viewer.txt src/inner.c fresh.c "
+check "  directories made with F7 and from the row" \
+      "$([ -d "$c/proj/made" ] && [ -d "$c/proj/new" ] && echo both)" both
+check "  and ../x.c, outside the project, refused: no window for it" \
+      "$([ -s "$c/ade.out" ] && ! grep -aq '^window .*x\.c' "$c/ade.out" && echo refused)" refused
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -1126,7 +1168,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28 case_29
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

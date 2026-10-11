@@ -36,6 +36,7 @@ There is no release yet: ADE is built from source (see
 * [Installation](#installation)
 * [Running ADE](#running-ade)
 * [Keys](#keys)
+* [Opening files](#opening-files)
 * [Windows](#windows)
 * [Building and running a file](#building-and-running-a-file)
 * [Projects](#projects)
@@ -104,8 +105,8 @@ ADE adds these to AED's editing keys. The menus list them too.
 | Key | What it does |
 |---|---|
 | F10 | Open the menus. LEFT and RIGHT move between them, ESC closes them |
-| CTRL+O | Open a file in this window |
-| CTRL+SHIFT+O | Open a file in a new window |
+| CTRL+O | Open a file in this window, from the file viewer |
+| CTRL+SHIFT+O | Open a file in a new window, from the file viewer |
 | CTRL+S | Save |
 | CTRL+ALT+S | Save as |
 | ALT+F3 | Close the window on screen |
@@ -123,6 +124,28 @@ ADE adds these to AED's editing keys. The menus list them too.
 From AED: CTRL+Z undo, CTRL+Y redo, CTRL+X, CTRL+C and CTRL+V cut, copy and
 paste, CTRL+A select all, CTRL+D delete the line, CTRL+F find, CTRL+N and
 CTRL+P the next and previous match, and CTRL+G go to a line.
+
+## Opening files
+
+CTRL+O and CTRL+SHIFT+O open the file viewer. It lists the directory ADE was
+started in, which is the project's directory when there is a project, with
+directories first and then files, each in order of name.
+
+- UP and DOWN choose, and RETURN opens the file or goes into the directory.
+  `../` goes back up.
+- Typing narrows the list to the names that contain what you type. The name
+  bar shows what you've typed. When nothing is left in the list, RETURN
+  opens the typed name as a new file.
+- F7, or RETURN on the `[ New directory ]` row, asks for a name and makes a
+  directory there.
+- ESC leaves the viewer without opening anything.
+
+The viewer stays inside the directory ADE was started in. It has no `../`
+there, and it refuses a typed name that leads outside it.
+
+CTRL+O opens the file in place of the one on screen, asking first whether to
+save changes. A file that is already open in another window is shown there
+instead. CTRL+SHIFT+O opens it in a new window.
 
 ## Windows
 

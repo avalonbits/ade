@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "cmd_ops.h"
+#include "files.h"
 #include "user_input.h"
 
 // ade's own state, kept here rather than in the editor, which knows nothing of
@@ -227,6 +228,10 @@ static void resolve(char* out, int max, const char* path) {
         out[n++] = '/';
     }
     out[n] = 0;
+}
+
+void win_resolve(char* out, int max, const char* path) {
+    resolve(out, max, path);
 }
 
 // Whether two names are one file: resolved, then compared as FAT compares
@@ -459,22 +464,63 @@ void win_open(editor* ed) {
         ui_message(&ed->ui_, &ed->scr_, "Nine windows are open: close one to open another");
         return;
     }
-
-    char* typed;
-    int sz;
-    if (ui_text(&ed->ui_, &ed->scr_, "Open in a new window: ", NULL,
-                &typed, &sz) != YES_OPT || sz <= 0) {
-        return;
-    }
-    // What the prompt hands back is the text typed, without a terminator.
     static char fname[TB_FNAME_MAX];
-    if (sz >= (int) sizeof(fname)) {
-        ui_message(&ed->ui_, &ed->scr_, "Name too long");
+    if (!files_pick(ed, "  OPEN IN A NEW WINDOW", fname, TB_FNAME_MAX)) {
+        show(ed, current);              // put back what the viewer covered
         return;
     }
-    memcpy(fname, typed, (size_t) sz);
-    fname[sz] = 0;
     win_open_named(ed, fname);
+}
+
+void win_open_here(editor* ed) {
+    // The same bargain as aed's CTRL+O: the document on screen is about to
+    // go, so it can be kept first, and answering neither way calls it off.
+    text_buffer* tb = &ed->doc_->buf_;
+    if (tb_changed(tb)) {
+        const RESPONSE res = ui_dialog(&ed->ui_, &ed->scr_, "Save before opening?");
+        if (res == CANCEL_OPT) {
+            return;
+        }
+        if (res == YES_OPT && !cmd_save(ed)) {
+            return;
+        }
+    }
+    static char fname[TB_FNAME_MAX];
+    if (!files_pick(ed, "  OPEN", fname, TB_FNAME_MAX)) {
+        show(ed, current);
+        return;
+    }
+    // One window per file: one open elsewhere is gone to, not opened twice.
+    const int already = win_find(ed, fname);
+    if (already >= 0) {
+        show(ed, already);
+        return;
+    }
+    const char* why = NULL;
+    switch (tb_open(tb, fname, (int) strlen(fname))) {
+        case TB_TOO_LARGE:
+            why = "File too large";
+            break;
+        case TB_NO_FILE:
+            why = "Cannot open file";
+            break;
+        case TB_IN_USE:
+            why = "Already open in another window";
+            break;
+        case TB_OK:
+            break;
+    }
+    if (why != NULL) {
+        show(ed, current);
+        ui_message(&ed->ui_, &ed->scr_, (char*) why);
+        return;
+    }
+    // As aed's CTRL+O goes on: the grammar for the new name, no selection
+    // from the document that went, and the screen from the top.
+    ed_pick_syntax(ed);
+    ed->doc_->selecting_ = false;
+    scr_clear(&ed->scr_);
+    cmd_show(ed);
 }
 
 void win_next(editor* ed) {
