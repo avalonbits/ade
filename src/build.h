@@ -76,6 +76,11 @@ void build_new_project(editor* ed);
 // the first time it is asked for, and again at each build.
 const char* build_project(void);
 
+// The project's first file -- the first of its files line, or else the first
+// by name of those in the directory -- for ade started with no file to open;
+// NULL with no project, or one that cannot be read.
+const char* build_project_file(void);
+
 // The user screen, ALT+F5: what the last program Run ran left on the screen,
 // as hub captured it, until a key is pressed; then ade again.
 void build_user_screen(editor* ed);

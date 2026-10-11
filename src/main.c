@@ -156,8 +156,10 @@ int main(int argc, char** argv) {
     if (resuming) {
         build_resume_screen();
     }
+    // Started with no file in a project's directory, the project's first;
+    // with none at all, the banner.
     const char* fname = resuming ? build_first_file()
-                                 : (argc > 1 ? argv[1] : NULL);
+                                 : (argc > 1 ? argv[1] : build_project_file());
     if (ed_init_for(&ed, ADE_DOC_KB, fname, &ADE) == NULL) {
         return 1;
     }

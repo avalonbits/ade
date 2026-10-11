@@ -1082,6 +1082,30 @@ check "  under ade's name" \
       "$(grep -c '| *ADE: Another Development Environment *|' "$c/ade.scr" 2>/dev/null)" 1
 }
 
+# ade started with no file in a project's directory opens the project's
+# first file, and shows no banner: first by name with no files line, and
+# the first listed with one.
+case_28() {
+local c how want
+for how in scanned listed; do
+    c=$(card "$proj/bin/ade.bin")
+    : > "$c/banner"
+    printf 'int b;\r\n' > "$c/b.c"
+    printf 'int a;\r\n' > "$c/a.c"
+    if [ $how = scanned ]; then
+        printf '[project]\r\nname = prog\r\n' > "$c/project.ini"
+        want=a.c
+    else
+        printf '[project]\r\nname = prog\r\nfiles = b.c a.c\r\n' > "$c/project.ini"
+        want=b.c
+    fi
+    under_hub "$c" 60 "ade"
+    check "no file, in a project ($how): its first file, $want" \
+          "$(grep '^footer ' "$c/ade.scr" 2>/dev/null)" "footer $want"
+    check "  and no banner" "$(grep -c 'Press F10' "$c/ade.scr" 2>/dev/null)" 0
+done
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -1102,7 +1126,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

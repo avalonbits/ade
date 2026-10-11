@@ -86,8 +86,10 @@ At hub's prompt:
     ade                 start with no file
     ade hello.c         open hello.c
 
-With no file, ADE shows its banner, which says to press F10 for the menus.
-The first key takes the banner away.
+With no file named, in a project's directory, ADE opens the project's first
+file: the first on its `files =` line, or else the first by name. With no
+file and no project, ADE shows its banner, which says to press F10 for the
+menus. The first key takes the banner away.
 
 The screen has ADE's title on the top row and the menu bar under it. The
 document is in the middle. The footer at the bottom shows the file, whether

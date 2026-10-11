@@ -234,6 +234,10 @@ const char* build_project(void) {
     return loaded > 0 ? proj.name : NULL;
 }
 
+const char* build_project_file(void) {
+    return build_project() != NULL ? proj.files[0] : NULL;
+}
+
 void build_new_project(editor* ed) {
     // The program's name, offered as the file on screen's without its
     // directory or extension: the usual case is a project named for the file
