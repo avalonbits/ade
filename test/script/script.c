@@ -354,6 +354,12 @@ static const key_press SHELL[] = {
     M(0, VK_F12, MOD_CTRL),
 };
 
+// Started with no file, when /banner is on the card: the banner is up as the
+// first key is asked for, and that key leaves.
+static const key_press BANNER_KEYS[] = {
+    M(17, VK_q, MOD_CTRL),
+};
+
 #define COUNT(a) ((int) (sizeof(a) / sizeof(a[0])))
 
 static const key_press* KEYS = WINDOWS;
@@ -522,6 +528,9 @@ static bool poll(void* ctx, key_press* kp) {
     if (KEYS == TWO && (at == 8 || at == 9)) {
         dump_screen(at == 8 ? "/ade.scr" : "/ade.scr2");
     }
+    if (KEYS == BANNER_KEYS && at == 0) {
+        dump_screen("/ade.scr");
+    }
     if (KEYS == RESUME && at < 2) {
         dump_screen(at == 0 ? "/ade.scr" : "/ade.scr2");
     }
@@ -548,7 +557,12 @@ static const key_source SCRIPT = { poll, NULL, NULL };
 
 const key_source* script_keys(editor* ed, const char* arg) {
     scripted = ed;
-    if (arg != NULL && strcmp(arg, "-resume") == 0) {
+    const char bh = arg == NULL ? mos_fopen("/banner", FA_READ) : 0;
+    if (bh != 0) {
+        mos_fclose(bh);
+        KEYS = BANNER_KEYS;
+        NKEYS = COUNT(BANNER_KEYS);
+    } else if (arg != NULL && strcmp(arg, "-resume") == 0) {
         const char fh = mos_fopen("/errlist", FA_READ);
         const char uh = fh == 0 ? mos_fopen("/userscreen", FA_READ) : 0;
         const char nw = fh == 0 && uh == 0 ? mos_fopen("/nowait", FA_READ) : 0;

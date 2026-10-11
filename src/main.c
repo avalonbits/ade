@@ -34,6 +34,7 @@
 #include <hub/hub.h>
 
 #include "app.h"
+#include "banner.h"
 #include "build.h"
 #include "options.h"
 #include "editor.h"
@@ -117,17 +118,18 @@ static const keymap ADE_KEYS = {
     &ED_KEYS,
 };
 
-// The editor's settings, in ade's own file -- see options.h. No banner yet.
 // What ade sets up as the screen comes into being, before the first paint:
-// the menu bar's row under the title, then the settings.
+// the menu bar's row under the title, then the settings, in ade's own file --
+// see options.h.
 static const char* ade_screen(editor* ed) {
     menu_attach(ed);
 
     return ade_settings(ed);
 }
 
+// With no file to show, ade starts on its banner -- see banner.h.
 static const ed_program ADE = {
-    &ADE_APP, &ADE_KEYS, ade_screen, NULL, "ADE: Another Development Environment",
+    &ADE_APP, &ADE_KEYS, ade_screen, ade_banner, "ADE: Another Development Environment",
 };
 
 int main(int argc, char** argv) {

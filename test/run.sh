@@ -1069,6 +1069,19 @@ check "CTRL+F12 on hub 0.5: back, saying hub must be newer" \
       "$(grep '^said ' "$c/ade.scr" 2>/dev/null | tr -d '\r')" "said The shell needs hub 0.6 or later"
 }
 
+# ade started with no file shows its banner, which says how to reach the
+# menus, until the first key.
+case_27() {
+local c
+c=$(card "$proj/bin/ade.bin")
+: > "$c/banner"
+under_hub "$c" 60 "ade"
+check "no file: the banner says F10 opens the menus" \
+      "$(grep -c '| *Press F10 to access the menus *|' "$c/ade.scr" 2>/dev/null)" 1
+check "  under ade's name" \
+      "$(grep -c '| *ADE: Another Development Environment *|' "$c/ade.scr" 2>/dev/null)" 1
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -1089,7 +1102,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.
