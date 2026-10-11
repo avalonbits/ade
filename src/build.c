@@ -413,6 +413,12 @@ void build(editor* ed) {
     start(ed, false);
 }
 
+// The shell job's command, which hub 0.6 does not run. A hub older than 0.6
+// does not know HUB_SHELL and runs it as a command instead: named so that no
+// program answers to it, it fails there -- where "shell" would run a
+// shell.bin, if the card had one, and ade take its 0 for the shell's exit.
+#define SHELL_JOB "ade-shell-needs-hub-0.6"
+
 void build_shell(editor* ed) {
     if (!save_windows(ed)) {
         return;
@@ -423,9 +429,10 @@ void build_shell(editor* ed) {
     }
     // hub's prompt, on its own screen, until the user types exit -- the
     // command is not run -- and then ade back. A hub older than 0.6 runs
-    // "shell" as a command instead, which fails, and ade comes back to say so.
+    // SHELL_JOB as a command instead, which fails, and ade comes back to say
+    // so.
     if (hub_enter("ADE ") != HUB_OK
-        || hub_push("shell", HUB_SHELL | HUB_USER_PROGRAM) != HUB_OK
+        || hub_push(SHELL_JOB, HUB_SHELL | HUB_USER_PROGRAM) != HUB_OK
         || hub_return_to("ade -resume") != HUB_OK) {
         memset(s->magic, 0, 4);
         say(ed, "hub would not open its shell");

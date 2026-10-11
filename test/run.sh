@@ -235,6 +235,24 @@ MK
 (cd "$plant" && make >/dev/null 2>&1)
 check "plant builds" "$([ -f "$plant/bin/plant.bin" ] && echo built)" built
 
+# zero, from test/tools: a program that returns 0, to stand on a card as
+# /bin/shell.bin. And hub 0.5.0, from its tag in the hub checkout, the last
+# without HUB_SHELL: what ade's shell meets on an older hub.
+zero="$W/zero"
+mkdir -p "$zero/src"
+cp test/tools/zero.c "$zero/src/"
+printf 'NAME=zero\ninclude $(shell agondev-config --makefile)\n' > "$zero/Makefile"
+(cd "$zero" && make >/dev/null 2>&1)
+check "zero builds" "$([ -f "$zero/bin/zero.bin" ] && echo built)" built
+OLDHUB=
+if git -C "$HUB" rev-parse -q --verify v0.5.0 >/dev/null; then
+    mkdir -p "$W/hub050"
+    git -C "$HUB" archive v0.5.0 | tar -x -C "$W/hub050"
+    (cd "$W/hub050" && make >/dev/null 2>&1)
+    [ -f "$W/hub050/build/hub.bin" ] && OLDHUB="$W/hub050/build/hub.bin"
+fi
+check "hub 0.5.0 builds, for the shell on an older hub" "${OLDHUB:+built}" built
+
 # strip <file>: the end of the menu bar's row, past the menus' names, as read.
 strip() {
     sed -n '2p' "$1" 2>/dev/null | tr '?' ' ' | sed 's/ *$//' | awk -F'   +' '{print $NF}'
@@ -1035,6 +1053,22 @@ check "  only after the shell's commands ran" \
 check "  saying nothing" "$(grep '^said ' "$c/ade.scr" 2>/dev/null | tr -d '\r')" "said "
 }
 
+# CTRL+F12 on hub 0.5.0, which does not know HUB_SHELL and runs the job's
+# command as a program instead -- with a shell.bin on the card that returns
+# 0. The command is named so that nothing runs, and ade comes back saying
+# the shell needs a newer hub; named "shell", the 0 would pass for an exit.
+case_26() {
+    [ -n "$OLDHUB" ] || return 0
+local c
+c=$(card "$proj/bin/ade.bin")
+cp "$OLDHUB" "$c/mos/hub.bin"
+cp "$zero/bin/zero.bin" "$c/bin/shell.bin"
+printf 'alpha\r\n' > "$c/shell.txt"
+under_hub "$c" 120 "ade shell.txt"
+check "CTRL+F12 on hub 0.5: back, saying hub must be newer" \
+      "$(grep '^said ' "$c/ade.scr" 2>/dev/null | tr -d '\r')" "said The shell needs hub 0.6 or later"
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -1055,7 +1089,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.
