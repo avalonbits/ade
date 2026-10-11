@@ -23,8 +23,8 @@
 
 /*
  * A project: project.ini in the current directory, naming a program and the
- * files it is built from. With one, F9 builds the project rather than the
- * file on screen.
+ * files it is built from. With one, CTRL+B builds the project rather than
+ * the file on screen.
  *
  *   [project]
  *   name = hello                   ; the program: hello.bin
