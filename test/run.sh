@@ -302,7 +302,7 @@ printf 'alpha\r\n' > "$c/a.txt"
 printf 'bravo\r\n' > "$c/b.txt"
 printf 'charlie\r\n' > "$c/c.txt"
 under_hub "$c" 40 "ade a.txt"
-played "$c" "under hub, windows and menus, played" "keys 60 of 60
+played "$c" "under hub, windows and menus, played" "keys 61 of 61
 current 2
 at 1:4
 screen 1:4
@@ -1011,6 +1011,30 @@ check "  and no line of build.obey past MOS's 255" \
       "$(tr -d '\r' < "$c/build.obey" 2>/dev/null | awk 'length > 250 { n++ } END { print n + 0 }')" 0
 }
 
+# CTRL+F12: hub's shell, from hub 0.6. The change is saved first, a command
+# typed at the shell runs there, and exit brings ade back on its file, with
+# nothing to say.
+case_25() {
+local c
+c=$(card "$proj/bin/ade.bin")
+printf 'alpha\r\n' > "$c/shell.txt"
+printf 'changed\r\n' > "$c/new.txt"
+under_hub "$c" 120 "ade shell.txt
+copy shell.txt typed.txt
+delete shell.txt
+rename new.txt shell.txt
+exit"
+check "CTRL+F12: the shell, with the window saved first" \
+      "$(tr -d '\r\n' < "$c/typed.txt" 2>/dev/null)" "xalpha"
+check "  and exit brings ade back on its file" \
+      "$(grep '^footer ' "$c/ade.scr" 2>/dev/null)" "footer shell.txt"
+# Only after exit: ade reads the file the shell put there, which it would not
+# have if it had come back before the commands ran.
+check "  only after the shell's commands ran" \
+      "$(sed -n '3s/ *$//p' "$c/ade.scr" 2>/dev/null)" " changed"
+check "  saying nothing" "$(grep '^said ' "$c/ade.scr" 2>/dev/null | tr -d '\r')" "said "
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -1031,7 +1055,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

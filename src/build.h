@@ -53,6 +53,11 @@ void build(editor* ed);
 // .bin -- and comes back. CTRL+F9, and Run on the menu.
 void build_run(editor* ed);
 
+// Drops the user at hub's prompt, every window saved first, and brings ade
+// back as it was when they type exit. Needs hub 0.6 (HUB_SHELL); an older hub
+// fails the job, and ade comes back saying so.
+void build_shell(editor* ed);
+
 // The errors the last build left, as a list to go to one from; shown on
 // coming back from a build that left more than one. ALT+F9, and on the menu.
 void build_errors(editor* ed);

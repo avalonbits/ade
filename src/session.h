@@ -33,6 +33,7 @@ typedef struct {
     char magic[4];                      // MAGIC once written
     unsigned short size;                // sizeof(session) when written
     bool ran;                           // the program was queued after the build
+    bool shell;                         // hub's prompt, not a build
     char program[PROJ_NAME_MAX];        // ...and what it is called
     unsigned char mode;                 // the screen mode ade was in
     unsigned char open[ADE_WINDOWS];

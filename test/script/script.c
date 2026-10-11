@@ -70,6 +70,7 @@ static const key_press WINDOWS[] = {
     K(0, VK_F10),                                   // File...
     K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN),
     K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN), K(0, VK_DOWN),
+    K(0, VK_DOWN),                                  // past Shell...
     K(13, VK_RETURN),                               // ...Quit: only 2 is unsaved
     K('n', VK_n),                                   // ...leave it as it was
 };
@@ -345,6 +346,14 @@ static const key_press NOWAIT[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// shell.txt: a change, then CTRL+F12 to hub's shell -- which saves it first --
+// and ade leaves. The script's next lines are typed at the shell, ending with
+// exit, and ade comes back as a resume.
+static const key_press SHELL[] = {
+    K('x', VK_x),
+    M(0, VK_F12, MOD_CTRL),
+};
+
 #define COUNT(a) ((int) (sizeof(a) / sizeof(a[0])))
 
 static const key_press* KEYS = WINDOWS;
@@ -559,6 +568,9 @@ const key_source* script_keys(editor* ed, const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "shell.txt") != NULL) {
+        KEYS = SHELL;
+        NKEYS = COUNT(SHELL);
     } else if (arg != NULL && strstr(arg, "a_directory_with") != NULL) {
         KEYS = LONGNAME;
         NKEYS = COUNT(LONGNAME);

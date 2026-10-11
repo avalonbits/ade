@@ -297,6 +297,70 @@ void build_new_project(editor* ed) {
     say(ed, msg);
 }
 
+// Saves every window that needs it, since what runs next reads the files,
+// not ade's windows. A window with no name cannot be, so it stops there; one
+// put away has nothing to save: it was saved to be put away. False, having
+// said why, when one could not be.
+static bool save_windows(editor* ed) {
+    for (int i = 0; i < win_count(); i++) {
+        document* d = win_doc(ed, i);
+        if (d == NULL || !tb_changed(&d->buf_)) {
+            continue;
+        }
+        const char* n = tb_fname(&d->buf_);
+        static char msg[48];
+        if (n == NULL || n[0] == 0) {
+            text t;
+            text_start(&t, msg, (int) sizeof(msg));
+            text_str(&t, "Window ");
+            text_int(&t, i + 1);
+            text_str(&t, " has no name: save it first");
+            say(ed, msg);
+            return false;
+        }
+        if (!tb_save(&d->buf_)) {
+            text t;
+            text_start(&t, msg, (int) sizeof(msg));
+            text_str(&t, "Window ");
+            text_int(&t, i + 1);
+            text_str(&t, " could not be saved");
+            say(ed, msg);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Writes ade's windows into hub's block, for ade -resume to bring back: `run`
+// for a build that runs its program, `shell` for hub's prompt. NULL, having
+// said so, when hub has no room.
+static session* keep_windows(editor* ed, bool run, bool shell) {
+    session* s = block();
+    if (s == NULL) {
+        say(ed, "hub has no room to keep ade's windows");
+        return NULL;
+    }
+    memcpy(s->magic, MAGIC, 4);
+    s->size = sizeof(session);
+    s->mode = (unsigned char) screen_mode();
+    s->ran = run;
+    s->shell = shell;
+    memcpy(s->program, program, sizeof(program));
+    s->current = (unsigned char) win_current();
+    for (int i = 0; i < ADE_WINDOWS; i++) {
+        const char* name = win_name(ed, i);
+        s->open[i] = name != NULL && strlen(name) < TB_FNAME_MAX;
+        if (!s->open[i]) {
+            continue;
+        }
+        strcpy(s->name[i], name);
+        win_where(ed, i, &s->line[i], &s->x[i]);
+    }
+
+    return s;
+}
+
 // Builds, then with `run` runs what was built, and comes back.
 static void start(editor* ed, bool run) {
     status[0] = 0;
@@ -318,55 +382,12 @@ static void start(editor* ed, bool run) {
         return;
     }
 
-    // Everything that needs saving is saved first: the tool reads the files,
-    // not ade's windows. A window with no name cannot be, so it stops here. A
-    // window put away has nothing to save: it was saved to be put away.
-    for (int i = 0; i < win_count(); i++) {
-        document* d = win_doc(ed, i);
-        if (d == NULL || !tb_changed(&d->buf_)) {
-            continue;
-        }
-        const char* n = tb_fname(&d->buf_);
-        static char msg[48];
-        if (n == NULL || n[0] == 0) {
-            text t;
-            text_start(&t, msg, (int) sizeof(msg));
-            text_str(&t, "Window ");
-            text_int(&t, i + 1);
-            text_str(&t, " has no name: save it first");
-            say(ed, msg);
-            return;
-        }
-        if (!tb_save(&d->buf_)) {
-            text t;
-            text_start(&t, msg, (int) sizeof(msg));
-            text_str(&t, "Window ");
-            text_int(&t, i + 1);
-            text_str(&t, " could not be saved");
-            say(ed, msg);
-            return;
-        }
-    }
-
-    session* s = block();
-    if (s == NULL) {
-        say(ed, "hub has no room to keep ade's windows");
+    if (!save_windows(ed)) {
         return;
     }
-    memcpy(s->magic, MAGIC, 4);
-    s->size = sizeof(session);
-    s->mode = (unsigned char) screen_mode();
-    s->ran = run;
-    memcpy(s->program, program, sizeof(program));
-    s->current = (unsigned char) win_current();
-    for (int i = 0; i < ADE_WINDOWS; i++) {
-        const char* name = win_name(ed, i);
-        s->open[i] = name != NULL && strlen(name) < TB_FNAME_MAX;
-        if (!s->open[i]) {
-            continue;
-        }
-        strcpy(s->name[i], name);
-        win_where(ed, i, &s->line[i], &s->x[i]);
+    session* s = keep_windows(ed, run, false);
+    if (s == NULL) {
+        return;
     }
 
     // An error left by an earlier build must not be taken for this one's.
@@ -390,6 +411,27 @@ static void start(editor* ed, bool run) {
 
 void build(editor* ed) {
     start(ed, false);
+}
+
+void build_shell(editor* ed) {
+    if (!save_windows(ed)) {
+        return;
+    }
+    session* s = keep_windows(ed, false, true);
+    if (s == NULL) {
+        return;
+    }
+    // hub's prompt, on its own screen, until the user types exit -- the
+    // command is not run -- and then ade back. A hub older than 0.6 runs
+    // "shell" as a command instead, which fails, and ade comes back to say so.
+    if (hub_enter("ADE ") != HUB_OK
+        || hub_push("shell", HUB_SHELL | HUB_USER_PROGRAM) != HUB_OK
+        || hub_return_to("ade -resume") != HUB_OK) {
+        memset(s->magic, 0, 4);
+        say(ed, "hub would not open its shell");
+        return;
+    }
+    ed->leaving_ = true;
 }
 
 void build_run(editor* ed) {
@@ -661,6 +703,22 @@ void build_resume(editor* ed) {
     }
     int line = s->line[s->current];
     int x = s->x[s->current];
+
+    // Back from hub's shell: no build to say anything about. Its job ends
+    // with 0 at exit; anything else is a hub that does not know HUB_SHELL.
+    if (s->shell) {
+        for (int i = 0; i < ADE_WINDOWS; i++) {
+            const int w = s->open[i] ? win_find(ed, s->name[i]) : -1;
+            if (w >= 0 && w != target) {
+                win_place(ed, w, s->line[i], s->x[i]);
+            }
+        }
+        show_at(ed, target, line, x);
+        if (hub_last_result() != 0) {
+            say(ed, "The shell needs hub 0.6 or later");
+        }
+        return;
+    }
     const bool failed = hub_failed_job() >= 0;
     if (failed) {
         read_errors();

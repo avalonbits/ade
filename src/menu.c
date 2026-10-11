@@ -57,6 +57,7 @@ static const menu_item FILE_ITEMS[] = {
     { "Next window",        "CTRL+TAB",   win_next,     0, NULL },
     { "Previous window",    "CTRL+SHIFT+TAB", win_prev, 0, NULL },
     { "Window list",        "ALT+F6",     win_list,     0, NULL },
+    { "Shell",              "CTRL+F12",   build_shell,  0, NULL },
     { "Quit",               "CTRL+Q",     win_quit,     0, NULL },
 };
 static const menu_item EDIT_ITEMS[] = {

@@ -71,7 +71,8 @@ static const app_context ADE_APP = {
  * window if there is one, ALT+F3 closes the one on screen and ALT+F6 lists them.
  * Building, through hub -- see build.h: CTRL+B builds, CTRL+R builds and runs,
  * ALT+F9 lists the errors it left, and ALT+F5 shows what the program left on
- * the screen. F10 opens the menus.
+ * the screen. CTRL+F12 drops to hub's prompt, and exit there comes back. F10
+ * opens the menus.
  *
  * A key with more held comes before the same key with fewer, which would
  * match it too: CTRL+SHIFT+O before CTRL+O, CTRL+SHIFT+TAB before CTRL+TAB.
@@ -103,6 +104,7 @@ static const key_binding ADE_BINDINGS[] = {
     { VK_F10, 0, KC_OWNS_SEL, menu_open },
     { VK_F5, A, 0, build_user_screen },
     { VK_F9, A, 0, build_errors },
+    { VK_F12, C, 0, build_shell },
 };
 
 #undef LETTER
