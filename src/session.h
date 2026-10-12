@@ -44,6 +44,7 @@ typedef struct {
     bool ran;                           // the program was queued after the build
     unsigned char kind;                 // SESSION_BUILD, _SHELL or _REF
     char word[SESSION_WORD_MAX + 1];    // what ref was asked to look up
+    char doc[4];                        // ...and in which document: acc, mos
     char program[PROJ_NAME_MAX];        // ...and what it is called
     unsigned char mode;                 // the screen mode ade was in
     unsigned char open[ADE_WINDOWS];

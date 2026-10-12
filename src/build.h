@@ -59,9 +59,11 @@ void build_run(editor* ed);
 void build_shell(editor* ed);
 
 // CTRL+F11: looks up the word at the cursor -- or the selection, on one line
-// -- in ref's document of the Agon's own documentation, mos, through hub, every window saved first, and comes back as it
-// was. ref returns 100 when it has nothing for the word, and ade says so; any
-// other failure is no ref on the card.
+// -- in ref, through hub: in acc's document of its C library for a .c or .h
+// file, and in mos, the Agon's own documentation, for anything else. Every
+// window is saved first, and ade comes back as it was. ref returns 100 when
+// it has nothing for the word, and ade says so; any other failure is no ref
+// on the card.
 void build_ref(editor* ed);
 
 // CTRL+ALT+F11: ref's mos document from its contents, its start page, the

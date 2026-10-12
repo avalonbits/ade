@@ -59,7 +59,8 @@ There is no release yet: ADE is built from source (see
 - **zap**, to build assembly, from zap's main branch for now. ADE asks zap for
   acc's object format (`-f acc`), which is newer than zap's latest release,
   1.1.0.
-- **ref 0.2.0 or later**, for CTRL+F11, with its `mos` document.
+- **ref 0.2.0 or later**, for CTRL+F11, with its `mos` document and acc's
+  `acc` document.
 - **AED's configuration directory**, `/config/aed`, for syntax colouring,
   themes and fonts. ADE shares it with AED rather than keeping a copy. Without
   it, ADE works, but in plain text.
@@ -252,18 +253,19 @@ it, and ALT+F9 brings the list back until the next build.
 
 ## Looking things up in ref
 
-CTRL+F11 (or **Search → Look up in ref**) looks up the word at the cursor --
-`mos_fopen`, `sysvar_scrmode`, `run$path` -- in ref's copy of the Agon's own
-documentation. With a selection on one line, it looks up the selection
-instead. ADE saves every window, ref shows what it found, and quitting ref
-brings ADE back as you left it. When ref has nothing for the word, ADE says
-so.
+CTRL+F11 (or **Search → Look up in ref**) looks up the word at the cursor in
+ref. In a `.c` or `.h` file it looks in acc's documentation of its C
+library (`fopen`, `strtonum`, `string.h`); in any other file, in the Agon's
+own documentation (`mos_fopen`, `sysvar_scrmode`, `run$path`). With a
+selection on one line, it looks up the selection instead. ADE saves every
+window, ref shows what it found, and quitting ref brings ADE back as you left
+it. When ref has nothing for the word, ADE says so.
 
 CTRL+ALT+F11 (or **Search → ref's contents**) opens ref at the contents of
 the same documentation, to browse it from the start.
 
-It needs ref 0.2.0 or later in `/bin/ref.bin`, and its `mos` document in
-`/config/ref/docs/mos.dat`.
+It needs ref 0.2.0 or later in `/bin/ref.bin`, its `mos` document in
+`/config/ref/docs/mos.dat`, and acc's document in `/config/ref/docs/acc.dat`.
 
 ## The shell
 

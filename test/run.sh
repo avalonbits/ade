@@ -114,6 +114,8 @@ ZAP_BIN=${ZAP_BIN:-$HOME/code/zap/bin/zap.bin}
 REF_DIR=${REF_DIR:-$HOME/code/ref}
 REF_BIN=${REF_BIN:-$REF_DIR/bin/script/ref.bin}
 REF_DAT=${REF_DAT:-$REF_DIR/out/mos.dat}
+# And acc's document of its C library, made in ~/code/acc with `make doc`.
+ACC_DAT=${ACC_DAT:-$ACC_DIR/bin/acc.dat}
 
 # MOS 2.3.3, the oldest aed supports, with the map beside it: without the map
 # the emulator quietly disables the host SD card. Fetched once through the
@@ -1226,26 +1228,30 @@ check "  the old program and object list gone, the rest kept" \
 
 # CTRL+F11: the word at the cursor, or the selection, looked up in ref --
 # its scripted build, which leaves when its keys run out -- and ade back as
-# it was. Found, ref shows it and ade says nothing; not found, ade says so.
+# it was: in acc's document from a .c file, in mos from anything else. Each
+# of those runs has only the document it should ask on the card, so asking
+# the other finds nothing. Found, ade says nothing; not found, it says so.
 case_32() {
-    if [ ! -f "$REF_BIN" ] || [ ! -f "$REF_DAT" ]; then
-        echo "SKIP  CTRL+F11: no ref at $REF_BIN, or no $REF_DAT"
+    if [ ! -f "$REF_BIN" ] || [ ! -f "$REF_DAT" ] || [ ! -f "$ACC_DAT" ]; then
+        echo "SKIP  CTRL+F11: no ref at $REF_BIN, or no $REF_DAT or $ACC_DAT"
         return 0
     fi
 local c how word
-for how in found missing line contents nodoc; do
+for how in c txt missing line contents nodoc; do
     c=$(card "$proj/bin/ade.bin")
     cp "$REF_BIN" "$c/bin/ref.bin"
     mkdir -p "$c/config/ref/docs"
     cp "$REF_DAT" "$c/config/ref/docs/mos.dat"
+    cp "$ACC_DAT" "$c/config/ref/docs/acc.dat"
     printf 'esc\n' > "$c/ref.keys"
     case $how in
-        found) file=look.c; word=mos_fopen ;;
+        c) file=look.c; word=fopen; rm "$c/config/ref/docs/mos.dat" ;;
+        txt) file=look.txt; word=mos_fopen; rm "$c/config/ref/docs/acc.dat" ;;
         missing) file=look.c; word=xyzzy ;;
-        line) file=lookline.c; word=mos_fopenXYZ ;;
-        contents|nodoc) file=contents.c; word=anything ;;
+        line) file=lookline.txt; word=mos_fopenXYZ ;;
+        contents) file=contents.c; word=anything ;;
+        nodoc) file=contents.c; word=anything; rm "$c/config/ref/docs/mos.dat" ;;
     esac
-    [ $how = nodoc ] && rm "$c/config/ref/docs/mos.dat"
     printf '%s(here);\r\n' "$word" > "$c/$file"
     under_hub "$c" 120 "ade $file"
     eval "asked_$how=\$(grep -a \"^args \" \"\$c/ref.out\" 2>/dev/null | sed \"s/ normalised.*//\" | tr -d '\\r')"
@@ -1254,11 +1260,13 @@ for how in found missing line contents nodoc; do
     eval "exit_$how=\$(grep -a '^exit ' \"\$c/ref.out\" 2>/dev/null | tr -d '\\r')"
     eval "toc_$how=\$(grep -ac '^toc row ' \"\$c/ref.out\" 2>/dev/null)"
 done
-check "CTRL+F11: ref asked for the word at the cursor" "$asked_found" "args 'mos_fopen'"
-check "  it showed it, and ade is back on its file, saying nothing" \
-      "$exit_found|$foot_found|$said_found" "exit 0|footer look.c|said "
-check "  a word ref has nothing for: ade says so" "$exit_missing|$said_missing" \
-      "exit 100|said Nothing in ref for xyzzy"
+check "CTRL+F11 in a .c file: acc's document asked for the word" \
+      "$asked_c|$exit_c" "args 'fopen'|exit 0"
+check "  ade back on its file, saying nothing" "$foot_c|$said_c" "footer look.c|said "
+check "  in any other file: mos's" "$asked_txt|$exit_txt|$said_txt" \
+      "args 'mos_fopen'|exit 0|said "
+check "  a word acc has nothing for: ade says so" "$exit_missing|$said_missing" \
+      "exit 100|said Nothing in ref's acc for xyzzy"
 check "  a selection: what is selected asked for, not the whole word" \
       "$asked_line" "args 'mos_fopen'"
 check "CTRL+ALT+F11: ref's contents, and ade back saying nothing" \

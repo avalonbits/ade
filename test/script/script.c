@@ -403,7 +403,7 @@ static const key_press NAMED[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
-// look.c: CTRL+F11 on the word the cursor is in, the file's first.
+// look.c, look.txt: CTRL+F11 on the word the cursor is in, the file's first.
 static const key_press LOOK[] = {
     M(0, VK_F11, MOD_CTRL),
 };
@@ -413,7 +413,7 @@ static const key_press CONTENTS[] = {
     M(0, VK_F11, MOD_CTRL | MOD_ALT),
 };
 
-// lookline.c: the first nine characters selected, then CTRL+F11 on them --
+// lookline.txt: the first nine characters selected, then CTRL+F11 on them --
 // part of the word they are in.
 static const key_press LOOKLINE[] = {
     M(0, VK_RIGHT, MOD_SHFT), M(0, VK_RIGHT, MOD_SHFT), M(0, VK_RIGHT, MOD_SHFT),
@@ -651,10 +651,10 @@ const key_source* script_keys(editor* ed, const char* arg) {
     } else if (arg != NULL && strstr(arg, "contents.c") != NULL) {
         KEYS = CONTENTS;
         NKEYS = COUNT(CONTENTS);
-    } else if (arg != NULL && strstr(arg, "lookline.c") != NULL) {
+    } else if (arg != NULL && strstr(arg, "lookline.") != NULL) {
         KEYS = LOOKLINE;
         NKEYS = COUNT(LOOKLINE);
-    } else if (arg != NULL && strstr(arg, "look.c") != NULL) {
+    } else if (arg != NULL && strstr(arg, "look.") != NULL) {
         KEYS = LOOK;
         NKEYS = COUNT(LOOK);
     } else if (arg != NULL && strstr(arg, "named.c") != NULL) {

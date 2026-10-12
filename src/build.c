@@ -498,12 +498,10 @@ void build(editor* ed) {
 // shell.bin, if the card had one, and ade take its 0 for the shell's exit.
 #define SHELL_JOB "ade-shell-needs-hub-0.6"
 
-// How ref is asked: in its document "mos", the Agon's own documentation, for
-// a key -- the word follows.
-#define REF_COMMAND "ref mos -k "
-
-// And for the document's contents, its start page.
-#define REF_CONTENTS "ref mos"
+// How ref is asked: in a document, for a key -- the word follows. "acc" is
+// acc's C library, for C; "mos" the Agon's own documentation, for the rest.
+#define REF_ACC "acc"
+#define REF_MOS "mos"
 
 // What ref returns when nothing matched the word, or the document is not on
 // the card.
@@ -565,9 +563,24 @@ static void ref_word(editor* ed, char* out, int max) {
     memmove(out, out + skip, (size_t) (n - skip + 1));
 }
 
-// Runs ref through hub on `word` -- "" for the document's contents -- every
-// window saved first, and ade back after.
-static void start_ref(editor* ed, const char* word) {
+// The document a look-up on the file on screen goes to: acc's for a .c or .h
+// file, the Agon's for anything else.
+static const char* ref_document(editor* ed) {
+    const char* name = tb_fname(&ed->doc_->buf_);
+    const char* dot = name != NULL ? strrchr(name, '.') : NULL;
+    if (dot != NULL && strchr(dot, '/') == NULL && dot[1] != 0 && dot[2] == 0) {
+        const char x = (char) (dot[1] | 0x20);
+        if (x == 'c' || x == 'h') {
+            return REF_ACC;
+        }
+    }
+
+    return REF_MOS;
+}
+
+// Runs ref through hub on `word` in document `doc` -- "" for the document's
+// contents -- every window saved first, and ade back after.
+static void start_ref(editor* ed, const char* doc, const char* word) {
     if (!save_windows(ed)) {
         return;
     }
@@ -576,14 +589,15 @@ static void start_ref(editor* ed, const char* word) {
         return;
     }
     strcpy(s->word, word);
+    strcpy(s->doc, doc);
     static char cmd[HUB_CMD_MAX + 1];
     text t;
     text_start(&t, cmd, (int) sizeof(cmd));
+    text_str(&t, "ref ");
+    text_str(&t, doc);
     if (word[0] != 0) {
-        text_str(&t, REF_COMMAND);
+        text_str(&t, " -k ");
         text_str(&t, word);
-    } else {
-        text_str(&t, REF_CONTENTS);
     }
     // ref on the screen hub's prompt has, then ade back, whatever it found.
     if (t.cut || hub_enter("ADE ") != HUB_OK
@@ -603,11 +617,11 @@ void build_ref(editor* ed) {
         say(ed, "No word at the cursor to look up in ref");
         return;
     }
-    start_ref(ed, word);
+    start_ref(ed, ref_document(ed), word);
 }
 
 void build_ref_contents(editor* ed) {
-    start_ref(ed, "");
+    start_ref(ed, REF_MOS, "");
 }
 
 void build_shell(editor* ed) {
@@ -917,15 +931,22 @@ void build_resume(editor* ed) {
         const int result = hub_last_result();
         if (s->kind == SESSION_SHELL && result != 0) {
             say(ed, "The shell needs hub 0.6 or later");
-        } else if (s->kind == SESSION_REF && result == REF_NOTHING
-                   && s->word[0] == 0) {
-            say(ed, "ref has no mos document: /config/ref/docs/mos.dat");
         } else if (s->kind == SESSION_REF && result == REF_NOTHING) {
-            static char msg[SESSION_WORD_MAX + 24];
+            static char msg[SESSION_WORD_MAX + 48];
             text t;
             text_start(&t, msg, (int) sizeof(msg));
-            text_str(&t, "Nothing in ref for ");
-            text_str(&t, s->word);
+            if (s->word[0] == 0) {
+                text_str(&t, "ref has no ");
+                text_str(&t, s->doc);
+                text_str(&t, " document: /config/ref/docs/");
+                text_str(&t, s->doc);
+                text_str(&t, ".dat");
+            } else {
+                text_str(&t, "Nothing in ref's ");
+                text_str(&t, s->doc);
+                text_str(&t, " for ");
+                text_str(&t, s->word);
+            }
             say(ed, msg);
         } else if (s->kind == SESSION_REF && result != 0) {
             say(ed, "Could not run ref: is /bin/ref.bin on the card?");
