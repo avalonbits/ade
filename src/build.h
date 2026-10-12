@@ -67,9 +67,11 @@ void build_errors(editor* ed);
 // first file to open is `first_file` -- see build_first_file.
 void build_resume(editor* ed);
 
-// Build -> New project: asks for the program's name and writes a project.ini
-// for it, with no list of files -- every .c, .s and .asm in the directory is
-// the project -- unless there is one already, which is left as it is.
+// CTRL+SHIFT+N, and Build -> New project: asks for the program's name and
+// writes a project.ini for it, with no list of files -- every .c, .s and .asm
+// in the directory and under it is the project. With one here already, asks
+// for a new name instead, changes only its name line, and deletes the old
+// name's bin/<old>.bin and build/<old>.lnk.
 void build_new_project(editor* ed);
 
 // The name project.ini gives the program, or NULL without a project: read

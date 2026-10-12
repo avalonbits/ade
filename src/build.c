@@ -238,7 +238,96 @@ const char* build_project_file(void) {
     return build_project() != NULL ? proj.files[0] : NULL;
 }
 
+// A program's name of its own: it is the program's file, name.bin, and %n in
+// the rules, so nothing that would make those something else. The typed text
+// into out; false, having said so, when it will not do.
+static bool program_name(editor* ed, const char* typed, int sz, char* out) {
+    bool bad = sz >= PROJ_NAME_MAX;
+    for (int i = 0; i < sz; i++) {
+        const char c = typed[i];
+        if (c <= ' ' || c == '/' || c == '.' || c == ':') {
+            bad = true;
+        }
+    }
+    if (bad) {
+        say(ed, "A program's name is one word, with no '/', '.' or ':'");
+        return false;
+    }
+    memcpy(out, typed, (size_t) sz);
+    out[sz] = 0;
+
+    return true;
+}
+
+// The project here, renamed. Its old program, bin/<old>.bin, and its list of
+// objects, build/<old>.lnk, go with the old name: left, the old program would
+// sit beside the new one as if it were still the project's.
+static void rename_project(editor* ed) {
+    static char msg[80];
+    if (proj_load(&proj, msg, (int) sizeof(msg)) < 0) {
+        loaded = 2;
+        say(ed, msg);
+        return;
+    }
+    static char old[PROJ_NAME_MAX];
+    strcpy(old, proj.name);
+
+    char* typed = NULL;
+    int sz = 0;
+    if (ui_text(&ed->ui_, &ed->scr_, "Rename the project:", old, &typed, &sz) != YES_OPT
+            || sz <= 0) {
+        cmd_restore_after_modal(ed, false);
+        return;
+    }
+    static char chosen[PROJ_NAME_MAX];
+    if (!program_name(ed, typed, sz, chosen)) {
+        return;
+    }
+    text t;
+    if (strcmp(chosen, old) == 0) {
+        text_start(&t, msg, (int) sizeof(msg));
+        text_str(&t, "Project ");
+        text_str(&t, old);
+        text_str(&t, ": the name is as it was");
+        say(ed, msg);
+        return;
+    }
+    if (!proj_rename(chosen, msg, (int) sizeof(msg))) {
+        say(ed, msg);
+        return;
+    }
+    static char path[PROJ_NAME_MAX + 16];
+    text_start(&t, path, (int) sizeof(path));
+    text_str(&t, PROJ_BIN_DIR "/");
+    text_str(&t, old);
+    text_str(&t, ".bin");
+    mos_del(path);
+    text_start(&t, path, (int) sizeof(path));
+    text_str(&t, PROJ_OBJ_DIR "/");
+    text_str(&t, old);
+    text_str(&t, PROJ_LIST_EXT);
+    mos_del(path);
+
+    loaded = 2;
+    scr_header_draw(&ed->scr_);
+    text_start(&t, msg, (int) sizeof(msg));
+    text_str(&t, "Project ");
+    text_str(&t, chosen);
+    text_str(&t, ", was ");
+    text_strn(&t, old, 24);
+    text_str(&t, ": its old program is gone");
+    say(ed, msg);
+}
+
 void build_new_project(editor* ed) {
+    // A project here already: renamed, not made again.
+    const char here = mos_fopen(PROJ_FILE, FA_READ);
+    if (here != 0) {
+        mos_fclose(here);
+        rename_project(ed);
+        return;
+    }
+
     // The program's name, offered as the file on screen's without its
     // directory or extension: the usual case is a project named for the file
     // holding main.
@@ -265,25 +354,10 @@ void build_new_project(editor* ed) {
         cmd_restore_after_modal(ed, false);
         return;
     }
-    // A name of its own: it is the program's file, name.bin, and %n in the
-    // rules, so nothing that would make those something else.
     static char chosen[PROJ_NAME_MAX];
-    int bad = sz >= (int) sizeof(chosen);
-    for (int i = 0; i < sz; i++) {
-        const char c = typed[i];
-        if (c <= ' ') {
-            bad = 1;
-        }
-        if (c == '/' || c == '.' || c == ':') {
-            bad = 1;
-        }
-    }
-    if (bad) {
-        say(ed, "A program's name is one word, with no '/', '.' or ':'");
+    if (!program_name(ed, typed, sz, chosen)) {
         return;
     }
-    memcpy(chosen, typed, (size_t) sz);
-    chosen[sz] = 0;
 
     static char msg[80];
     if (!proj_create(chosen, msg, (int) sizeof(msg))) {

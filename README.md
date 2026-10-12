@@ -113,6 +113,7 @@ ADE adds these to AED's editing keys. The menus list them too.
 | CTRL+TAB / CTRL+SHIFT+TAB | The next window / the one before |
 | CTRL+1 to CTRL+9 | Window 1 to 9, if it is open |
 | ALT+F6 | The list of windows |
+| CTRL+SHIFT+N | New project here, or rename the one here |
 | CTRL+B | Build |
 | CTRL+R | Build and run |
 | ALT+F9 | The errors the last build left |
@@ -184,8 +185,12 @@ mode it left, until you press a key.
 A directory with a `project.ini` is a project. In a project, CTRL+B builds
 every file in it and links the program, and CTRL+R runs that program.
 
-**Build → New project** writes a `project.ini` naming the program, offering
-the name of the file on screen. It needs only the name:
+**CTRL+SHIFT+N** (or **Build → New project**) writes a `project.ini` naming
+the program, offering the name of the file on screen. When there is a
+project here already, it asks for a new name instead. It changes only the
+`name =` line, keeping the rest of `project.ini`, and deletes the old name's
+program, `bin/<old>.bin`, and its object list, `build/<old>.lnk`, so they
+aren't left behind. A project needs only the name:
 
     [project]
     name = hello

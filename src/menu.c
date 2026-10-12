@@ -78,7 +78,7 @@ static const menu_item SEARCH_ITEMS[] = {
 static const menu_item BUILD_ITEMS[] = {
     { "Build",              "CTRL+B",     build, 0, NULL },
     { "Errors",             "ALT+F9",     build_errors, 0, NULL },
-    { "New project",        "",           build_new_project, 0, NULL },
+    { "New project",        "CTRL+SHIFT+N", build_new_project, 0, NULL },
 };
 static const menu_item RUN_ITEMS[] = {
     { "Run",                "CTRL+R",     build_run, 0, NULL },

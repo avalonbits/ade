@@ -1189,6 +1189,34 @@ check "  hidden directories and build/ left alone" \
       "build/main.o build/more/deep/twice.o build/more/func.o "
 }
 
+# CTRL+SHIFT+N: with no project here, a new one; with one, renamed -- the
+# rest of project.ini kept, and the old name's program and object list gone,
+# so they do not linger beside the new ones.
+case_31() {
+local c p
+c=$(card "$proj/bin/ade.bin")
+p="$c/p"
+mkdir -p "$p"
+printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$p/named.c"
+under_hub "$c" 60 "cd p
+ade named.c"
+check "CTRL+SHIFT+N, no project here: a new one, namedx" \
+      "$(tr -d '\r' < "$p/project.ini" 2>/dev/null | grep '^name')" "name = namedx"
+printf '; mine\r\n' >> "$p/project.ini"
+mkdir -p "$p/bin" "$p/build"
+printf 'old' > "$p/bin/namedx.bin"
+printf 'old' > "$p/build/namedx.lnk"
+printf 'other' > "$p/bin/other.bin"
+under_hub "$c" 60 "cd p
+ade named.c"
+check "  again, with namedx here: renamed namedxx" \
+      "$(tr -d '\r' < "$p/project.ini" 2>/dev/null | grep '^name')" "name = namedxx"
+check "  the rest of project.ini as it was" \
+      "$(tr -d '\r' < "$p/project.ini" 2>/dev/null | tail -1)" "; mine"
+check "  the old program and object list gone, the rest kept" \
+      "$(ls "$p/bin" "$p/build" 2>/dev/null | grep -v ':$' | grep . | tr '\n' ' ')" "other.bin "
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -1209,7 +1237,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28 case_29 case_30
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28 case_29 case_30 case_31
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

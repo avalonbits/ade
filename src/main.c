@@ -70,7 +70,8 @@ static const app_context ADE_APP = {
  * aed's. Windows: CTRL+SHIFT+O opens a file in a new one, CTRL+TAB and
  * CTRL+SHIFT+TAB go to the next and the one before, CTRL+1 to CTRL+9 to that
  * window if there is one, ALT+F3 closes the one on screen and ALT+F6 lists them.
- * Building, through hub -- see build.h: CTRL+B builds, CTRL+R builds and runs,
+ * Building, through hub -- see build.h: CTRL+SHIFT+N makes a project here, or
+ * renames the one here; CTRL+B builds, CTRL+R builds and runs,
  * ALT+F9 lists the errors it left, and ALT+F5 shows what the program left on
  * the screen. CTRL+F12 drops to hub's prompt, and exit there comes back. F10
  * opens the menus.
@@ -85,6 +86,7 @@ static const key_binding ADE_BINDINGS[] = {
     LETTER(VK_s, VK_S, C, ed_cmd_save),
     LETTER(VK_q, VK_Q, C, win_quit),
     LETTER(VK_e, VK_E, C, ade_cmd_settings),
+    LETTER(VK_n, VK_N, C | S, build_new_project),
     LETTER(VK_b, VK_B, C, build),
     LETTER(VK_r, VK_R, C, build_run),
     { VK_TAB, C | S, 0, win_prev },

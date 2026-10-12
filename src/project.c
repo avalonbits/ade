@@ -563,6 +563,73 @@ bool proj_list(const project* p, char* msg, int max) {
     return ok;
 }
 
+bool proj_rename(const char* name, char* msg, int max) {
+    char fh = mos_fopen(PROJ_FILE, FA_READ);
+    if (fh == 0) {
+        fail(msg, max, PROJ_FILE " could not be read", NULL, NULL);
+        return false;
+    }
+    const int n = (int) mos_fread(fh, text_, TEXT_MAX);
+    mos_fclose(fh);
+    if (n <= 0 || n == TEXT_MAX) {
+        fail(msg, max, PROJ_FILE " could not be read", NULL, NULL);
+        return false;
+    }
+
+    // The name line of [project]: where it starts and where its text ends,
+    // before the line's end -- which is kept, as is everything around it.
+    int from = -1;
+    int to = -1;
+    bool in_project = false;
+    for (int at = 0; at < n && from < 0;) {
+        int end = at;
+        while (end < n && text_[end] != '\r' && text_[end] != '\n') {
+            end++;
+        }
+        int k = at;
+        while (k < end && (text_[k] == ' ' || text_[k] == '\t')) {
+            k++;
+        }
+        if (k < end && text_[k] == '[') {
+            in_project = end - k >= 9 && memcmp(text_ + k, "[project]", 9) == 0;
+        } else if (in_project && end - k >= 4 && memcmp(text_ + k, "name", 4) == 0) {
+            int e = k + 4;
+            while (e < end && (text_[e] == ' ' || text_[e] == '\t')) {
+                e++;
+            }
+            if (e < end && text_[e] == '=') {
+                from = at;
+                to = end;
+            }
+        }
+        at = end;
+        while (at < n && (text_[at] == '\r' || text_[at] == '\n')) {
+            at++;
+        }
+    }
+    if (from < 0) {
+        fail(msg, max, PROJ_FILE " has no name line to change", NULL, NULL);
+        return false;
+    }
+
+    fh = mos_fopen(PROJ_FILE, FA_WRITE | FA_CREATE_ALWAYS);
+    if (fh == 0) {
+        fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
+        return false;
+    }
+    const int len = (int) strlen(name);
+    bool ok = (int) mos_fwrite(fh, text_, (unsigned) from) == from
+              && mos_fwrite(fh, (char*) "name = ", 7) == 7
+              && (int) mos_fwrite(fh, (char*) name, (unsigned) len) == len
+              && (int) mos_fwrite(fh, text_ + to, (unsigned) (n - to)) == n - to;
+    mos_fclose(fh);
+    if (!ok) {
+        fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
+    }
+
+    return ok;
+}
+
 bool proj_create(const char* name, char* msg, int max) {
     const char was = mos_fopen(PROJ_FILE, FA_READ);
     if (was != 0) {

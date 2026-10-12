@@ -106,6 +106,12 @@ bool proj_run(const project* p, char* out, int max);
 // it cannot be written.
 bool proj_create(const char* name, char* msg, int max);
 
+// Gives the project in PROJ_FILE another name: its [project] name line says
+// `name`, and the rest of the file -- comments and all -- is as it was. False
+// with why in `msg` when it cannot be read, has no name line, or cannot be
+// written.
+bool proj_rename(const char* name, char* msg, int max);
+
 // Makes PROJ_OBJ_DIR and PROJ_BIN_DIR, where they are not there already, and
 // the directories under PROJ_OBJ_DIR that the objects of files in
 // subdirectories go in: build/more for more/func.c.

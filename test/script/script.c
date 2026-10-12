@@ -393,6 +393,16 @@ static const key_press VIEWER[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// named.c: CTRL+SHIFT+N, an x after the name offered, and RETURN. With no
+// project here, a project named namedx; with namedx here, renamed namedxx.
+static const key_press NAMED[] = {
+    M(14, VK_N, MOD_CTRL | MOD_SHFT),
+    K('x', VK_x),
+    K(13, VK_RETURN),
+    K('k', VK_k),                                   // ...which the message waits on
+    M(17, VK_q, MOD_CTRL),
+};
+
 #define COUNT(a) ((int) (sizeof(a) / sizeof(a[0])))
 
 static const key_press* KEYS = WINDOWS;
@@ -619,6 +629,9 @@ const key_source* script_keys(editor* ed, const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "named.c") != NULL) {
+        KEYS = NAMED;
+        NKEYS = COUNT(NAMED);
     } else if (arg != NULL && strstr(arg, "viewer.txt") != NULL) {
         KEYS = VIEWER;
         NKEYS = COUNT(VIEWER);
