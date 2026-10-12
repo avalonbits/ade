@@ -33,8 +33,8 @@
 #define SESSION_REF   2
 
 // The longest word ref is asked for: what hub holds of a command, 93, less
-// "ref mos -k ".
-#define SESSION_WORD_MAX 82
+// the longest rest of it, "ref ref-doc/<8>.dat,mos -k ".
+#define SESSION_WORD_MAX 60
 
 // What survives the build, in hub's block "ADE ": which files were open, in
 // which windows, where each cursor was, and which window was on screen.
@@ -45,6 +45,7 @@ typedef struct {
     unsigned char kind;                 // SESSION_BUILD, _SHELL or _REF
     char word[SESSION_WORD_MAX + 1];    // what ref was asked to look up
     char doc[4];                        // ...and in which document: acc, mos
+    char proj_doc[PROJ_DOC_NAME + 1];   // ...after the project's, if it has one
     char program[PROJ_NAME_MAX];        // ...and what it is called
     unsigned char mode;                 // the screen mode ade was in
     unsigned char open[ADE_WINDOWS];

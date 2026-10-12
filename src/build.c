@@ -20,6 +20,7 @@
 
 #include <agon/mos.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <hub/hub.h>
@@ -203,7 +204,7 @@ static bool project_command(editor* ed, const project* p, char* cmd) {
         return false;
     }
     proj_dirs(p);
-    if (!proj_list(p, msg, (int) sizeof(msg))) {
+    if (!proj_list(p, msg, (int) sizeof(msg)) || !proj_docs_list(p, msg, (int) sizeof(msg))) {
         say(ed, msg);
         return false;
     }
@@ -221,23 +222,50 @@ const char* build_status(void) {
     return status;
 }
 
-// The project in the current directory, as last read: at F9, or for the
+// The project in the current directory, as last read: at a build, or for the
 // header the first time it asks. `loaded` is proj_load's answer, and 2 for
-// not read yet.
-static project proj;
+// not read yet. All of it -- its files, its rules, its pages -- is some 5 KB,
+// wanted only while a build is made, so it is read into the heap then and
+// given back; what is asked of it in between is kept here.
 static int loaded = 2;
+static char known_name[PROJ_NAME_MAX];
+static char known_first[PROJ_NAME_MAX];
+static char known_doc[PROJ_DOC_NAME + 1];   // "" with no documentation
+
+// The project, read into the heap for the caller to free, with proj_load's
+// answer in *has. NULL, with why in msg, when there is no room to read it.
+static project* read_project(int* has, char* msg, int max) {
+    project* p = malloc(sizeof(project));
+    if (p == NULL) {
+        text t;
+        text_start(&t, msg, max);
+        text_str(&t, "No room to read " PROJ_FILE);
+        loaded = 2;
+        return NULL;
+    }
+    *has = proj_load(p, msg, max);
+    loaded = *has;
+    if (*has > 0) {
+        strcpy(known_name, p->name);
+        strcpy(known_first, p->files[0]);
+        strcpy(known_doc, p->ndocs > 0 ? p->doc : "");
+    }
+
+    return p;
+}
 
 const char* build_project(void) {
     if (loaded == 2) {
         static char msg[80];
-        loaded = proj_load(&proj, msg, (int) sizeof(msg));
+        int has = 0;
+        free(read_project(&has, msg, (int) sizeof(msg)));
     }
 
-    return loaded > 0 ? proj.name : NULL;
+    return loaded > 0 ? known_name : NULL;
 }
 
 const char* build_project_file(void) {
-    return build_project() != NULL ? proj.files[0] : NULL;
+    return build_project() != NULL ? known_first : NULL;
 }
 
 // A program's name of its own: it is the program's file, name.bin, and %n in
@@ -266,13 +294,17 @@ static bool program_name(editor* ed, const char* typed, int sz, char* out) {
 // sit beside the new one as if it were still the project's.
 static void rename_project(editor* ed) {
     static char msg[80];
-    if (proj_load(&proj, msg, (int) sizeof(msg)) < 0) {
+    int has = 0;
+    project* p = read_project(&has, msg, (int) sizeof(msg));
+    if (p == NULL || has < 0) {
+        free(p);
         loaded = 2;
         say(ed, msg);
         return;
     }
     static char old[PROJ_NAME_MAX];
-    strcpy(old, proj.name);
+    strcpy(old, p->name);
+    free(p);
 
     char* typed = NULL;
     int sz = 0;
@@ -451,14 +483,15 @@ static void start(editor* ed, bool run) {
     // With a project, the project; without one, the file on screen.
     static char msg[80];
     static char cmd[HUB_CMD_MAX + 1];
-    const int has = proj_load(&proj, msg, (int) sizeof(msg));
-    loaded = has;
-    if (has < 0) {
+    int has = 0;
+    project* p = read_project(&has, msg, (int) sizeof(msg));
+    if (p == NULL || has < 0) {
+        free(p);
         say(ed, msg);
         return;
     }
-    const bool made = has > 0 ? project_command(ed, &proj, cmd)
-                              : file_command(ed, cmd);
+    const bool made = has > 0 ? project_command(ed, p, cmd) : file_command(ed, cmd);
+    free(p);
     if (!made) {
         return;
     }
@@ -617,9 +650,20 @@ static void start_ref(editor* ed, const char* doc, const char* word) {
     }
     strcpy(s->word, word);
     strcpy(s->doc, doc);
+    // A look-up in a project with documentation asks the project's document
+    // first: ref tries them in turn, and skips one that is not there yet.
+    s->proj_doc[0] = 0;
+    if (word[0] != 0 && build_project() != NULL) {
+        strcpy(s->proj_doc, known_doc);
+    }
     static char cmd[HUB_CMD_MAX + 1];
     text_start(&t, cmd, (int) sizeof(cmd));
     text_str(&t, "ref ");
+    if (s->proj_doc[0] != 0) {
+        text_str(&t, PROJ_DOC_DIR "/");
+        text_str(&t, s->proj_doc);
+        text_str(&t, ".dat,");
+    }
     text_str(&t, doc);
     if (word[0] != 0) {
         text_str(&t, " -k ");
@@ -781,8 +825,9 @@ static bool parse_error(const char* s, char* file, int fmax, int* line, int* col
 }
 
 // What an error says, for the message row: from its line and column on --
-// `line:column: ...` -- since its file is the one on screen, named in the
-// footer. One at line 0, which is in no file, says only what is past them.
+// `line:column: ...`, or `line: ...` where there is no column -- since its
+// file is the one on screen, named in the footer. One at line 0, which is in
+// no file, says only what is past them.
 static const char* error_text(const char* e) {
     const char* q = e;
     while (*q != 0 && !(q[0] == ':' && q[1] >= '0' && q[1] <= '9')) {
@@ -793,7 +838,8 @@ static const char* error_text(const char* e) {
     }
     const char* place = q + 1;
     bool nowhere = true;
-    for (int field = 0; field < 2 && *q == ':'; field++) {
+    // The line, then the column if there is one: md2ref gives a line alone.
+    for (int field = 0; field < 2 && q[0] == ':' && q[1] >= '0' && q[1] <= '9'; field++) {
         q++;
         while (*q >= '0' && *q <= '9') {
             nowhere = nowhere && (field > 0 || *q == '0');
@@ -967,6 +1013,10 @@ void build_resume(editor* ed) {
                 text_str(&t, " document");
             } else {
                 text_str(&t, "Nothing in ref's ");
+                if (s->proj_doc[0] != 0) {
+                    text_str(&t, s->proj_doc);
+                    text_str(&t, " or ");
+                }
                 text_str(&t, s->doc);
                 text_str(&t, " for ");
                 text_str(&t, s->word);

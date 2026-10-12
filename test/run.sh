@@ -114,6 +114,9 @@ ZAP_BIN=${ZAP_BIN:-$HOME/code/zap/bin/zap.bin}
 REF_DIR=${REF_DIR:-$HOME/code/ref}
 REF_BIN=${REF_BIN:-$REF_DIR/bin/script/ref.bin}
 REF_DAT=${REF_DAT:-$REF_DIR/out/mos.dat}
+# md2ref, ref's compiler of Markdown into a document, for the Agon: made in
+# ~/code/ref with `make agon-md2ref`.
+MD2REF_BIN=${MD2REF_BIN:-$REF_DIR/bin/md2ref/md2ref.bin}
 # And acc's document of its C library, made in ~/code/acc with `make doc`.
 ACC_DAT=${ACC_DAT:-$ACC_DIR/bin/acc.dat}
 
@@ -1299,6 +1302,63 @@ check "  and ade on the error" "$(grep -a '^said ' "$c/ade.scr" 2>/dev/null | tr
       "said 3:12: error: 'x' is not declared"
 }
 
+# A project's documentation: every .md in it, made by md2ref into
+# ref-doc/<doc>.dat as the last step of CTRL+B, the README first; looked in
+# first by CTRL+F11, before acc or mos; and a page that will not compile is
+# an error like a compiler's, ade on its line. The files looked up from are
+# in a hidden directory, which the project does not take in.
+case_34() {
+    [ -n "$TOOLS" ] || return 0
+    if [ ! -f "$REF_BIN" ] || [ ! -f "$MD2REF_BIN" ] || [ ! -f "$ACC_DAT" ]; then
+        echo "SKIP  project documentation: no ref, md2ref or acc.dat"
+        return 0
+    fi
+local c p
+c=$(card "$proj/bin/ade.bin")
+cp "$REF_BIN" "$c/bin/ref.bin"
+cp "$MD2REF_BIN" "$c/bin/md2ref.bin"
+mkdir -p "$c/config/ref/docs"
+cp "$ACC_DAT" "$c/config/ref/docs/acc.dat"
+cp "$REF_DAT" "$c/config/ref/docs/mos.dat"
+printf 'esc\n' > "$c/ref.keys"
+p="$c/proj"
+mkdir -p "$p/more" "$p/.t"
+printf '[project]\r\nname = Widgets1\r\n' > "$p/project.ini"
+printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$p/main.c"
+printf '# Widgets\r\n\r\n## `widget`\r\n\r\nA widget.\r\n' > "$p/README.md"
+printf '# API\r\n\r\n## `gadget`\r\n\r\nA gadget.\r\n' > "$p/more/api.md"
+under_hub "$c" 180 "cd proj
+ade main.c"
+check "a project's .md files: made into ref-doc/widgets1.dat by CTRL+B" \
+      "$([ -s "$p/ref-doc/widgets1.dat" ] && echo made)" made
+check "  from a list of its pages, the README first" \
+      "$(tr -d '\r' < "$p/build/widgets1.mdl" 2>/dev/null | tr '\n' ' ')" "README.md more/api.md "
+printf 'gadget(here);\r\n' > "$p/.t/look.c"
+rm -f "$c/ref.out"
+under_hub "$c" 120 "cd proj
+ade .t/look.c"
+check "  CTRL+F11 finds gadget in it" \
+      "$(grep -a -E '^(args|exit) ' "$c/ref.out" 2>/dev/null | sed 's/ normalised.*//' | tr -d '\r' | tr '\n' '|')" \
+      "args 'gadget'|exit 0|"
+printf 'fopen(here);\r\n' > "$p/.t/look.c"
+rm -f "$c/ref.out"
+under_hub "$c" 120 "cd proj
+ade .t/look.c"
+# ref logs the word once for each document it asks: here the project's,
+# then acc's.
+check "  and fopen, not in it, in acc's after it" \
+      "$(grep -a -E '^(args|exit) ' "$c/ref.out" 2>/dev/null | sed 's/ normalised.*//' | tr -d '\r' | uniq | tr '\n' '|')" \
+      "args 'fopen'|exit 0|"
+printf '# API\r\n\r\n```\r\nnever closed\r\n' > "$p/more/api.md"
+under_hub "$c" 180 "cd proj
+ade main.c"
+check "  a page that will not compile: its error, in ade.err" \
+      "$(tr -d '\r' < "$p/ade.err" 2>/dev/null | head -1 | cut -d: -f1,3 | tr -d ' ')" "more/api.md:error"
+check "  and ade on it, saying it from its line" \
+      "$(grep -a -E '^(current|window 2) ' "$c/ade.out" 2>/dev/null | cut -d' ' -f1-4 | tr '\n' '|')|$(grep -a '^said ' "$c/ade.scr" 2>/dev/null | tr -d '\r')" \
+      "current 2|window 2 more/api.md 3:1||said 3: error: code block never closed"
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -1319,7 +1379,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28 case_29 case_30 case_31 case_32 case_33
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28 case_29 case_30 case_31 case_32 case_33 case_34
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

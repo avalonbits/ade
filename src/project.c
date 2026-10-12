@@ -34,10 +34,14 @@
 // at 255 characters: a link line naming them was full at fifteen or so.
 #define RULE_LINK_TEXT "acc @%l -o " PROJ_BIN_DIR "/%n.bin -errors %e"
 #define RULE_RUN_TEXT  PROJ_BIN_DIR "/%n"
+// The documentation, when there is any: md2ref makes ref-doc/<doc>.dat of
+// the pages build/<doc>.mdl lists, its errors where the tools' go.
+#define RULE_DOC_TEXT  "md2ref -e %e %d @" PROJ_OBJ_DIR "/%d" PROJ_DOCS_EXT
 static const char RULE_C[] = RULE_C_TEXT;
 static const char RULE_S[] = RULE_S_TEXT;
 static const char RULE_LINK[] = RULE_LINK_TEXT;
 static const char RULE_RUN[] = RULE_RUN_TEXT;
+static const char RULE_DOC[] = RULE_DOC_TEXT;
 
 static char text_[TEXT_MAX];
 
@@ -210,10 +214,38 @@ static bool scan_add(project* p, const char* name, char* msg, int max) {
     return true;
 }
 
+// Whether `name` is Markdown: ends in .md, in either case.
+static bool markdown(const char* name) {
+    const int n = (int) strlen(name);
+
+    return n > 3 && name[n - 3] == '.' && (name[n - 2] | 0x20) == 'm'
+           && (name[n - 1] | 0x20) == 'd';
+}
+
+// Adds `name`, a Markdown file under scan_path, to the documentation. One
+// that does not fit is left out: the rest still make a document.
+static void scan_doc(project* p, const char* name) {
+    if (p->ndocs == PROJ_DOCS_MAX) {
+        return;
+    }
+    text t;
+    text_start(&t, p->docs + p->docs_used, PROJ_DOCS_POOL - p->docs_used);
+    if (scan_path[0] != 0) {
+        text_str(&t, scan_path);
+        text_str(&t, "/");
+    }
+    text_str(&t, name);
+    if (t.cut) {
+        return;
+    }
+    p->docs_used += text_len(&t) + 1;
+    p->ndocs++;
+}
+
 // The files under scan_path, and under the directories in it, to SCAN_DEPTH.
 // Names starting with "." are left out, and so are the build's own build/
 // and bin/ at the top.
-static bool scan_level(project* p, int depth, char* msg, int max) {
+static bool scan_level(project* p, int depth, bool sources, char* msg, int max) {
     // Static: a FILINFO carries a 256-byte name. Each name is used before
     // the next level reads into it.
     static FILINFO info;
@@ -231,14 +263,17 @@ static bool scan_level(project* p, int depth, char* msg, int max) {
             continue;
         }
         if ((info.fattrib & AM_DIR) == 0) {
-            if (rule_for(p, info.fname) != NULL) {
+            if (markdown(info.fname)) {
+                scan_doc(p, info.fname);
+            } else if (sources && rule_for(p, info.fname) != NULL) {
                 ok = scan_add(p, info.fname, msg, max);
             }
             continue;
         }
         if (depth + 1 == SCAN_DEPTH
                 || (depth == 0 && (strcmp(info.fname, PROJ_OBJ_DIR) == 0
-                                   || strcmp(info.fname, PROJ_BIN_DIR) == 0))) {
+                                   || strcmp(info.fname, PROJ_BIN_DIR) == 0
+                                   || strcmp(info.fname, PROJ_DOC_DIR) == 0))) {
             continue;
         }
         // Down a level, and back.
@@ -251,7 +286,7 @@ static bool scan_level(project* p, int depth, char* msg, int max) {
             scan_path[was] = '/';
         }
         memcpy(scan_path + (was > 0 ? was + 1 : 0), info.fname, (size_t) n + 1);
-        ok = scan_level(p, depth + 1, msg, max);
+        ok = scan_level(p, depth + 1, sources, msg, max);
         scan_path[was] = 0;
     }
     ffs_dclose(dir);
@@ -262,11 +297,68 @@ static bool scan_level(project* p, int depth, char* msg, int max) {
 // With no files line, the project is every file under its directory that a
 // rule builds, but those excluded, in order of their paths -- "more/func.c"
 // -- since a directory lists in whatever order it was written in, and the link
-// should not depend on that.
-static bool scan_directory(project* p, char* msg, int max) {
+// should not depend on that. With one, only its documentation is looked for:
+// every .md under the directory, whichever way the sources are named.
+static bool scan_directory(project* p, bool sources, char* msg, int max) {
     scan_path[0] = 0;
 
-    return scan_level(p, 0, msg, max);
+    return scan_level(p, 0, sources, msg, max);
+}
+
+// a and b compared as FAT compares names, without regard to case.
+static int compare_ci(const char* a, const char* b) {
+    for (;; a++, b++) {
+        const char x = (char) (*a >= 'A' && *a <= 'Z' ? *a - 'A' + 'a' : *a);
+        const char y = (char) (*b >= 'A' && *b <= 'Z' ? *b - 'A' + 'a' : *b);
+        if (x != y || x == 0) {
+            return (unsigned char) x - (unsigned char) y;
+        }
+    }
+}
+
+// Whether `a` comes before `b` among the pages: a README.md or index.md at the
+// top first, then by path.
+static bool doc_before(const char* a, const char* b) {
+    const bool fa = compare_ci(a, "README.md") == 0 || compare_ci(a, "index.md") == 0;
+    const bool fb = compare_ci(b, "README.md") == 0 || compare_ci(b, "index.md") == 0;
+    if (fa != fb) {
+        return fa;
+    }
+
+    return strcmp(a, b) < 0;
+}
+
+// The page after `prev` in the pages' order -- the first for NULL -- or NULL
+// after the last. The pool is in the directory's order, which is not the
+// document's; there are few enough pages to look through it each time.
+static const char* next_doc(const project* p, const char* prev) {
+    const char* best = NULL;
+    const char* d = p->docs;
+    for (int i = 0; i < p->ndocs; i++) {
+        if ((prev == NULL || doc_before(prev, d)) && (best == NULL || doc_before(d, best))) {
+            best = d;
+        }
+        d += strlen(d) + 1;
+    }
+
+    return best;
+}
+
+// The document's name, from the program's: what ref takes, 1 to 8 lower-case
+// letters and digits.
+static void doc_name(project* p) {
+    int n = 0;
+    for (const char* c = p->name; *c != 0 && n < PROJ_DOC_NAME; c++) {
+        const char l = (char) (*c >= 'A' && *c <= 'Z' ? *c - 'A' + 'a' : *c);
+        if ((l >= 'a' && l <= 'z') || (l >= '0' && l <= '9')) {
+            p->doc[n++] = l;
+        }
+    }
+    if (n == 0) {
+        memcpy(p->doc, "doc", 4);
+        return;
+    }
+    p->doc[n] = 0;
 }
 
 int proj_load(project* p, char* msg, int max) {
@@ -291,6 +383,7 @@ int proj_load(project* p, char* msg, int max) {
     p->sum = hash(p->sum, RULE_C, (int) sizeof(RULE_C));
     p->sum = hash(p->sum, RULE_S, (int) sizeof(RULE_S));
     p->sum = hash(p->sum, RULE_LINK, (int) sizeof(RULE_LINK));
+    p->sum = hash(p->sum, RULE_DOC, (int) sizeof(RULE_DOC));
     strcpy(p->c, RULE_C);
     strcpy(p->s, RULE_S);
     strcpy(p->asm_, RULE_S);
@@ -365,11 +458,16 @@ int proj_load(project* p, char* msg, int max) {
         return -1;
     }
     // No files line: the directory is the project. The names it found go
-    // into the sum, so a file added or taken away makes a new build.obey.
+    // into the sum, so a file added or taken away makes a new build.obey --
+    // and so do the documentation's, which are looked for either way.
+    if (!scan_directory(p, !p->listed, msg, max)) {
+        return -1;
+    }
+    for (const char* d = next_doc(p, NULL); d != NULL; d = next_doc(p, d)) {
+        p->sum = hash(p->sum, d, (int) strlen(d) + 1);
+    }
+    doc_name(p);
     if (!p->listed) {
-        if (!scan_directory(p, msg, max)) {
-            return -1;
-        }
         for (int f = 0; f < p->nfiles; f++) {
             p->sum = hash(p->sum, p->files[f], (int) strlen(p->files[f]) + 1);
         }
@@ -393,7 +491,7 @@ int proj_load(project* p, char* msg, int max) {
 }
 
 int proj_jobs(const project* p) {
-    return p->nfiles + (p->link[0] != 0 ? 1 : 0);
+    return p->nfiles + (p->link[0] != 0 ? 1 : 0) + (p->ndocs > 0 ? 1 : 0);
 }
 
 // Appends s[0, len) at out + *at; false when it does not fit in max.
@@ -441,6 +539,9 @@ static bool expand(const project* p, const char* rule, const char* file,
         case 'e':
             ok = put(out, max, &at, err, (int) strlen(err));
             break;
+        case 'd':
+            ok = put(out, max, &at, p->doc, (int) strlen(p->doc));
+            break;
         case 'l':
             ok = put(out, max, &at, PROJ_OBJ_DIR "/", (int) sizeof(PROJ_OBJ_DIR "/") - 1)
                  && put(out, max, &at, p->name, (int) strlen(p->name))
@@ -466,8 +567,13 @@ static bool expand(const project* p, const char* rule, const char* file,
 
 bool proj_job(const project* p, int i, const char* err, char* out, int max) {
     const char* file = i < p->nfiles ? p->files[i] : "";
+    const char* rule = i < p->nfiles ? rule_for(p, file) : p->link;
+    // The documentation last, after the link -- or in its place, with none.
+    if (i == proj_jobs(p) - 1 && p->ndocs > 0) {
+        rule = RULE_DOC;
+    }
 
-    return expand(p, i < p->nfiles ? rule_for(p, file) : p->link, file, err, out, max);
+    return expand(p, rule, file, err, out, max);
 }
 
 bool proj_run(const project* p, char* out, int max) {
@@ -555,6 +661,35 @@ bool proj_list(const project* p, char* msg, int max) {
         text_str(&t, ".o\r\n");
         const int n = text_len(&t);
         ok = (int) mos_fwrite(fh, line, (unsigned) n) == n;
+    }
+    mos_fclose(fh);
+    if (!ok) {
+        mos_del(path);
+        fail(msg, max, path, " could not be written", NULL);
+    }
+
+    return ok;
+}
+
+bool proj_docs_list(const project* p, char* msg, int max) {
+    if (p->ndocs == 0) {
+        return true;
+    }
+    static char path[PROJ_NAME_MAX];
+    if (!expand(p, PROJ_OBJ_DIR "/%d" PROJ_DOCS_EXT, "", "", path, (int) sizeof(path))) {
+        fail(msg, max, "The document's name is too long", NULL, NULL);
+        return false;
+    }
+    const char fh = mos_fopen(path, FA_WRITE | FA_CREATE_ALWAYS);
+    if (fh == 0) {
+        fail(msg, max, path, " could not be written", NULL);
+        return false;
+    }
+    bool ok = true;
+    for (const char* d = next_doc(p, NULL); d != NULL && ok; d = next_doc(p, d)) {
+        const int n = (int) strlen(d);
+        ok = (int) mos_fwrite(fh, (char*) d, (unsigned) n) == n
+             && mos_fwrite(fh, (char*) "\r\n", 2) == 2;
     }
     mos_fclose(fh);
     if (!ok) {

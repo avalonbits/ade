@@ -63,6 +63,11 @@
 #define PROJ_BIN_DIR    "bin"
 #define PROJ_OBEY       "build.obey"
 #define PROJ_LIST_EXT   ".lnk"
+#define PROJ_DOC_DIR    "ref-doc"
+#define PROJ_DOCS_EXT   ".mdl"
+#define PROJ_DOCS_POOL  768
+#define PROJ_DOCS_MAX   64
+#define PROJ_DOC_NAME   8
 #define PROJ_FILES      32
 #define PROJ_EXCLUDE    8
 #define PROJ_NAME_MAX   64
@@ -83,6 +88,13 @@ typedef struct {
     char link[PROJ_CMD_MAX + 1];
     char run[PROJ_CMD_MAX + 1];
     unsigned long sum;                  // of project.ini and the defaults
+
+    // Its documentation: every .md under the directory, end to end, each
+    // ended by a NUL; and the document md2ref makes of them, ref-doc/<doc>.dat.
+    int ndocs;
+    int docs_used;
+    char docs[PROJ_DOCS_POOL];
+    char doc[PROJ_DOC_NAME + 1];
 } project;
 
 // Reads PROJ_FILE: 1 when there is a project, 0 when there is no file, and -1
@@ -105,6 +117,12 @@ bool proj_run(const project* p, char* out, int max);
 // may say in comments. False with why in `msg` when there is one already or
 // it cannot be written.
 bool proj_create(const char* name, char* msg, int max);
+
+// Writes PROJ_OBJ_DIR/<doc>.mdl, the project's Markdown one page a line for
+// md2ref's @, a README.md or index.md at the top first and the rest in order
+// of path. Written on every build that has documentation. False with why in
+// `msg` when it cannot be.
+bool proj_docs_list(const project* p, char* msg, int max);
 
 // Gives the project in PROJ_FILE another name: its [project] name line says
 // `name`, and the rest of the file -- comments and all -- is as it was. False

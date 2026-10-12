@@ -41,6 +41,7 @@ There is no release yet: ADE is built from source (see
 * [Building and running a file](#building-and-running-a-file)
 * [Projects](#projects)
 * [Errors](#errors)
+* [Project documentation](#project-documentation)
 * [Looking things up in ref](#looking-things-up-in-ref)
 * [The shell](#the-shell)
 * [Settings](#settings)
@@ -228,6 +229,7 @@ are replaced:
 | `%o` | every object, `build/<file>.o`, in order |
 | `%l` | `build/<name>.lnk`, which lists every object, one per line, for acc's `@` |
 | `%n` | the program's name |
+| `%d` | the name of the project's document, `ref-doc/%d.dat` |
 | `%e` | the file a tool writes its errors to |
 | `%%` | a percent sign |
 
@@ -267,6 +269,24 @@ the same documentation, to browse it from the start.
 It needs ref 0.2.0 or later in `/bin/ref.bin`, its `mos` document in
 `/config/ref/docs/mos.dat`, and acc's document in `/config/ref/docs/acc.dat`.
 
+## Project documentation
+
+Every `.md` file in a project, in its directory and the directories under it,
+is the project's documentation. CTRL+B builds it, after the program, with
+ref's `md2ref` into `ref-doc/<doc>.dat`. `<doc>` is the project's name in
+lower-case letters and digits, eight at most, so the project `Widgets1` makes
+`ref-doc/widgets1.dat`. A `README.md` or `index.md` at the top is the first
+page, and the rest follow in order of path. `build/<doc>.mdl` lists them.
+
+A page that won't compile, such as a code block never closed, fails the build
+like a compile error: ADE opens the page at the line and shows what md2ref
+said.
+
+CTRL+F11 in a project with documentation looks the word up in the project's
+document first, then in acc's or mos's as usual, so a project can document
+its own functions and have them found the same way as the library's. It needs
+`md2ref` in `/bin/md2ref.bin`, which comes with ref.
+
 ## The shell
 
 CTRL+F12 saves every window and drops you at hub's prompt, which shows `ADE *`
@@ -282,7 +302,8 @@ from AED's, and writes that file the first time it runs.
 
 ## Limits
 
-- A project has at most 32 files.
+- A project has at most 32 files, and at most 64 pages of documentation (as
+  many as fit in 768 bytes of their paths).
 - A project's commands, after their placeholders are replaced, may be at most
   250 characters each: MOS reads no more than that from a line of
   `build.obey`. The link names its objects through `%l` for that reason.
