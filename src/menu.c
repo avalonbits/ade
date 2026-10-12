@@ -75,6 +75,7 @@ static const menu_item SEARCH_ITEMS[] = {
     { "Find previous",      "CTRL+P",     cmd_find_prev,  OWN, NULL },
     { "Go to line",         "CTRL+G",     cmd_goto,       0,   NULL },
     { "Look up in ref",     "CTRL+F11",   build_ref,      OWN, NULL },
+    { "ref's contents",     "CTRL+ALT+F11", build_ref_contents, 0, NULL },
 };
 static const menu_item BUILD_ITEMS[] = {
     { "Build",              "CTRL+B",     build, 0, NULL },

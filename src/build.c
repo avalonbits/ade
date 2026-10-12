@@ -502,6 +502,9 @@ void build(editor* ed) {
 // a key -- the word follows.
 #define REF_COMMAND "ref mos -k "
 
+// And for the document's contents, its start page.
+#define REF_CONTENTS "ref mos"
+
 // What ref returns when nothing matched the word, or the document is not on
 // the card.
 #define REF_NOTHING 100
@@ -562,13 +565,9 @@ static void ref_word(editor* ed, char* out, int max) {
     memmove(out, out + skip, (size_t) (n - skip + 1));
 }
 
-void build_ref(editor* ed) {
-    static char word[SESSION_WORD_MAX + 1];
-    ref_word(ed, word, (int) sizeof(word));
-    if (word[0] == 0) {
-        say(ed, "No word at the cursor to look up in ref");
-        return;
-    }
+// Runs ref through hub on `word` -- "" for the document's contents -- every
+// window saved first, and ade back after.
+static void start_ref(editor* ed, const char* word) {
     if (!save_windows(ed)) {
         return;
     }
@@ -580,8 +579,12 @@ void build_ref(editor* ed) {
     static char cmd[HUB_CMD_MAX + 1];
     text t;
     text_start(&t, cmd, (int) sizeof(cmd));
-    text_str(&t, REF_COMMAND);
-    text_str(&t, word);
+    if (word[0] != 0) {
+        text_str(&t, REF_COMMAND);
+        text_str(&t, word);
+    } else {
+        text_str(&t, REF_CONTENTS);
+    }
     // ref on the screen hub's prompt has, then ade back, whatever it found.
     if (t.cut || hub_enter("ADE ") != HUB_OK
         || hub_push(cmd, HUB_USER_PROGRAM) != HUB_OK
@@ -591,6 +594,20 @@ void build_ref(editor* ed) {
         return;
     }
     ed->leaving_ = true;
+}
+
+void build_ref(editor* ed) {
+    static char word[SESSION_WORD_MAX + 1];
+    ref_word(ed, word, (int) sizeof(word));
+    if (word[0] == 0) {
+        say(ed, "No word at the cursor to look up in ref");
+        return;
+    }
+    start_ref(ed, word);
+}
+
+void build_ref_contents(editor* ed) {
+    start_ref(ed, "");
 }
 
 void build_shell(editor* ed) {
@@ -900,6 +917,9 @@ void build_resume(editor* ed) {
         const int result = hub_last_result();
         if (s->kind == SESSION_SHELL && result != 0) {
             say(ed, "The shell needs hub 0.6 or later");
+        } else if (s->kind == SESSION_REF && result == REF_NOTHING
+                   && s->word[0] == 0) {
+            say(ed, "ref has no mos document: /config/ref/docs/mos.dat");
         } else if (s->kind == SESSION_REF && result == REF_NOTHING) {
             static char msg[SESSION_WORD_MAX + 24];
             text t;

@@ -408,6 +408,11 @@ static const key_press LOOK[] = {
     M(0, VK_F11, MOD_CTRL),
 };
 
+// contents.c: CTRL+ALT+F11, ref's contents.
+static const key_press CONTENTS[] = {
+    M(0, VK_F11, MOD_CTRL | MOD_ALT),
+};
+
 // lookline.c: the first nine characters selected, then CTRL+F11 on them --
 // part of the word they are in.
 static const key_press LOOKLINE[] = {
@@ -643,6 +648,9 @@ const key_source* script_keys(editor* ed, const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "contents.c") != NULL) {
+        KEYS = CONTENTS;
+        NKEYS = COUNT(CONTENTS);
     } else if (arg != NULL && strstr(arg, "lookline.c") != NULL) {
         KEYS = LOOKLINE;
         NKEYS = COUNT(LOOKLINE);

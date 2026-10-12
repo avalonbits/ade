@@ -121,6 +121,7 @@ ADE adds these to AED's editing keys. The menus list them too.
 | ALT+F9 | The errors the last build left |
 | ALT+F5 | The screen the program left |
 | CTRL+F11 | Look up the word at the cursor, or the selection, in ref |
+| CTRL+ALT+F11 | ref's contents, its start page |
 | CTRL+F12 | hub's shell; `exit` comes back |
 | CTRL+E | Settings |
 | CTRL+Q | Quit |
@@ -257,6 +258,9 @@ documentation. With a selection on one line, it looks up the selection
 instead. ADE saves every window, ref shows what it found, and quitting ref
 brings ADE back as you left it. When ref has nothing for the word, ADE says
 so.
+
+CTRL+ALT+F11 (or **Search → ref's contents**) opens ref at the contents of
+the same documentation, to browse it from the start.
 
 It needs ref 0.2.0 or later in `/bin/ref.bin`, and its `mos` document in
 `/config/ref/docs/mos.dat`.

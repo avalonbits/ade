@@ -64,6 +64,10 @@ void build_shell(editor* ed);
 // other failure is no ref on the card.
 void build_ref(editor* ed);
 
+// CTRL+ALT+F11: ref's mos document from its contents, its start page, the
+// same way -- ade back after, saying so when the document is not there.
+void build_ref_contents(editor* ed);
+
 // The errors the last build left, as a list to go to one from; shown on
 // coming back from a build that left more than one. ALT+F9, and on the menu.
 void build_errors(editor* ed);
