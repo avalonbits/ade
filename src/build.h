@@ -58,6 +58,12 @@ void build_run(editor* ed);
 // fails the job, and ade comes back saying so.
 void build_shell(editor* ed);
 
+// CTRL+F11: looks up the word at the cursor -- or the selection, on one line
+// -- in ref's document of the Agon's own documentation, mos, through hub, every window saved first, and comes back as it
+// was. ref returns 100 when it has nothing for the word, and ade says so; any
+// other failure is no ref on the card.
+void build_ref(editor* ed);
+
 // The errors the last build left, as a list to go to one from; shown on
 // coming back from a build that left more than one. ALT+F9, and on the menu.
 void build_errors(editor* ed);

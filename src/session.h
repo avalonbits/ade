@@ -27,13 +27,23 @@
 // hub's name for the block the session is kept in.
 #define SESSION_TAG "ADE "
 
+// What ade left to do: a build, hub's shell, or a look in ref.
+#define SESSION_BUILD 0
+#define SESSION_SHELL 1
+#define SESSION_REF   2
+
+// The longest word ref is asked for: what hub holds of a command, 93, less
+// "ref mos -k ".
+#define SESSION_WORD_MAX 82
+
 // What survives the build, in hub's block "ADE ": which files were open, in
 // which windows, where each cursor was, and which window was on screen.
 typedef struct {
     char magic[4];                      // MAGIC once written
     unsigned short size;                // sizeof(session) when written
     bool ran;                           // the program was queued after the build
-    bool shell;                         // hub's prompt, not a build
+    unsigned char kind;                 // SESSION_BUILD, _SHELL or _REF
+    char word[SESSION_WORD_MAX + 1];    // what ref was asked to look up
     char program[PROJ_NAME_MAX];        // ...and what it is called
     unsigned char mode;                 // the screen mode ade was in
     unsigned char open[ADE_WINDOWS];

@@ -411,9 +411,9 @@ static bool save_windows(editor* ed) {
 }
 
 // Writes ade's windows into hub's block, for ade -resume to bring back: `run`
-// for a build that runs its program, `shell` for hub's prompt. NULL, having
-// said so, when hub has no room.
-static session* keep_windows(editor* ed, bool run, bool shell) {
+// for a build that runs its program, `kind` for what ade left to do. NULL,
+// having said so, when hub has no room.
+static session* keep_windows(editor* ed, bool run, unsigned char kind) {
     session* s = block();
     if (s == NULL) {
         say(ed, "hub has no room to keep ade's windows");
@@ -423,7 +423,8 @@ static session* keep_windows(editor* ed, bool run, bool shell) {
     s->size = sizeof(session);
     s->mode = (unsigned char) screen_mode();
     s->ran = run;
-    s->shell = shell;
+    s->kind = kind;
+    s->word[0] = 0;
     memcpy(s->program, program, sizeof(program));
     s->current = (unsigned char) win_current();
     for (int i = 0; i < ADE_WINDOWS; i++) {
@@ -463,7 +464,7 @@ static void start(editor* ed, bool run) {
     if (!save_windows(ed)) {
         return;
     }
-    session* s = keep_windows(ed, run, false);
+    session* s = keep_windows(ed, run, SESSION_BUILD);
     if (s == NULL) {
         return;
     }
@@ -497,11 +498,106 @@ void build(editor* ed) {
 // shell.bin, if the card had one, and ade take its 0 for the shell's exit.
 #define SHELL_JOB "ade-shell-needs-hub-0.6"
 
+// How ref is asked: in its document "mos", the Agon's own documentation, for
+// a key -- the word follows.
+#define REF_COMMAND "ref mos -k "
+
+// What ref returns when nothing matched the word, or the document is not on
+// the card.
+#define REF_NOTHING 100
+
+// Whether c can be part of a word to look up: mos_fopen, run$path, f_printf.
+static bool word_char(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+           || c == '_' || c == '$';
+}
+
+// What CTRL+F11 looks up, into out: the selection, when it is on one line --
+// "vdu 23,27,3" -- or else the word the cursor is in or just after. Empty
+// when there is none.
+static void ref_word(editor* ed, char* out, int max) {
+    text_buffer* tb = &ed->doc_->buf_;
+    int psz = 0;
+    int ssz = 0;
+    const char* prefix = tb_prefix(tb, &psz);
+    const char* suffix = tb_suffix(tb, &ssz);
+    int from = psz;
+    int to = 0;
+    const document* d = ed->doc_;
+    const tb_pos at = tb_tell(tb);
+    text t;
+    text_start(&t, out, max);
+    if (d->selecting_ && d->anchor_.line == at.line && d->anchor_.x != at.x) {
+        // The anchor's side of the cursor, in the prefix or the suffix.
+        if (d->anchor_.x < at.x) {
+            from = psz - (at.x - d->anchor_.x);
+            if (from < 0) {
+                from = 0;
+            }
+        } else {
+            to = d->anchor_.x - at.x;
+            if (to > ssz) {
+                to = ssz;
+            }
+        }
+    } else {
+        while (from > 0 && word_char(prefix[from - 1])) {
+            from--;
+        }
+        while (to < ssz && word_char(suffix[to])) {
+            to++;
+        }
+    }
+    text_strn(&t, prefix + from, psz - from);
+    text_strn(&t, suffix, to);
+    // Ends of lines and blanks at either side are not part of it.
+    int n = text_len(&t);
+    while (n > 0 && (out[n - 1] == ' ' || out[n - 1] == '\r' || out[n - 1] == '\n')) {
+        out[--n] = 0;
+    }
+    int skip = 0;
+    while (out[skip] == ' ') {
+        skip++;
+    }
+    memmove(out, out + skip, (size_t) (n - skip + 1));
+}
+
+void build_ref(editor* ed) {
+    static char word[SESSION_WORD_MAX + 1];
+    ref_word(ed, word, (int) sizeof(word));
+    if (word[0] == 0) {
+        say(ed, "No word at the cursor to look up in ref");
+        return;
+    }
+    if (!save_windows(ed)) {
+        return;
+    }
+    session* s = keep_windows(ed, false, SESSION_REF);
+    if (s == NULL) {
+        return;
+    }
+    strcpy(s->word, word);
+    static char cmd[HUB_CMD_MAX + 1];
+    text t;
+    text_start(&t, cmd, (int) sizeof(cmd));
+    text_str(&t, REF_COMMAND);
+    text_str(&t, word);
+    // ref on the screen hub's prompt has, then ade back, whatever it found.
+    if (t.cut || hub_enter("ADE ") != HUB_OK
+        || hub_push(cmd, HUB_USER_PROGRAM) != HUB_OK
+        || hub_return_to("ade -resume") != HUB_OK) {
+        memset(s->magic, 0, 4);
+        say(ed, "hub would not run ref");
+        return;
+    }
+    ed->leaving_ = true;
+}
+
 void build_shell(editor* ed) {
     if (!save_windows(ed)) {
         return;
     }
-    session* s = keep_windows(ed, false, true);
+    session* s = keep_windows(ed, false, SESSION_SHELL);
     if (s == NULL) {
         return;
     }
@@ -789,9 +885,11 @@ void build_resume(editor* ed) {
     int line = s->line[s->current];
     int x = s->x[s->current];
 
-    // Back from hub's shell: no build to say anything about. Its job ends
-    // with 0 at exit; anything else is a hub that does not know HUB_SHELL.
-    if (s->shell) {
+    // Back from hub's shell or from ref: no build to say anything about.
+    // The shell's job ends with 0 at exit; anything else is a hub that does
+    // not know HUB_SHELL. ref ends with 0 having shown something, and 100
+    // having found nothing for the word; anything else is no ref to run.
+    if (s->kind != SESSION_BUILD) {
         for (int i = 0; i < ADE_WINDOWS; i++) {
             const int w = s->open[i] ? win_find(ed, s->name[i]) : -1;
             if (w >= 0 && w != target) {
@@ -799,8 +897,18 @@ void build_resume(editor* ed) {
             }
         }
         show_at(ed, target, line, x);
-        if (hub_last_result() != 0) {
+        const int result = hub_last_result();
+        if (s->kind == SESSION_SHELL && result != 0) {
             say(ed, "The shell needs hub 0.6 or later");
+        } else if (s->kind == SESSION_REF && result == REF_NOTHING) {
+            static char msg[SESSION_WORD_MAX + 24];
+            text t;
+            text_start(&t, msg, (int) sizeof(msg));
+            text_str(&t, "Nothing in ref for ");
+            text_str(&t, s->word);
+            say(ed, msg);
+        } else if (s->kind == SESSION_REF && result != 0) {
+            say(ed, "Could not run ref: is /bin/ref.bin on the card?");
         }
         return;
     }

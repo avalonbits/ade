@@ -403,6 +403,20 @@ static const key_press NAMED[] = {
     M(17, VK_q, MOD_CTRL),
 };
 
+// look.c: CTRL+F11 on the word the cursor is in, the file's first.
+static const key_press LOOK[] = {
+    M(0, VK_F11, MOD_CTRL),
+};
+
+// lookline.c: the first nine characters selected, then CTRL+F11 on them --
+// part of the word they are in.
+static const key_press LOOKLINE[] = {
+    M(0, VK_RIGHT, MOD_SHFT), M(0, VK_RIGHT, MOD_SHFT), M(0, VK_RIGHT, MOD_SHFT),
+    M(0, VK_RIGHT, MOD_SHFT), M(0, VK_RIGHT, MOD_SHFT), M(0, VK_RIGHT, MOD_SHFT),
+    M(0, VK_RIGHT, MOD_SHFT), M(0, VK_RIGHT, MOD_SHFT), M(0, VK_RIGHT, MOD_SHFT),
+    M(0, VK_F11, MOD_CTRL),
+};
+
 #define COUNT(a) ((int) (sizeof(a) / sizeof(a[0])))
 
 static const key_press* KEYS = WINDOWS;
@@ -629,6 +643,12 @@ const key_source* script_keys(editor* ed, const char* arg) {
             KEYS = RESUME;
             NKEYS = COUNT(RESUME);
         }
+    } else if (arg != NULL && strstr(arg, "lookline.c") != NULL) {
+        KEYS = LOOKLINE;
+        NKEYS = COUNT(LOOKLINE);
+    } else if (arg != NULL && strstr(arg, "look.c") != NULL) {
+        KEYS = LOOK;
+        NKEYS = COUNT(LOOK);
     } else if (arg != NULL && strstr(arg, "named.c") != NULL) {
         KEYS = NAMED;
         NKEYS = COUNT(NAMED);

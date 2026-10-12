@@ -41,6 +41,7 @@ There is no release yet: ADE is built from source (see
 * [Building and running a file](#building-and-running-a-file)
 * [Projects](#projects)
 * [Errors](#errors)
+* [Looking things up in ref](#looking-things-up-in-ref)
 * [The shell](#the-shell)
 * [Settings](#settings)
 * [Limits](#limits)
@@ -58,6 +59,7 @@ There is no release yet: ADE is built from source (see
 - **zap**, to build assembly, from zap's main branch for now. ADE asks zap for
   acc's object format (`-f acc`), which is newer than zap's latest release,
   1.1.0.
+- **ref 0.2.0 or later**, for CTRL+F11, with its `mos` document.
 - **AED's configuration directory**, `/config/aed`, for syntax colouring,
   themes and fonts. ADE shares it with AED rather than keeping a copy. Without
   it, ADE works, but in plain text.
@@ -118,6 +120,7 @@ ADE adds these to AED's editing keys. The menus list them too.
 | CTRL+R | Build and run |
 | ALT+F9 | The errors the last build left |
 | ALT+F5 | The screen the program left |
+| CTRL+F11 | Look up the word at the cursor, or the selection, in ref |
 | CTRL+F12 | hub's shell; `exit` comes back |
 | CTRL+E | Settings |
 | CTRL+Q | Quit |
@@ -245,6 +248,18 @@ is shown as the tool wrote it.
 
 When there is more than one error, ADE shows the list. Choosing one goes to
 it, and ALT+F9 brings the list back until the next build.
+
+## Looking things up in ref
+
+CTRL+F11 (or **Search → Look up in ref**) looks up the word at the cursor --
+`mos_fopen`, `sysvar_scrmode`, `run$path` -- in ref's copy of the Agon's own
+documentation. With a selection on one line, it looks up the selection
+instead. ADE saves every window, ref shows what it found, and quitting ref
+brings ADE back as you left it. When ref has nothing for the word, ADE says
+so.
+
+It needs ref 0.2.0 or later in `/bin/ref.bin`, and its `mos` document in
+`/config/ref/docs/mos.dat`.
 
 ## The shell
 

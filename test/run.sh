@@ -107,6 +107,13 @@ HUB=${HUB:-$HOME/code/devel}
 ACC_DIR=${ACC_DIR:-$HOME/code/acc}
 ACC_BIN=${ACC_BIN:-$ACC_DIR/bin/acc.bin}
 ZAP_BIN=${ZAP_BIN:-$HOME/code/zap/bin/zap.bin}
+# ref, for CTRL+F11: its scripted build, which reads keys from /ref.keys and
+# writes what it did to /ref.out, and its document of the Agon's docs, mos.
+# Built in ~/code/ref (0.2.0 or later) with `make agon-script` and `make dat`;
+# the document is not released yet.
+REF_DIR=${REF_DIR:-$HOME/code/ref}
+REF_BIN=${REF_BIN:-$REF_DIR/bin/script/ref.bin}
+REF_DAT=${REF_DAT:-$REF_DIR/out/mos.dat}
 
 # MOS 2.3.3, the oldest aed supports, with the map beside it: without the map
 # the emulator quietly disables the host SD card. Fetched once through the
@@ -1217,6 +1224,42 @@ check "  the old program and object list gone, the rest kept" \
       "$(ls "$p/bin" "$p/build" 2>/dev/null | grep -v ':$' | grep . | tr '\n' ' ')" "other.bin "
 }
 
+# CTRL+F11: the word at the cursor, or the selection, looked up in ref --
+# its scripted build, which leaves when its keys run out -- and ade back as
+# it was. Found, ref shows it and ade says nothing; not found, ade says so.
+case_32() {
+    if [ ! -f "$REF_BIN" ] || [ ! -f "$REF_DAT" ]; then
+        echo "SKIP  CTRL+F11: no ref at $REF_BIN, or no $REF_DAT"
+        return 0
+    fi
+local c how word
+for how in found missing line; do
+    c=$(card "$proj/bin/ade.bin")
+    cp "$REF_BIN" "$c/bin/ref.bin"
+    mkdir -p "$c/config/ref/docs"
+    cp "$REF_DAT" "$c/config/ref/docs/mos.dat"
+    printf 'esc\n' > "$c/ref.keys"
+    case $how in
+        found) file=look.c; word=mos_fopen ;;
+        missing) file=look.c; word=xyzzy ;;
+        line) file=lookline.c; word=mos_fopenXYZ ;;
+    esac
+    printf '%s(here);\r\n' "$word" > "$c/$file"
+    under_hub "$c" 120 "ade $file"
+    eval "asked_$how=\$(grep -a \"^args \" \"\$c/ref.out\" 2>/dev/null | sed \"s/ normalised.*//\" | tr -d '\\r')"
+    eval "said_$how=\$(grep -a '^said ' \"\$c/ade.scr\" 2>/dev/null | tr -d '\\r')"
+    eval "foot_$how=\$(grep -a '^footer ' \"\$c/ade.scr\" 2>/dev/null)"
+    eval "exit_$how=\$(grep -a '^exit ' \"\$c/ref.out\" 2>/dev/null | tr -d '\\r')"
+done
+check "CTRL+F11: ref asked for the word at the cursor" "$asked_found" "args 'mos_fopen'"
+check "  it showed it, and ade is back on its file, saying nothing" \
+      "$exit_found|$foot_found|$said_found" "exit 0|footer look.c|said "
+check "  a word ref has nothing for: ade says so" "$exit_missing|$said_missing" \
+      "exit 100|said Nothing in ref for xyzzy"
+check "  a selection: what is selected asked for, not the whole word" \
+      "$asked_line" "args 'mos_fopen'"
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -1237,7 +1280,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28 case_29 case_30 case_31
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28 case_29 case_30 case_31 case_32
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.
