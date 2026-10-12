@@ -1280,6 +1280,25 @@ check "CTRL+F11 in a .c file with no acc document: ade says that, not 'nothing'"
       "$exit_noacc|$said_noacc" "|said ref has no acc document: /config/ref/docs/acc.dat"
 }
 
+# A build's errors go to ade.err in the project's directory, beside its work,
+# not at the card's root.
+case_33() {
+    [ -n "$TOOLS" ] || return 0
+local c p
+c=$(card "$proj/bin/ade.bin")
+p="$c/proj"
+mkdir -p "$p"
+printf '[project]\r\nname = prog\r\n' > "$p/project.ini"
+printf 'int main(void)\r\n{\r\n    return x;\r\n}\r\n' > "$p/bad.c"
+under_hub "$c" 120 "cd proj
+ade bad.c"
+check "a build's errors: in the project's ade.err" \
+      "$(tr -d '\r' < "$p/ade.err" 2>/dev/null | head -1)" "bad.c:3:12: error: 'x' is not declared"
+check "  none at the card's root" "$([ -e "$c/ade.err" ] && echo there || echo none)" none
+check "  and ade on the error" "$(grep -a '^said ' "$c/ade.scr" 2>/dev/null | tr -d '\r')" \
+      "said 3:12: error: 'x' is not declared"
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -1300,7 +1319,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28 case_29 case_30 case_31 case_32
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28 case_29 case_30 case_31 case_32 case_33
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

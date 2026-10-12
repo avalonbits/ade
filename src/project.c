@@ -479,7 +479,9 @@ bool proj_obey(const project* p, const char* err, char* msg, int max) {
     text h;
     text_start(&h, head, (int) sizeof(head));
     text_str(&h, "# Made by ade from " PROJ_FILE " ");
-    text_hex(&h, p->sum, 8);
+    // The error file is in every command too, so it is in the sum: a
+    // build.obey writing errors somewhere else is made again.
+    text_hex(&h, hash(p->sum, err, (int) strlen(err)), 8);
     text_str(&h, ": edits last until it changes\r\n");
     const int hn = text_len(&h);
 

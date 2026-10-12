@@ -33,8 +33,8 @@
  * hub runs the tool, then ade again, which puts the session back and, if the
  * tool failed, reads the error it wrote and goes to it.
  *
- *   .c           acc <file> -o <file>.bin -errors /ade.err
- *   .s, .asm     zap <file> <file>.bin -c -e /ade.err
+ *   .c           acc <file> -o <file>.bin -errors ade.err
+ *   .s, .asm     zap <file> <file>.bin -c -e ade.err
  *
  * Both write an error as `file:line:column: error: text` and fail with 100.
  *

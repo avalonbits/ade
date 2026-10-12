@@ -32,7 +32,9 @@
 #include "user_input.h"
 #include "windows.h"
 
-#define ERR_FILE "/ade.err"
+// Where the tools write their errors for ade to read: in the directory ade
+// started in -- the project's -- beside its work, not at the card's root.
+#define ERR_FILE "ade.err"
 
 // The screen mode, from MOS's system variables.
 #define SYSVAR_SCRMODE 0x27
