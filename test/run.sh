@@ -1230,14 +1230,15 @@ check "  the old program and object list gone, the rest kept" \
 # its scripted build, which leaves when its keys run out -- and ade back as
 # it was: in acc's document from a .c file, in mos from anything else. Each
 # of those runs has only the document it should ask on the card, so asking
-# the other finds nothing. Found, ade says nothing; not found, it says so.
+# the other finds nothing. Found, ade says nothing; not found, it says so;
+# with the document not on the card, ade says that instead, and stays.
 case_32() {
     if [ ! -f "$REF_BIN" ] || [ ! -f "$REF_DAT" ] || [ ! -f "$ACC_DAT" ]; then
         echo "SKIP  CTRL+F11: no ref at $REF_BIN, or no $REF_DAT or $ACC_DAT"
         return 0
     fi
 local c how word
-for how in c txt missing line contents nodoc; do
+for how in c txt missing line contents nodoc noacc; do
     c=$(card "$proj/bin/ade.bin")
     cp "$REF_BIN" "$c/bin/ref.bin"
     mkdir -p "$c/config/ref/docs"
@@ -1251,6 +1252,7 @@ for how in c txt missing line contents nodoc; do
         line) file=lookline.txt; word=mos_fopenXYZ ;;
         contents) file=contents.c; word=anything ;;
         nodoc) file=contents.c; word=anything; rm "$c/config/ref/docs/mos.dat" ;;
+        noacc) file=look.c; word=fopen; rm "$c/config/ref/docs/acc.dat" ;;
     esac
     printf '%s(here);\r\n' "$word" > "$c/$file"
     under_hub "$c" 120 "ade $file"
@@ -1272,8 +1274,10 @@ check "  a selection: what is selected asked for, not the whole word" \
 check "CTRL+ALT+F11: ref's contents, and ade back saying nothing" \
       "$([ "${toc_contents:-0}" -gt 0 ] && echo contents)|$exit_contents|$said_contents" \
       "contents|exit 0|said "
-check "  with no mos document: ade says so" "$exit_nodoc|$said_nodoc" \
-      "exit 100|said ref has no mos document: /config/ref/docs/mos.dat"
+check "  with no mos document: ade says so, and ref is not run" \
+      "$exit_nodoc|$said_nodoc" "|said ref has no mos document: /config/ref/docs/mos.dat"
+check "CTRL+F11 in a .c file with no acc document: ade says that, not 'nothing'" \
+      "$exit_noacc|$said_noacc" "|said ref has no acc document: /config/ref/docs/acc.dat"
 }
 
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,

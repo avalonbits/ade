@@ -503,6 +503,9 @@ void build(editor* ed) {
 #define REF_ACC "acc"
 #define REF_MOS "mos"
 
+// Where ref keeps its documents, each <name>.dat.
+#define REF_DOCS "/config/ref/docs/"
+
 // What ref returns when nothing matched the word, or the document is not on
 // the card.
 #define REF_NOTHING 100
@@ -581,6 +584,28 @@ static const char* ref_document(editor* ed) {
 // Runs ref through hub on `word` in document `doc` -- "" for the document's
 // contents -- every window saved first, and ade back after.
 static void start_ref(editor* ed, const char* doc, const char* word) {
+    // ref says nothing matched both for a word it has nothing for and for a
+    // document that is not there, so the document is looked for first: one
+    // missing is said here, without leaving.
+    static char msg[64];
+    text t;
+    text_start(&t, msg, (int) sizeof(msg));
+    text_str(&t, REF_DOCS);
+    text_str(&t, doc);
+    text_str(&t, ".dat");
+    const char fh = mos_fopen(msg, FA_READ);
+    if (fh == 0) {
+        static char why[96];
+        text w;
+        text_start(&w, why, (int) sizeof(why));
+        text_str(&w, "ref has no ");
+        text_str(&w, doc);
+        text_str(&w, " document: ");
+        text_str(&w, msg);
+        say(ed, why);
+        return;
+    }
+    mos_fclose(fh);
     if (!save_windows(ed)) {
         return;
     }
@@ -591,7 +616,6 @@ static void start_ref(editor* ed, const char* doc, const char* word) {
     strcpy(s->word, word);
     strcpy(s->doc, doc);
     static char cmd[HUB_CMD_MAX + 1];
-    text t;
     text_start(&t, cmd, (int) sizeof(cmd));
     text_str(&t, "ref ");
     text_str(&t, doc);
@@ -936,11 +960,9 @@ void build_resume(editor* ed) {
             text t;
             text_start(&t, msg, (int) sizeof(msg));
             if (s->word[0] == 0) {
-                text_str(&t, "ref has no ");
+                text_str(&t, "ref could not open its ");
                 text_str(&t, s->doc);
-                text_str(&t, " document: /config/ref/docs/");
-                text_str(&t, s->doc);
-                text_str(&t, ".dat");
+                text_str(&t, " document");
             } else {
                 text_str(&t, "Nothing in ref's ");
                 text_str(&t, s->doc);

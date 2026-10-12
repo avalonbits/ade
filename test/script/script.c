@@ -406,11 +406,15 @@ static const key_press NAMED[] = {
 // look.c, look.txt: CTRL+F11 on the word the cursor is in, the file's first.
 static const key_press LOOK[] = {
     M(0, VK_F11, MOD_CTRL),
+    K('k', VK_k),                                   // no document: the message
+    M(17, VK_q, MOD_CTRL),
 };
 
 // contents.c: CTRL+ALT+F11, ref's contents.
 static const key_press CONTENTS[] = {
     M(0, VK_F11, MOD_CTRL | MOD_ALT),
+    K('k', VK_k),                                   // no document: the message
+    M(17, VK_q, MOD_CTRL),
 };
 
 // lookline.txt: the first nine characters selected, then CTRL+F11 on them --
@@ -593,6 +597,10 @@ static bool poll(void* ctx, key_press* kp) {
     // The viewer at the top, and in src/, as each is up.
     if (KEYS == VIEWER && (at == 1 || at == 2)) {
         dump_screen(at == 1 ? "/ade.scr" : "/ade.scr2");
+    }
+    // A look-up that stayed: what it said, as the key it waits on is asked.
+    if ((KEYS == LOOK || KEYS == CONTENTS) && at == 1) {
+        dump_screen("/ade.scr");
     }
     if (KEYS == BANNER_KEYS && at == 0) {
         dump_screen("/ade.scr");
