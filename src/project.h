@@ -106,8 +106,10 @@ bool proj_run(const project* p, char* out, int max);
 // it cannot be written.
 bool proj_create(const char* name, char* msg, int max);
 
-// Makes PROJ_OBJ_DIR and PROJ_BIN_DIR, where they are not there already.
-void proj_dirs(void);
+// Makes PROJ_OBJ_DIR and PROJ_BIN_DIR, where they are not there already, and
+// the directories under PROJ_OBJ_DIR that the objects of files in
+// subdirectories go in: build/more for more/func.c.
+void proj_dirs(const project* p);
 
 // Writes the file %l names, PROJ_OBJ_DIR/<name>.lnk: every object, one a
 // line, for the link to read with acc's @ -- a command line holds only so

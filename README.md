@@ -190,8 +190,11 @@ the name of the file on screen. It needs only the name:
     [project]
     name = hello
 
-Without a `files =` line, every `.c`, `.s` and `.asm` file in the directory is
-part of the project. The other settings are all optional:
+Without a `files =` line, every `.c`, `.s` and `.asm` file in the directory,
+and in the directories under it (four levels deep), is part of the project:
+`more/func.c` is built to `build/more/func.o`. Directories whose names start
+with `.`, and the project's own `build/` and `bin/`, are left out. The other
+settings are all optional:
 
     [project]
     name = hello                 ; the program: bin/hello.bin

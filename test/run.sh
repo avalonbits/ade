@@ -837,12 +837,16 @@ case_15b() {
     [ -n "$TOOLS" ] || return 0
 # exclude = leaves a file of the directory out of the project.
 c=$(card "$proj/bin/ade.bin")
-printf '[project]\r\nname = ex\r\nexclude = scratch.c\r\n' > "$c/project.ini"
-printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$c/ex.c"
-printf 'this is not C\r\n' > "$c/scratch.c"
-under_hub "$c" 120 "ade ex.c"
+# In a directory of its own: at the card's top it would take in /mos.
+p="$c/proj"
+mkdir -p "$p"
+printf '[project]\r\nname = ex\r\nexclude = scratch.c\r\n' > "$p/project.ini"
+printf 'int main(void)\r\n{\r\n    return 0;\r\n}\r\n' > "$p/ex.c"
+printf 'this is not C\r\n' > "$p/scratch.c"
+under_hub "$c" 120 "cd proj
+ade ex.c"
 check "a project excluding scratch.c builds without it" \
-      "$([ -s "$c/bin/ex.bin" ] && [ ! -e "$c/build/scratch.o" ] && echo built)" built
+      "$([ -s "$p/bin/ex.bin" ] && [ ! -e "$p/build/scratch.o" ] && echo built)" built
 }
 
 case_15() {
@@ -1022,25 +1026,29 @@ case_24() {
     [ -n "$TOOLS" ] || return 0
 local c n
 c=$(card "$proj/bin/ade.bin")
-: > "$c/main.c"
+# In a directory of its own: at the card's top it would take in /mos.
+p="$c/proj"
+mkdir -p "$p"
+: > "$p/main.c"
 for n in $(seq -w 1 31); do
-    printf 'int module_%s(void)\r\n{\r\n    return %d;\r\n}\r\n' $n $((10#$n)) > "$c/module_$n.c"
-    printf 'int module_%s(void);\r\n' $n >> "$c/main.c"
+    printf 'int module_%s(void)\r\n{\r\n    return %d;\r\n}\r\n' $n $((10#$n)) > "$p/module_$n.c"
+    printf 'int module_%s(void);\r\n' $n >> "$p/main.c"
 done
-printf '#include <stdio.h>\r\nint main(void)\r\n{\r\n    int sum = 0;\r\n    FILE* f;\r\n' >> "$c/main.c"
+printf '#include <stdio.h>\r\nint main(void)\r\n{\r\n    int sum = 0;\r\n    FILE* f;\r\n' >> "$p/main.c"
 for n in $(seq -w 1 31); do
-    printf '    sum += module_%s();\r\n' $n >> "$c/main.c"
+    printf '    sum += module_%s();\r\n' $n >> "$p/main.c"
 done
-printf '    f = fopen("/ran.txt", "w");\r\n    fprintf(f, "%%d\\n", sum);\r\n    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$c/main.c"
-printf '[project]\r\nname = prog\r\n' > "$c/project.ini"
-under_hub "$c" 600 "ade main.c
-prog"
+printf '    f = fopen("/ran.txt", "w");\r\n    fprintf(f, "%%d\\n", sum);\r\n    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$p/main.c"
+printf '[project]\r\nname = prog\r\n' > "$p/project.ini"
+under_hub "$c" 600 "cd proj
+ade main.c
+bin/prog"
 check "CTRL+B in a project of 32 files: built, linked and run" \
       "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" 496
 check "  linked from build/prog.lnk, an object a line" \
-      "$(tr -d '\r' < "$c/build/prog.lnk" 2>/dev/null | grep -c '^build/.*\.o$')" 32
+      "$(tr -d '\r' < "$p/build/prog.lnk" 2>/dev/null | grep -c '^build/.*\.o$')" 32
 check "  and no line of build.obey past MOS's 255" \
-      "$(tr -d '\r' < "$c/build.obey" 2>/dev/null | awk 'length > 250 { n++ } END { print n + 0 }')" 0
+      "$(tr -d '\r' < "$p/build.obey" 2>/dev/null | awk 'length > 250 { n++ } END { print n + 0 }')" 0
 }
 
 # CTRL+F12: hub's shell, from hub 0.6. The change is saved first, a command
@@ -1148,6 +1156,39 @@ check "  and ../x.c, outside the project, refused: no window for it" \
       "$([ -s "$c/ade.out" ] && ! grep -aq '^window .*x\.c' "$c/ade.out" && echo refused)" refused
 }
 
+# A project's files in its subdirectories are part of it: more/func.c and
+# more/deep/twice.c with main.c, their objects in build/more and
+# build/more/deep. Hidden directories, and the build's own build/, are not
+# looked in.
+case_30() {
+    [ -n "$TOOLS" ] || return 0
+local c p
+c=$(card "$proj/bin/ade.bin")
+# In a directory of its own: at the card's top it would take in /mos.
+p="$c/proj"
+mkdir -p "$p"
+mkdir -p "$p/more/deep" "$p/.hidden" "$p/build"
+printf '#include "more/func.h"\r\n#include <stdio.h>\r\nint twice(int x);\r\n' > "$p/main.c"
+printf 'int main(void)\r\n{\r\n    FILE* f = fopen("/ran.txt", "w");\r\n' >> "$p/main.c"
+printf '    fprintf(f, "%%d\\n", twice(func()));\r\n    fclose(f);\r\n    return 0;\r\n}\r\n' >> "$p/main.c"
+printf 'int func(void);\r\n' > "$p/more/func.h"
+printf '#include "func.h"\r\nint func(void)\r\n{\r\n    return 21;\r\n}\r\n' > "$p/more/func.c"
+printf 'int twice(int x)\r\n{\r\n    return x * 2;\r\n}\r\n' > "$p/more/deep/twice.c"
+printf 'this is not C\r\n' > "$p/.hidden/broken.c"
+printf 'this is not C either\r\n' > "$p/build/stray.c"
+printf '[project]\r\nname = prog\r\n' > "$p/project.ini"
+under_hub "$c" 240 "cd proj
+ade main.c
+bin/prog"
+check "a project's subdirectories: built, linked and run" \
+      "$(tr -d '\r\n' < "$c/ran.txt" 2>/dev/null)" 42
+check "  their objects under build/" \
+      "$([ -f "$p/build/more/func.o" ] && [ -f "$p/build/more/deep/twice.o" ] && echo both)" both
+check "  hidden directories and build/ left alone" \
+      "$(tr -d '\r' < "$p/build/prog.lnk" 2>/dev/null | tr '\n' ' ')" \
+      "build/main.o build/more/deep/twice.o build/more/func.o "
+}
+
 # run_cases <case>...: each case in the background, ADE_JOBS (4) at a time,
 # its output kept apart; then all of it, in order. Each case has a card of its
 # own, so none waits on another. A case's checks set status in its own shell,
@@ -1168,7 +1209,7 @@ run_cases() {
     done
 }
 
-run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28 case_29
+run_cases case_01 case_01b case_01c case_01d case_01e case_01f case_01g case_02 case_03 case_04 case_05 case_06 case_07 case_08 case_08b case_09 case_09b case_10 case_11 case_12 case_13 case_14 case_15a case_15b case_15 case_16 case_17 case_18 case_19 case_20 case_21 case_22 case_23 case_24 case_25 case_26 case_27 case_28 case_29 case_30
 
 # --- how long ade takes to start, at the Agon's own speed ---
 # Every build restarts ade, so its start-up is part of every build's wait.

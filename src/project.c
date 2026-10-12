@@ -160,55 +160,113 @@ static bool excluded(const project* p, const char* name) {
     return false;
 }
 
-// With no files line, the project is every file in the directory that a rule
-// builds, but those excluded, in order of name: a directory lists in whatever
-// order it was written in, and the link should not depend on that.
-static bool scan_directory(project* p, char* msg, int max) {
-    // Static: a FILINFO carries a 256-byte name.
-    static DIR dir;
+// How deep under the project's directory files are looked for.
+#define SCAN_DEPTH 4
+
+// Where scan_directory is, under the project's directory: "" there, else
+// "more" or "more/deeper". One DIR for each level open at once.
+static char scan_path[PROJ_NAME_MAX];
+static DIR scan_dirs[SCAN_DEPTH];
+
+// Adds `name`, a file under scan_path, into its place by its whole path. False
+// with why in msg when it does not fit.
+static bool scan_add(project* p, const char* name, char* msg, int max) {
+    static char path[PROJ_NAME_MAX];
+    text t;
+    text_start(&t, path, PROJ_NAME_MAX);
+    if (scan_path[0] != 0) {
+        text_str(&t, scan_path);
+        text_str(&t, "/");
+    }
+    text_str(&t, name);
+    if (t.cut) {
+        text_start(&t, msg, max);
+        text_strn(&t, name, 40);
+        text_str(&t, ": the name is too long");
+        return false;
+    }
+    if (excluded(p, path)) {
+        return true;
+    }
+    if (p->nfiles == PROJ_FILES) {
+        text_start(&t, msg, max);
+        text_str(&t, "More than ");
+        text_int(&t, PROJ_FILES);
+        text_str(&t, " files to build here: list them in " PROJ_FILE);
+        return false;
+    }
+    strcpy(p->files[p->nfiles], path);
+
+    // Into its place by name, the ones after it moved along one.
+    int at = p->nfiles++;
+    while (at > 0 && strcmp(p->files[at - 1], p->files[at]) > 0) {
+        static char swap[PROJ_NAME_MAX];   // static: off the frame
+        memcpy(swap, p->files[at], sizeof(swap));
+        memcpy(p->files[at], p->files[at - 1], sizeof(swap));
+        memcpy(p->files[at - 1], swap, sizeof(swap));
+        at--;
+    }
+
+    return true;
+}
+
+// The files under scan_path, and under the directories in it, to SCAN_DEPTH.
+// Names starting with "." are left out, and so are the build's own build/
+// and bin/ at the top.
+static bool scan_level(project* p, int depth, char* msg, int max) {
+    // Static: a FILINFO carries a 256-byte name. Each name is used before
+    // the next level reads into it.
     static FILINFO info;
-    if (ffs_dopen(&dir, ".") != 0) {
+    DIR* dir = &scan_dirs[depth];
+    if (ffs_dopen(dir, scan_path[0] != 0 ? scan_path : ".") != 0) {
         fail(msg, max, "The directory could not be read", NULL, NULL);
         return false;
     }
     bool ok = true;
     while (ok) {
-        if (ffs_dread(&dir, &info) != 0 || info.fname[0] == 0) {
+        if (ffs_dread(dir, &info) != 0 || info.fname[0] == 0) {
             break;
         }
-        if ((info.fattrib & AM_DIR) != 0 || rule_for(p, info.fname) == NULL
-                || excluded(p, info.fname)) {
+        if (info.fname[0] == '.') {
             continue;
         }
-        const int len = (int) strlen(info.fname);
-        if (p->nfiles == PROJ_FILES) {
-            text t;
-            text_start(&t, msg, max);
-            text_str(&t, "More than ");
-            text_int(&t, PROJ_FILES);
-            text_str(&t, " files to build here: list them in " PROJ_FILE);
-            ok = false;
-        } else if (!copy(p->files[p->nfiles], PROJ_NAME_MAX, info.fname, len)) {
-            text t;
-            text_start(&t, msg, max);
-            text_strn(&t, info.fname, 40);
-            text_str(&t, ": the name is too long");
-            ok = false;
-        } else {
-            // Into its place by name, the ones after it moved along one.
-            int at = p->nfiles++;
-            while (at > 0 && strcmp(p->files[at - 1], p->files[at]) > 0) {
-                static char t[PROJ_NAME_MAX];   // static: off the frame
-                memcpy(t, p->files[at], sizeof(t));
-                memcpy(p->files[at], p->files[at - 1], sizeof(t));
-                memcpy(p->files[at - 1], t, sizeof(t));
-                at--;
+        if ((info.fattrib & AM_DIR) == 0) {
+            if (rule_for(p, info.fname) != NULL) {
+                ok = scan_add(p, info.fname, msg, max);
             }
+            continue;
         }
+        if (depth + 1 == SCAN_DEPTH
+                || (depth == 0 && (strcmp(info.fname, PROJ_OBJ_DIR) == 0
+                                   || strcmp(info.fname, PROJ_BIN_DIR) == 0))) {
+            continue;
+        }
+        // Down a level, and back.
+        const int was = (int) strlen(scan_path);
+        const int n = (int) strlen(info.fname);
+        if (was + 1 + n >= PROJ_NAME_MAX) {
+            continue;                   // too deep a name to keep: not looked in
+        }
+        if (was > 0) {
+            scan_path[was] = '/';
+        }
+        memcpy(scan_path + (was > 0 ? was + 1 : 0), info.fname, (size_t) n + 1);
+        ok = scan_level(p, depth + 1, msg, max);
+        scan_path[was] = 0;
     }
-    ffs_dclose(&dir);
+    ffs_dclose(dir);
 
     return ok;
+}
+
+// With no files line, the project is every file under its directory that a
+// rule builds, but those excluded, in order of their paths -- "more/func.c"
+// -- since a directory lists in whatever order it was written in, and the link
+// should not depend on that.
+static bool scan_directory(project* p, char* msg, int max) {
+    scan_path[0] = 0;
+
+    return scan_level(p, 0, msg, max);
 }
 
 int proj_load(project* p, char* msg, int max) {
@@ -517,7 +575,7 @@ bool proj_create(const char* name, char* msg, int max) {
     text_start(&t, fresh, (int) sizeof(fresh));
     text_str(&t,
         "; An ade project. CTRL+B builds every .c, .s and .asm file in this\r\n"
-        "; directory, into build/, and links them into bin/");
+        "; directory and those under it, into build/, and links them into bin/");
     text_str(&t, name);
     text_str(&t, ".bin; CTRL+R\r\n"
         "; builds it and runs it.\r\n"
@@ -563,8 +621,25 @@ bool proj_create(const char* name, char* msg, int max) {
     return ok;
 }
 
-void proj_dirs(void) {
+void proj_dirs(const project* p) {
     // A directory that is there already is the usual case, and not an error.
     mos_mkdir(PROJ_OBJ_DIR);
     mos_mkdir(PROJ_BIN_DIR);
+
+    // And build/more, build/more/deeper, for a file in more/deeper: the tools
+    // write an object where they are told, and make no directories for it.
+    static char dir[PROJ_NAME_MAX + 8];
+    for (int f = 0; f < p->nfiles; f++) {
+        const char* name = p->files[f];
+        for (const char* slash = strchr(name, '/'); slash != NULL;
+             slash = strchr(slash + 1, '/')) {
+            text t;
+            text_start(&t, dir, (int) sizeof(dir));
+            text_str(&t, PROJ_OBJ_DIR "/");
+            text_strn(&t, name, (int) (slash - name));
+            if (!t.cut) {
+                mos_mkdir(dir);
+            }
+        }
+    }
 }

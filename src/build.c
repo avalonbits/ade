@@ -200,7 +200,7 @@ static bool project_command(editor* ed, const project* p, char* cmd) {
         say(ed, msg);
         return false;
     }
-    proj_dirs();
+    proj_dirs(p);
     if (!proj_list(p, msg, (int) sizeof(msg))) {
         say(ed, msg);
         return false;
