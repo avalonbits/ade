@@ -23,21 +23,11 @@
 #include <string.h>
 
 #include "ini.h"
+#include "project_int.h"
 #include "text.h"
 
 #define TEXT_MAX 2048
 
-// Objects go in build/, the program in bin/, both under the project's
-// directory, so the source is all that is left beside project.ini.
-#define RULE_C_TEXT    "acc -c %f -o " PROJ_OBJ_DIR "/%b.o -errors %e"
-#define RULE_S_TEXT    "zap %f " PROJ_OBJ_DIR "/%b.o -f acc -c -e %e"
-// The link names its objects through a file, %l, since MOS cuts a command
-// at 255 characters: a link line naming them was full at fifteen or so.
-#define RULE_LINK_TEXT "acc @%l -o " PROJ_BIN_DIR "/%n.bin -errors %e"
-#define RULE_RUN_TEXT  PROJ_BIN_DIR "/%n"
-// The documentation, when there is any: md2ref makes ref-doc/<doc>.dat of
-// the pages build/<doc>.mdl lists, its errors where the tools' go.
-#define RULE_DOC_TEXT  "md2ref -e %e %d @" PROJ_OBJ_DIR "/%d" PROJ_DOCS_EXT
 static const char RULE_C[] = RULE_C_TEXT;
 static const char RULE_S[] = RULE_S_TEXT;
 static const char RULE_LINK[] = RULE_LINK_TEXT;
@@ -47,7 +37,7 @@ static const char RULE_DOC[] = RULE_DOC_TEXT;
 static char text_[TEXT_MAX];
 
 // What went wrong, into msg: up to three pieces, end to end; NULL for none.
-static void fail(char* msg, int max, const char* a, const char* b, const char* c) {
+void proj_fail(char* msg, int max, const char* a, const char* b, const char* c) {
     text t;
     text_start(&t, msg, max);
     text_str(&t, a);
@@ -60,7 +50,7 @@ static void fail(char* msg, int max, const char* a, const char* b, const char* c
 }
 
 // FNV-1a, 32 bits, over s[0, n), carried on from `h`.
-static unsigned long hash(unsigned long h, const char* s, int n) {
+unsigned long proj_hash(unsigned long h, const char* s, int n) {
     for (int i = 0; i < n; i++) {
         h = (h ^ (unsigned char) s[i]) * 16777619UL;
     }
@@ -94,7 +84,7 @@ static void extension(const char* name, char* ext, int max) {
 }
 
 // The command that builds `file`, or NULL when the project has none for it.
-static const char* rule_for(const project* p, const char* file) {
+const char* proj_rule_for(const project* p, const char* file) {
     char ext[5];
     extension(file, ext, (int) sizeof(ext));
     if (strcmp(ext, "c") == 0) {
@@ -137,7 +127,7 @@ static bool read_names(char list[][PROJ_NAME_MAX], int* n, int most, const char*
             return false;
         }
         if (!copy(list[*n], PROJ_NAME_MAX, s + b, i - b)) {
-            fail(msg, max, PROJ_FILE ": a name in ", what, " is too long");
+            proj_fail(msg, max, PROJ_FILE ": a name in ", what, " is too long");
             return false;
         }
         (*n)++;
@@ -148,7 +138,7 @@ static bool read_names(char list[][PROJ_NAME_MAX], int* n, int most, const char*
 
 // Whether `name` is one of the project's excluded files, case aside: FAT
 // names are not told apart by case.
-static bool excluded(const project* p, const char* name) {
+bool proj_excluded(const project* p, const char* name) {
     for (int i = 0; i < p->nexclude; i++) {
         const char* a = p->exclude[i];
         const char* b = name;
@@ -163,186 +153,6 @@ static bool excluded(const project* p, const char* name) {
     }
 
     return false;
-}
-
-// How deep under the project's directory files are looked for.
-#define SCAN_DEPTH 4
-
-// Where scan_directory is, under the project's directory: "" there, else
-// "more" or "more/deeper". One DIR for each level open at once.
-static char scan_path[PROJ_NAME_MAX];
-static DIR scan_dirs[SCAN_DEPTH];
-
-// Adds `name`, a file under scan_path, into its place by its whole path. False
-// with why in msg when it does not fit.
-static bool scan_add(project* p, const char* name, char* msg, int max) {
-    static char path[PROJ_NAME_MAX];
-    text t;
-    text_start(&t, path, PROJ_NAME_MAX);
-    if (scan_path[0] != 0) {
-        text_str(&t, scan_path);
-        text_str(&t, "/");
-    }
-    text_str(&t, name);
-    if (t.cut) {
-        text_start(&t, msg, max);
-        text_strn(&t, name, 40);
-        text_str(&t, ": the name is too long");
-        return false;
-    }
-    if (excluded(p, path)) {
-        return true;
-    }
-    if (p->nfiles == PROJ_FILES) {
-        text_start(&t, msg, max);
-        text_str(&t, "More than ");
-        text_int(&t, PROJ_FILES);
-        text_str(&t, " files to build here: list them in " PROJ_FILE);
-        return false;
-    }
-    strcpy(p->files[p->nfiles], path);
-
-    // Into its place by name, the ones after it moved along one.
-    int at = p->nfiles++;
-    while (at > 0 && strcmp(p->files[at - 1], p->files[at]) > 0) {
-        static char swap[PROJ_NAME_MAX];   // static: off the frame
-        memcpy(swap, p->files[at], sizeof(swap));
-        memcpy(p->files[at], p->files[at - 1], sizeof(swap));
-        memcpy(p->files[at - 1], swap, sizeof(swap));
-        at--;
-    }
-
-    return true;
-}
-
-// Whether `name` is Markdown: ends in .md, in either case.
-static bool markdown(const char* name) {
-    const int n = (int) strlen(name);
-
-    return n > 3 && name[n - 3] == '.' && (name[n - 2] | 0x20) == 'm'
-           && (name[n - 1] | 0x20) == 'd';
-}
-
-// Adds `name`, a Markdown file under scan_path, to the documentation. One
-// that does not fit is left out: the rest still make a document.
-static void scan_doc(project* p, const char* name) {
-    if (p->ndocs == PROJ_DOCS_MAX) {
-        return;
-    }
-    text t;
-    text_start(&t, p->docs + p->docs_used, PROJ_DOCS_POOL - p->docs_used);
-    if (scan_path[0] != 0) {
-        text_str(&t, scan_path);
-        text_str(&t, "/");
-    }
-    text_str(&t, name);
-    if (t.cut) {
-        return;
-    }
-    p->docs_used += text_len(&t) + 1;
-    p->ndocs++;
-}
-
-// The files under scan_path, and under the directories in it, to SCAN_DEPTH.
-// Names starting with "." are left out, and so are the build's own build/
-// and bin/ at the top.
-static bool scan_level(project* p, int depth, bool sources, char* msg, int max) {
-    // Static: a FILINFO carries a 256-byte name. Each name is used before
-    // the next level reads into it.
-    static FILINFO info;
-    DIR* dir = &scan_dirs[depth];
-    if (ffs_dopen(dir, scan_path[0] != 0 ? scan_path : ".") != 0) {
-        fail(msg, max, "The directory could not be read", NULL, NULL);
-        return false;
-    }
-    bool ok = true;
-    while (ok) {
-        if (ffs_dread(dir, &info) != 0 || info.fname[0] == 0) {
-            break;
-        }
-        if (info.fname[0] == '.') {
-            continue;
-        }
-        if ((info.fattrib & AM_DIR) == 0) {
-            if (markdown(info.fname)) {
-                scan_doc(p, info.fname);
-            } else if (sources && rule_for(p, info.fname) != NULL) {
-                ok = scan_add(p, info.fname, msg, max);
-            }
-            continue;
-        }
-        if (depth + 1 == SCAN_DEPTH
-                || (depth == 0 && (strcmp(info.fname, PROJ_OBJ_DIR) == 0
-                                   || strcmp(info.fname, PROJ_BIN_DIR) == 0
-                                   || strcmp(info.fname, PROJ_DOC_DIR) == 0))) {
-            continue;
-        }
-        // Down a level, and back.
-        const int was = (int) strlen(scan_path);
-        const int n = (int) strlen(info.fname);
-        if (was + 1 + n >= PROJ_NAME_MAX) {
-            continue;                   // too deep a name to keep: not looked in
-        }
-        if (was > 0) {
-            scan_path[was] = '/';
-        }
-        memcpy(scan_path + (was > 0 ? was + 1 : 0), info.fname, (size_t) n + 1);
-        ok = scan_level(p, depth + 1, sources, msg, max);
-        scan_path[was] = 0;
-    }
-    ffs_dclose(dir);
-
-    return ok;
-}
-
-// With no files line, the project is every file under its directory that a
-// rule builds, but those excluded, in order of their paths -- "more/func.c"
-// -- since a directory lists in whatever order it was written in, and the link
-// should not depend on that. With one, only its documentation is looked for:
-// every .md under the directory, whichever way the sources are named.
-static bool scan_directory(project* p, bool sources, char* msg, int max) {
-    scan_path[0] = 0;
-
-    return scan_level(p, 0, sources, msg, max);
-}
-
-// a and b compared as FAT compares names, without regard to case.
-static int compare_ci(const char* a, const char* b) {
-    for (;; a++, b++) {
-        const char x = (char) (*a >= 'A' && *a <= 'Z' ? *a - 'A' + 'a' : *a);
-        const char y = (char) (*b >= 'A' && *b <= 'Z' ? *b - 'A' + 'a' : *b);
-        if (x != y || x == 0) {
-            return (unsigned char) x - (unsigned char) y;
-        }
-    }
-}
-
-// Whether `a` comes before `b` among the pages: a README.md or index.md at the
-// top first, then by path.
-static bool doc_before(const char* a, const char* b) {
-    const bool fa = compare_ci(a, "README.md") == 0 || compare_ci(a, "index.md") == 0;
-    const bool fb = compare_ci(b, "README.md") == 0 || compare_ci(b, "index.md") == 0;
-    if (fa != fb) {
-        return fa;
-    }
-
-    return strcmp(a, b) < 0;
-}
-
-// The page after `prev` in the pages' order -- the first for NULL -- or NULL
-// after the last. The pool is in the directory's order, which is not the
-// document's; there are few enough pages to look through it each time.
-static const char* next_doc(const project* p, const char* prev) {
-    const char* best = NULL;
-    const char* d = p->docs;
-    for (int i = 0; i < p->ndocs; i++) {
-        if ((prev == NULL || doc_before(prev, d)) && (best == NULL || doc_before(d, best))) {
-            best = d;
-        }
-        d += strlen(d) + 1;
-    }
-
-    return best;
 }
 
 // The document's name, from the program's: what ref takes, 1 to 8 lower-case
@@ -380,11 +190,11 @@ int proj_load(project* p, char* msg, int max) {
 
     memset(p, 0, sizeof(*p));
     // The file and ade's defaults: either changing makes a new build.obey.
-    p->sum = hash(2166136261UL, text_, n);
-    p->sum = hash(p->sum, RULE_C, (int) sizeof(RULE_C));
-    p->sum = hash(p->sum, RULE_S, (int) sizeof(RULE_S));
-    p->sum = hash(p->sum, RULE_LINK, (int) sizeof(RULE_LINK));
-    p->sum = hash(p->sum, RULE_DOC, (int) sizeof(RULE_DOC));
+    p->sum = proj_hash(2166136261UL, text_, n);
+    p->sum = proj_hash(p->sum, RULE_C, (int) sizeof(RULE_C));
+    p->sum = proj_hash(p->sum, RULE_S, (int) sizeof(RULE_S));
+    p->sum = proj_hash(p->sum, RULE_LINK, (int) sizeof(RULE_LINK));
+    p->sum = proj_hash(p->sum, RULE_DOC, (int) sizeof(RULE_DOC));
     strcpy(p->c, RULE_C);
     strcpy(p->s, RULE_S);
     strcpy(p->asm_, RULE_S);
@@ -455,35 +265,35 @@ int proj_load(project* p, char* msg, int max) {
     }
 
     if (p->name[0] == 0) {
-        fail(msg, max, PROJ_FILE " names no program: name = ...", NULL, NULL);
+        proj_fail(msg, max, PROJ_FILE " names no program: name = ...", NULL, NULL);
         return -1;
     }
     // No files line: the directory is the project. The names it found go
     // into the sum, so a file added or taken away makes a new build.obey --
     // and so do the documentation's, which are looked for either way.
-    if (!scan_directory(p, !p->listed, msg, max)) {
+    if (!proj_scan(p, !p->listed, msg, max)) {
         return -1;
     }
-    for (const char* d = next_doc(p, NULL); d != NULL; d = next_doc(p, d)) {
-        p->sum = hash(p->sum, d, (int) strlen(d) + 1);
+    for (const char* d = proj_next_doc(p, NULL); d != NULL; d = proj_next_doc(p, d)) {
+        p->sum = proj_hash(p->sum, d, (int) strlen(d) + 1);
     }
     doc_name(p);
     if (!p->listed) {
         for (int f = 0; f < p->nfiles; f++) {
-            p->sum = hash(p->sum, p->files[f], (int) strlen(p->files[f]) + 1);
+            p->sum = proj_hash(p->sum, p->files[f], (int) strlen(p->files[f]) + 1);
         }
         if (p->nfiles == 0) {
-            fail(msg, max, "No .c, .s or .asm files here to build", NULL, NULL);
+            proj_fail(msg, max, "No .c, .s or .asm files here to build", NULL, NULL);
             return -1;
         }
     }
     if (p->nfiles == 0) {
-        fail(msg, max, PROJ_FILE " lists no files: files = ...", NULL, NULL);
+        proj_fail(msg, max, PROJ_FILE " lists no files: files = ...", NULL, NULL);
         return -1;
     }
     for (int f = 0; f < p->nfiles; f++) {
-        if (rule_for(p, p->files[f]) == NULL) {
-            fail(msg, max, PROJ_FILE ": nothing builds ", p->files[f], NULL);
+        if (proj_rule_for(p, p->files[f]) == NULL) {
+            proj_fail(msg, max, PROJ_FILE ": nothing builds ", p->files[f], NULL);
             return -1;
         }
     }
@@ -491,226 +301,16 @@ int proj_load(project* p, char* msg, int max) {
     return 1;
 }
 
-int proj_jobs(const project* p) {
-    return p->nfiles + (p->link[0] != 0 ? 1 : 0) + (p->ndocs > 0 ? 1 : 0);
-}
-
-// Appends s[0, len) at out + *at; false when it does not fit in max.
-static bool put(char* out, int max, int* at, const char* s, int len) {
-    if (*at + len >= max) {
-        return false;
-    }
-    memcpy(out + *at, s, (size_t) len);
-    *at += len;
-
-    return true;
-}
-
-// The length of `file` without its extension.
-static int base_len(const char* file) {
-    const char* dot = strrchr(file, '.');
-    if (dot == NULL || strchr(dot, '/') != NULL) {
-        return (int) strlen(file);
-    }
-
-    return (int) (dot - file);
-}
-
-// `rule` with its % names put in, for `file` -- "" for the link and the run.
-static bool expand(const project* p, const char* rule, const char* file,
-                   const char* err, char* out, int max) {
-    int at = 0;
-    bool ok = true;
-    for (const char* r = rule; *r != 0 && ok; r++) {
-        if (r[0] != '%' || r[1] == 0) {
-            ok = put(out, max, &at, r, 1);
-            continue;
-        }
-        r++;
-        switch (*r) {
-        case 'f':
-            ok = put(out, max, &at, file, (int) strlen(file));
-            break;
-        case 'b':
-            ok = put(out, max, &at, file, base_len(file));
-            break;
-        case 'n':
-            ok = put(out, max, &at, p->name, (int) strlen(p->name));
-            break;
-        case 'e':
-            ok = put(out, max, &at, err, (int) strlen(err));
-            break;
-        case 'd':
-            ok = put(out, max, &at, p->doc, (int) strlen(p->doc));
-            break;
-        case 'l':
-            ok = put(out, max, &at, PROJ_OBJ_DIR "/", (int) sizeof(PROJ_OBJ_DIR "/") - 1)
-                 && put(out, max, &at, p->name, (int) strlen(p->name))
-                 && put(out, max, &at, PROJ_LIST_EXT, (int) sizeof(PROJ_LIST_EXT) - 1);
-            break;
-        case 'o':
-            for (int f = 0; f < p->nfiles && ok; f++) {
-                ok = (f == 0 || put(out, max, &at, " ", 1))
-                     && put(out, max, &at, PROJ_OBJ_DIR "/", (int) sizeof(PROJ_OBJ_DIR "/") - 1)
-                     && put(out, max, &at, p->files[f], base_len(p->files[f]))
-                     && put(out, max, &at, ".o", 2);
-            }
-            break;
-        default:                        // %% and anything unknown: as written
-            ok = put(out, max, &at, r, 1);
-            break;
-        }
-    }
-    out[at < max ? at : max - 1] = 0;
-
-    return ok;
-}
-
-bool proj_job(const project* p, int i, const char* err, char* out, int max) {
-    const char* file = i < p->nfiles ? p->files[i] : "";
-    const char* rule = i < p->nfiles ? rule_for(p, file) : p->link;
-    // The documentation last, after the link -- or in its place, with none.
-    if (i == proj_jobs(p) - 1 && p->ndocs > 0) {
-        rule = RULE_DOC;
-    }
-
-    return expand(p, rule, file, err, out, max);
-}
-
-bool proj_run(const project* p, char* out, int max) {
-    return expand(p, p->run, "", "", out, max);
-}
-
-bool proj_obey(const project* p, const char* err, char* msg, int max) {
-    static char head[80];
-    text h;
-    text_start(&h, head, (int) sizeof(head));
-    text_str(&h, "# Made by ade from " PROJ_FILE " ");
-    // The error file is in every command too, so it is in the sum: a
-    // build.obey writing errors somewhere else is made again.
-    text_hex(&h, hash(p->sum, err, (int) strlen(err)), 8);
-    text_str(&h, ": edits last until it changes\r\n");
-    const int hn = text_len(&h);
-
-    // Made from this project.ini already: left as it is.
-    static char was[80];
-    char fh = mos_fopen(PROJ_OBEY, FA_READ);
-    if (fh != 0) {
-        const int n = (int) mos_fread(fh, was, (unsigned) hn);
-        mos_fclose(fh);
-        if (n == hn && memcmp(was, head, (size_t) hn) == 0) {
-            return true;
-        }
-    }
-
-    static char cmd[PROJ_CMD_MAX + 3];
-    const int jobs = proj_jobs(p);
-    for (int i = 0; i < jobs; i++) {
-        if (!proj_job(p, i, err, cmd, PROJ_CMD_MAX + 1)) {
-            text t;
-            text_start(&t, msg, max);
-            text_str(&t, "Command ");
-            text_int(&t, i + 1);
-            text_str(&t, " of " PROJ_FILE " is longer than ");
-            text_int(&t, PROJ_CMD_MAX);
-            return false;
-        }
-    }
-    fh = mos_fopen(PROJ_OBEY, FA_WRITE | FA_CREATE_ALWAYS);
-    if (fh == 0) {
-        fail(msg, max, PROJ_OBEY " could not be written", NULL, NULL);
-        return false;
-    }
-    bool ok = (int) mos_fwrite(fh, head, (unsigned) hn) == hn;
-    for (int i = 0; i < jobs && ok; i++) {
-        proj_job(p, i, err, cmd, PROJ_CMD_MAX + 1);
-        const int n = (int) strlen(cmd);
-        cmd[n] = '\r';
-        cmd[n + 1] = '\n';
-        ok = (int) mos_fwrite(fh, cmd, (unsigned) n + 2) == n + 2;
-    }
-    mos_fclose(fh);
-    if (!ok) {
-        mos_del(PROJ_OBEY);             // half a build is worse than none
-        fail(msg, max, PROJ_OBEY " could not be written", NULL, NULL);
-    }
-
-    return ok;
-}
-
-bool proj_list(const project* p, char* msg, int max) {
-    if (p->link[0] == 0) {
-        return true;
-    }
-    static char path[PROJ_NAME_MAX + 16];
-    if (!expand(p, "%l", "", "", path, (int) sizeof(path))) {
-        fail(msg, max, "The program's name is too long", NULL, NULL);
-        return false;
-    }
-    const char fh = mos_fopen(path, FA_WRITE | FA_CREATE_ALWAYS);
-    if (fh == 0) {
-        fail(msg, max, path, " could not be written", NULL);
-        return false;
-    }
-    static char line[PROJ_NAME_MAX + 16];
-    bool ok = true;
-    for (int f = 0; f < p->nfiles && ok; f++) {
-        text t;
-        text_start(&t, line, (int) sizeof(line));
-        text_str(&t, PROJ_OBJ_DIR "/");
-        text_strn(&t, p->files[f], base_len(p->files[f]));
-        text_str(&t, ".o\r\n");
-        const int n = text_len(&t);
-        ok = (int) mos_fwrite(fh, line, (unsigned) n) == n;
-    }
-    mos_fclose(fh);
-    if (!ok) {
-        mos_del(path);
-        fail(msg, max, path, " could not be written", NULL);
-    }
-
-    return ok;
-}
-
-bool proj_docs_list(const project* p, char* msg, int max) {
-    if (p->ndocs == 0) {
-        return true;
-    }
-    static char path[PROJ_NAME_MAX];
-    if (!expand(p, PROJ_OBJ_DIR "/%d" PROJ_DOCS_EXT, "", "", path, (int) sizeof(path))) {
-        fail(msg, max, "The document's name is too long", NULL, NULL);
-        return false;
-    }
-    const char fh = mos_fopen(path, FA_WRITE | FA_CREATE_ALWAYS);
-    if (fh == 0) {
-        fail(msg, max, path, " could not be written", NULL);
-        return false;
-    }
-    bool ok = true;
-    for (const char* d = next_doc(p, NULL); d != NULL && ok; d = next_doc(p, d)) {
-        const int n = (int) strlen(d);
-        ok = (int) mos_fwrite(fh, (char*) d, (unsigned) n) == n
-             && mos_fwrite(fh, (char*) "\r\n", 2) == 2;
-    }
-    mos_fclose(fh);
-    if (!ok) {
-        mos_del(path);
-        fail(msg, max, path, " could not be written", NULL);
-    }
-
-    return ok;
-}
-
 bool proj_rename(const char* name, char* msg, int max) {
     char fh = mos_fopen(PROJ_FILE, FA_READ);
     if (fh == 0) {
-        fail(msg, max, PROJ_FILE " could not be read", NULL, NULL);
+        proj_fail(msg, max, PROJ_FILE " could not be read", NULL, NULL);
         return false;
     }
     const int n = (int) mos_fread(fh, text_, TEXT_MAX);
     mos_fclose(fh);
     if (n <= 0 || n == TEXT_MAX) {
-        fail(msg, max, PROJ_FILE " could not be read", NULL, NULL);
+        proj_fail(msg, max, PROJ_FILE " could not be read", NULL, NULL);
         return false;
     }
 
@@ -746,13 +346,13 @@ bool proj_rename(const char* name, char* msg, int max) {
         }
     }
     if (from < 0) {
-        fail(msg, max, PROJ_FILE " has no name line to change", NULL, NULL);
+        proj_fail(msg, max, PROJ_FILE " has no name line to change", NULL, NULL);
         return false;
     }
 
     fh = mos_fopen(PROJ_FILE, FA_WRITE | FA_CREATE_ALWAYS);
     if (fh == 0) {
-        fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
+        proj_fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
         return false;
     }
     const int len = (int) strlen(name);
@@ -762,7 +362,7 @@ bool proj_rename(const char* name, char* msg, int max) {
               && (int) mos_fwrite(fh, text_ + to, (unsigned) (n - to)) == n - to;
     mos_fclose(fh);
     if (!ok) {
-        fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
+        proj_fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
     }
 
     return ok;
@@ -772,7 +372,7 @@ bool proj_create(const char* name, char* msg, int max) {
     const char was = mos_fopen(PROJ_FILE, FA_READ);
     if (was != 0) {
         mos_fclose(was);
-        fail(msg, max, PROJ_FILE " is here already: CTRL+B builds from it", NULL, NULL);
+        proj_fail(msg, max, PROJ_FILE " is here already: CTRL+B builds from it", NULL, NULL);
         return false;
     }
     static char fresh[1024];
@@ -808,45 +408,22 @@ bool proj_create(const char* name, char* msg, int max) {
         ";link = " RULE_LINK_TEXT "\r\n");
     const int n = text_len(&t);
     if (t.cut) {
-        fail(msg, max, "The program's name is too long", NULL, NULL);
+        proj_fail(msg, max, "The program's name is too long", NULL, NULL);
         return false;
     }
     const char fh = mos_fopen(PROJ_FILE, FA_WRITE | FA_CREATE_NEW);
     if (fh == 0) {
-        fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
+        proj_fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
         return false;
     }
     const bool ok = (int) mos_fwrite(fh, fresh, (unsigned) n) == n;
     mos_fclose(fh);
     if (!ok) {
         mos_del(PROJ_FILE);
-        fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
+        proj_fail(msg, max, PROJ_FILE " could not be written", NULL, NULL);
     }
 
     return ok;
-}
-
-void proj_dirs(const project* p) {
-    // A directory that is there already is the usual case, and not an error.
-    mos_mkdir(PROJ_OBJ_DIR);
-    mos_mkdir(PROJ_BIN_DIR);
-
-    // And build/more, build/more/deeper, for a file in more/deeper: the tools
-    // write an object where they are told, and make no directories for it.
-    static char dir[PROJ_NAME_MAX + 8];
-    for (int f = 0; f < p->nfiles; f++) {
-        const char* name = p->files[f];
-        for (const char* slash = strchr(name, '/'); slash != NULL;
-             slash = strchr(slash + 1, '/')) {
-            text t;
-            text_start(&t, dir, (int) sizeof(dir));
-            text_str(&t, PROJ_OBJ_DIR "/");
-            text_strn(&t, name, (int) (slash - name));
-            if (!t.cut) {
-                mos_mkdir(dir);
-            }
-        }
-    }
 }
 
 // What is known of the project here between reads -- see proj_here_name.
@@ -859,7 +436,7 @@ static char known_doc[PROJ_DOC_NAME + 1];
 project* proj_read(int* has, char* msg, int max) {
     project* p = malloc(sizeof(project));
     if (p == NULL) {
-        fail(msg, max, "No room to read " PROJ_FILE, NULL, NULL);
+        proj_fail(msg, max, "No room to read " PROJ_FILE, NULL, NULL);
         loaded = 2;
         return NULL;
     }
