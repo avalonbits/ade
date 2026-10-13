@@ -20,8 +20,11 @@
 
 #include <string.h>
 
+#include "version.h"
+
 static const char* BANNER[] = {
     "ADE: Another Development Environment",
+    "Version " ADE_VERSION,
     "",
     "Press F10 to access the menus",
 };

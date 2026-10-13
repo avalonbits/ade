@@ -1114,6 +1114,8 @@ check "no file: the banner says F10 opens the menus" \
       "$(grep -c '| *Press F10 to access the menus *|' "$c/ade.scr" 2>/dev/null)" 1
 check "  under ade's name" \
       "$(grep -c '| *ADE: Another Development Environment *|' "$c/ade.scr" 2>/dev/null)" 1
+check "  and its version, as src/version.h says" \
+      "$(grep -c "| *Version $(sed -n 's/^#define ADE_VERSION "\(.*\)"/\1/p' src/version.h) *|" "$c/ade.scr" 2>/dev/null)" 1
 }
 
 # ade started with no file in a project's directory opens the project's
