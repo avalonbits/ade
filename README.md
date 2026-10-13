@@ -6,29 +6,33 @@ libraries, and adds menus, windows, projects, and building and running
 through [hub](https://github.com/avalonbits/hub). You can edit, build, run,
 fix the error and build again without leaving ADE.
 
-What it does today:
+What it does:
 
 - **Editing**: everything AED's editor does, including selection, copy and
   paste between files, undo, find, syntax colouring, settings, and files
   larger than memory.
 - **Menus**: F10 opens a menu bar under the title with File, Edit, Search,
   Build, Run and Options. Each item shows its key.
-- **Windows**: up to nine open files, three of them loaded at a time. Moving
-  to a window that isn't loaded puts away one whose changes are saved.
-- **Building**: CTRL+B builds the file on screen, or the whole project. A C
-  file is built with [acc](https://github.com/avalonbits/acc), and assembly
-  with [zap](https://github.com/avalonbits/zap). When a build fails, ADE comes
-  back on the error, in its file, at its line and column.
+- **Windows**: up to nine open files, three of them loaded at a time, and a
+  file viewer to open them from.
+- **Building**: CTRL+B builds the file on screen, or the whole project. C is
+  built with [acc](https://github.com/avalonbits/acc), and assembly with
+  [zap](https://github.com/avalonbits/zap). When a build fails, ADE opens the
+  file at the error.
 - **Running**: CTRL+R builds and runs. ALT+F5 shows what the program left on
   the screen.
-- **Projects**: a `project.ini` in the directory makes it a project. Every
-  `.c`, `.s` and `.asm` file in it is built, objects go to `build/` and the
-  program to `bin/`.
+- **Projects**: a `project.ini` makes a directory a project. Every `.c`, `.s`
+  and `.asm` file in it, and below it, is built; objects go to `build/` and
+  the program to `bin/`. Its `.md` files become its own documentation.
+- **Looking things up**: CTRL+F11 shows the documentation for the word at the
+  cursor, from acc's C library, the Agon's own documentation, or the
+  project's.
 - **The shell**: CTRL+F12 drops you at hub's prompt, and `exit` brings you
   back to ADE as you left it.
 
-There is no release yet: ADE is built from source (see
-[Building ADE](#building-ade)).
+ADE's release is one zip that has everything it uses: ADE, acc, zap, hub,
+ref, AED, and their libraries, headers, configuration and documentation.
+[docs/DESIGN.md](docs/DESIGN.md) explains how ADE works inside.
 
 ## Contents
 
@@ -50,39 +54,29 @@ There is no release yet: ADE is built from source (see
 
 ## What you need
 
-- **MOS 3.0.2.** ADE runs under hub, and hub needs it. VDP 1.04 or later, as
-  for AED. ALT+F5 needs VDP 2.2.0 or later to capture the program's screen.
-- **hub 0.6.0 or later**, in `/mos/hub.bin`. ADE refuses to start without
-  hub: hub is what runs the tools and brings ADE back afterwards. CTRL+F12
-  needs 0.6.
-- **acc 0.4.0 or later**, to build C. A project's link uses acc's `@file`,
-  which arrived in 0.4.0.
-- **zap**, to build assembly, from zap's main branch for now. ADE asks zap for
-  acc's object format (`-f acc`), which is newer than zap's latest release,
-  1.1.0.
-- **ref 0.2.0 or later**, for CTRL+F11, with its `mos` document and acc's
-  `acc` document.
-- **AED's configuration directory**, `/config/aed`, for syntax colouring,
-  themes and fonts. ADE shares it with AED rather than keeping a copy. Without
-  it, ADE works, but in plain text.
+- **MOS 3.0.2** and **VDP 1.04 or later**. ALT+F5 needs VDP 2.2.0 or later to
+  capture the program's screen.
+- Everything else comes in the release zip:
+
+| Component | What ADE uses it for | In the zip |
+|---|---|---|
+| ADE | this | `bin/ade.bin` |
+| [hub](https://github.com/avalonbits/hub) | runs the tools and brings ADE back; ADE won't start without it | `mos/hub.bin`, and `lib/acc/libhub.a` for your own programs |
+| [acc](https://github.com/avalonbits/acc) | compiling and linking C | `bin/acc.bin`, `lib/acc/` |
+| [zap](https://github.com/avalonbits/zap) | assembling | `bin/zap.bin` |
+| ref, md2ref | documentation, and making it from Markdown | `bin/ref.bin`, `bin/md2ref.bin`, `config/ref/docs/` |
+| [AED](https://github.com/avalonbits/aed) | syntax colouring, themes and fonts, shared with AED | `bin/aed.bin`, `config/aed/` |
+
+`ade/VERSIONS.txt` in the zip says which version of each it has.
 
 ## Installation
 
-1. **hub**: unzip `hub-<version>.zip` from
-   [hub's releases](https://github.com/avalonbits/hub/releases) at the root of
-   the SD card, which puts it in `/mos/hub.bin`. To have hub start at boot,
-   make `hub` the last line of `/autoexec.txt`.
-2. **acc**: unzip `acc-<version>.zip` from
-   [acc's releases](https://github.com/avalonbits/acc/releases) at the root of
-   the card, which gives you `/bin/acc.bin` and its library in `/lib/acc`.
-3. **zap**: put `zap.bin` in `/bin`.
-4. **AED's configuration**: unzip AED's release at the root of the card, which
-   gives you `/config/aed` (AED itself comes with it).
-5. **ADE**: copy `bin/ade.bin` from your build (see
-   [Building ADE](#building-ade)) to `/bin/ade.bin` on the card.
-
-If hub is already running when you install a new hub, type `exit` and then
-`hub` to start the new one.
+1. Unzip `ade-<version>.zip` at the root of the SD card. Everything lands
+   where it belongs, replacing older copies of the same programs.
+2. To have hub start at boot, make `hub` the last line of `/autoexec.txt`.
+   Otherwise type `hub` at MOS's prompt before `ade`.
+3. If hub was already running, type `exit` and then `hub`, to start the new
+   one.
 
 ## Running ADE
 
@@ -312,9 +306,9 @@ from AED's, and writes that file the first time it runs.
 
 ## Building ADE
 
-ADE builds on Linux with AgonDev (`agondev-config` on the `PATH`),
-from the libraries of the AED release named in `aed-libs.pin`. A plain `make`
-fetches that release's `aed-libs` package, checks its sha256, and builds
+ADE builds on Linux with AgonDev (`agondev-config` on the `PATH`), from the
+libraries of the AED release named in `aed-libs.pin`. A plain `make` fetches
+that release's `aed-libs` package, checks its sha256, and builds
 `bin/ade.bin`.
 
     make                         # bin/ade.bin
@@ -322,16 +316,33 @@ fetches that release's `aed-libs` package, checks its sha256, and builds
     make HUB=<dir>               # hub's checkout, ~/code/devel by default
 
 ADE links hub's client library, `build/lib/agondev/libhub.a`, from a hub
-checkout.
+checkout. [docs/DESIGN.md](docs/DESIGN.md) explains the code.
 
 `test/run.sh` builds ADE and runs its checks, most of them on
 [fab-agon-emulator](https://github.com/tomm/fab-agon-emulator) 1.2.4
 (`~/fab-agon-emulator-1.2.4`, or set `AGON_EMU`). A test build of ADE plays
 scripted keys under hub, and the checks read back what it did: the screen,
 the files, and what was built and run. The build cases need the Agon's acc
-and zap (`ACC_BIN` / `ACC_DIR`, `ZAP_BIN`, by default their checkouts beside
-this one). `test/frames.sh` checks that no function's stack frame is larger
-than an `(ix+d)` offset can reach.
+and zap (`ACC_BIN` / `ACC_DIR`, `ZAP_BIN`), and the look-up cases ref's
+scripted build, md2ref and the documents (`REF_BIN`, `MD2REF_BIN`,
+`REF_DAT`, `ACC_DAT`), by default from their checkouts beside this one.
+`test/frames.sh` checks that no function's stack frame is larger than an
+`(ix+d)` offset can reach.
+
+### Making a release
+
+`release.pin` names the version of each component the release bundles.
+`src/version.h` names ADE's own.
+
+    tools/mkrelease.sh 0.1.0         # dist/ade-0.1.0.zip
+    test/release.sh dist/ade-0.1.0.zip
+
+`tools/mkrelease.sh` downloads each pinned release, builds ref with its own
+release script, builds ADE, and zips the lot as an SD card's root.
+`test/release.sh` unzips it onto a fresh emulator card holding only MOS.
+There it checks that acc compiles a program that runs, zap assembles and
+writes acc's objects, ref finds words in both documents, and md2ref makes a
+document.
 
 ADE is free software, under the GNU General Public License, version 3 or
 later.
