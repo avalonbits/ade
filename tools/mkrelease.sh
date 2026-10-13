@@ -21,12 +21,10 @@
 #
 # Usage: tools/mkrelease.sh <version>
 #   VERSION_<name>=<v>   overrides a component's pinned version, for a trial
-#   REF_DIR=<dir>        ref's checkout, ~/code/ref by default
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 VERSION=${1:?usage: tools/mkrelease.sh <version>}
-REF_DIR=${REF_DIR:-$HOME/code/ref}
 grep -q "^#define ADE_VERSION \"$VERSION\"" src/version.h || {
     echo "mkrelease: src/version.h does not say $VERSION" >&2
     exit 1
@@ -60,19 +58,6 @@ github() {
     done
 }
 
-# ref <commit>: ref and its documents, made by ref's own mkrelease.sh from
-# that commit. Its documents include mos.dat, from agon-docs, which has no
-# license of its own: Igor chose to ship it (2026-10-12), which is what
-# REF_LICENSE_SETTLED says to ref's script.
-ref() {
-    local commit=$1
-    git -C "$REF_DIR" worktree add --detach "$WORK/ref" "$commit" >/dev/null 2>&1
-    mkdir -p "$WORK/ref/bin" "$WORK/ref/obj" "$WORK/refout"
-    (cd "$WORK/ref" && REF_LICENSE_SETTLED=1 ./mkrelease.sh "$WORK/refout" >/dev/null)
-    git -C "$REF_DIR" worktree remove --force "$WORK/ref"
-    unzip -oq "$WORK"/refout/ref-[0-9]*.zip -d "$CARD"
-}
-
 printf 'ade %s, and what it bundles:\n\n' "$VERSION" > "$CARD/ade/VERSIONS.txt"
 while read -r name version how; do
     case $name in ''|'#'*) continue ;; esac
@@ -85,7 +70,6 @@ while read -r name version how; do
     versions "$name" "$version" "$how"
     case $how in
         github:*) IFS=: read -r _ repo assets <<< "$how"; github "$repo" "$version" "$assets" ;;
-        ref:*) ref "${how#ref:}" ;;
     esac
 done < release.pin
 

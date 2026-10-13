@@ -68,7 +68,7 @@ headers, configuration and documentation.
 | [hub](https://github.com/avalonbits/hub) | runs the tools and brings ADE back; ADE won't start without it | `mos/hub.bin`, and `lib/acc/libhub.a` for your own programs |
 | [acc](https://github.com/avalonbits/acc) | compiling and linking C | `bin/acc.bin`, `lib/acc/` |
 | [zap](https://github.com/avalonbits/zap) | assembling | `bin/zap.bin` |
-| ref, md2ref | documentation, and making it from Markdown | `bin/ref.bin`, `bin/md2ref.bin`, `config/ref/docs/` |
+| [ref](https://github.com/avalonbits/ref), md2ref | documentation, and making it from Markdown | `bin/ref.bin`, `bin/md2ref.bin`, `config/ref/docs/` |
 | [AED](https://github.com/avalonbits/aed) | syntax colouring, themes and fonts, shared with AED | `config/aed/` (in both), `bin/aed.bin` |
 
 `ade/VERSIONS.txt` in the zip says which version of each it has.
@@ -344,8 +344,8 @@ scripted build, md2ref and the documents (`REF_BIN`, `MD2REF_BIN`,
     test/release.sh dist/ade-0.1.0.zip
     test/release.sh dist/ade-full-0.1.0.zip
 
-`tools/mkrelease.sh` downloads each pinned release, builds ref with its own
-release script, builds ADE, and zips each as an SD card's root.
+`tools/mkrelease.sh` downloads each pinned release, builds ADE, and zips
+each as an SD card's root.
 `test/release.sh` checks that the small zip holds ADE and AED's
 configuration and nothing of the tools. It unzips the full one onto a fresh
 emulator card holding only MOS.

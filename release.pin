@@ -3,15 +3,12 @@
 #
 #   <name> <version> <how>
 #
-# how is either
+# how is
 #   github:<owner/repo>:<asset>[,<asset>...]   assets of the release tagged
 #                                              v<version>, each a zip laid
 #                                              out from the card's root or a
 #                                              bare .bin for /bin; {v} is
 #                                              the version
-#   ref:<commit>                               ref built from that commit of
-#                                              REF_DIR (~/code/ref) with its
-#                                              own mkrelease.sh
 #
 # "pending" as the version stops a release: the component has no release
 # with what ade needs yet. VERSION_<name>=<v> overrides one for a trial run.
@@ -19,4 +16,4 @@ hub   0.6.0   github:avalonbits/hub:hub-{v}.zip,hub-acc-{v}.zip
 aed   1.6.3   github:avalonbits/aed:aed-{v}.zip
 acc   0.5.0   github:avalonbits/acc:acc-{v}.zip
 zap   1.2.0   github:avalonbits/zap:zap.bin
-ref   0.2.0   ref:8d3e03e
+ref   0.2.0   github:avalonbits/ref:ref-{v}.zip
