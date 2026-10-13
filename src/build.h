@@ -19,105 +19,44 @@
 #ifndef _BUILD_H_
 #define _BUILD_H_
 
-#include <stdbool.h>
-
 #include "editor.h"
+#include "session.h"
 
 /*
- * Building, through hub.
+ * Building and running, through hub -- see away.h for how ade leaves and
+ * comes back.
  *
- * ade and the tools all load at the same address, so ade cannot stay in
- * memory while one runs. F9 saves what needs saving, writes down the session
- * -- which files are open, where each cursor is, which window is on screen --
- * in a hub block, asks hub to run the tool and then `ade -resume`, and leaves.
- * hub runs the tool, then ade again, which puts the session back and, if the
- * tool failed, reads the error it wrote and goes to it.
+ * Without a project, CTRL+B builds the file on screen:
  *
- *   .c           acc <file> -o <file>.bin -errors ade.err
- *   .s, .asm     zap <file> <file>.bin -c -e ade.err
+ *   .c           acc <file> -o <name>.bin -errors ade.err
+ *   .s, .asm     zap <file> <name>.bin -c -e ade.err
  *
- * Both write an error as `file:line:column: error: text` and fail with 100.
- *
- * Run queues the program after the build, on hub's own screen and with a key
- * to press when it ends; ade comes back saying what it returned.
- *
- * With a project.ini in the current directory, F9 builds the project instead:
- * a command per file and the link, in build.obey, run by MOS's Obey as one
- * of hub's jobs and stopping at the first that fails -- see project.h.
+ * With a project.ini in the current directory, it builds the project: hub
+ * runs `Obey build.obey`, a command per file, the link and the documentation
+ * -- see project.h. CTRL+R builds and then runs the program, on hub's screen,
+ * waiting for a key after; ade comes back saying what it returned.
  */
 
-// The command F9 is bound to, and Build on the menu.
+// CTRL+B: builds.
 void build(editor* ed);
 
-// Builds, then runs what was built -- the project's program, or the file's
-// .bin -- and comes back. CTRL+F9, and Run on the menu.
+// CTRL+R: builds, then runs what was built.
 void build_run(editor* ed);
 
-// Drops the user at hub's prompt, every window saved first, and brings ade
-// back as it was when they type exit. Needs hub 0.6 (HUB_SHELL); an older hub
-// fails the job, and ade comes back saying so.
-void build_shell(editor* ed);
-
-// CTRL+F11: looks up the word at the cursor -- or the selection, on one line
-// -- in ref, through hub: in acc's document of its C library for a .c or .h
-// file, and in mos, the Agon's own documentation, for anything else. Every
-// window is saved first, and ade comes back as it was. ref returns 100 when
-// it has nothing for the word, and ade says so; any other failure is no ref
-// on the card.
-void build_ref(editor* ed);
-
-// CTRL+ALT+F11: ref's mos document from its contents, its start page, the
-// same way -- ade back after, saying so when the document is not there.
-void build_ref_contents(editor* ed);
-
-// The errors the last build left, as a list to go to one from; shown on
-// coming back from a build that left more than one. ALT+F9, and on the menu.
-void build_errors(editor* ed);
-
-// Whether ade was started by hub to come back from a build, and puts the
-// session back if so: call after ed_init_for, with the windows started. The
-// first file to open is `first_file` -- see build_first_file.
-void build_resume(editor* ed);
-
-// CTRL+SHIFT+N, and Build -> New project: asks for the program's name and
-// writes a project.ini for it, with no list of files -- every .c, .s and .asm
-// in the directory and under it is the project. With one here already, asks
-// for a new name instead, changes only its name line, and deletes the old
-// name's bin/<old>.bin and build/<old>.lnk.
-void build_new_project(editor* ed);
-
-// The name project.ini gives the program, or NULL without a project: read
-// the first time it is asked for, and again at each build.
-const char* build_project(void);
-
-// The project's first file -- the first of its files line, or else the first
-// by name of those in the directory -- for ade started with no file to open;
-// NULL with no project, or one that cannot be read.
-const char* build_project_file(void);
-
-// The user screen, ALT+F5: what the last program Run ran left on the screen,
-// as hub captured it, until a key is pressed; then ade again.
+// ALT+F5: what the last program left on the screen, as hub captured it, until
+// a key is pressed.
 void build_user_screen(editor* ed);
 
-// Back to the screen mode ade left in, before the editor starts on resume: a
-// program run in between may have changed it, and hub does not put it back.
-void build_resume_screen(void);
-
-// How the last build went, for the menu bar: "built", "failed", or what the
-// program run after it returned -- "demo returned 0" -- and "" before any.
+// How the last build went, for the menu bar: "built", "failed", what the
+// program returned -- "demo returned 0" -- or "" before any.
 const char* build_status(void);
 
-// The last thing a build said on the message row, as it was shown -- for the
-// scripted test, which cannot read that row back off the screen.
-const char* build_said(void);
+// Coming back from a build (see away_come_back): where ade lands -- moved to
+// the first error, after a failed build -- and the menu bar's status.
+void build_landing(editor* ed, const session* s, int* window, int* line, int* x);
 
-// Whether each mode change ade made coming back -- from a build, or from
-// ALT+F5 -- had finished before it went on: 'y' or 'n' each, oldest first.
-// For the scripted test, which cannot slow the VDP down to see it.
-const char* build_modes_settled(void);
-
-// The file window 1 held when the build began, for ed_init_for to open on
-// resume; NULL when there is no session to go back to.
-const char* build_first_file(void);
+// ...and, once the screen is shown, what a failed build said: its error, the
+// list of them, or how it failed.
+void build_report(editor* ed, const session* s);
 
 #endif  // _BUILD_H_

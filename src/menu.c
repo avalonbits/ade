@@ -22,6 +22,10 @@
 #include <string.h>
 
 #include "build.h"
+#include "errors.h"
+#include "lookup.h"
+#include "newproject.h"
+#include "shell.h"
 #include "cmd_ops.h"
 #include "options.h"
 #include "project.h"
@@ -57,7 +61,7 @@ static const menu_item FILE_ITEMS[] = {
     { "Next window",        "CTRL+TAB",   win_next,     0, NULL },
     { "Previous window",    "CTRL+SHIFT+TAB", win_prev, 0, NULL },
     { "Window list",        "ALT+F6",     win_list,     0, NULL },
-    { "Shell",              "CTRL+F12",   build_shell,  0, NULL },
+    { "Shell",              "CTRL+F12",   shell_open,  0, NULL },
     { "Quit",               "CTRL+Q",     win_quit,     0, NULL },
 };
 static const menu_item EDIT_ITEMS[] = {
@@ -74,13 +78,13 @@ static const menu_item SEARCH_ITEMS[] = {
     { "Find next",          "CTRL+N",     cmd_find_next,  OWN, NULL },
     { "Find previous",      "CTRL+P",     cmd_find_prev,  OWN, NULL },
     { "Go to line",         "CTRL+G",     cmd_goto,       0,   NULL },
-    { "Look up in ref",     "CTRL+F11",   build_ref,      OWN, NULL },
-    { "ref's contents",     "CTRL+ALT+F11", build_ref_contents, 0, NULL },
+    { "Look up in ref",     "CTRL+F11",   lookup_word,      OWN, NULL },
+    { "ref's contents",     "CTRL+ALT+F11", lookup_contents, 0, NULL },
 };
 static const menu_item BUILD_ITEMS[] = {
     { "Build",              "CTRL+B",     build, 0, NULL },
-    { "Errors",             "ALT+F9",     build_errors, 0, NULL },
-    { "New project",        "CTRL+SHIFT+N", build_new_project, 0, NULL },
+    { "Errors",             "ALT+F9",     errors_list, 0, NULL },
+    { "New project",        "CTRL+SHIFT+N", new_project, 0, NULL },
 };
 static const menu_item RUN_ITEMS[] = {
     { "Run",                "CTRL+R",     build_run, 0, NULL },
@@ -135,7 +139,7 @@ int menu_bar_text(screen* scr, char* bar, int max) {
     // and the open windows, the one on screen in brackets.
     static char right[PROJ_NAME_MAX + 60];
     const char* how = build_status();
-    const char* name = build_project();
+    const char* name = proj_here_name();
     text t;
     text_start(&t, right, (int) sizeof(right));
     if (how[0] != 0) {

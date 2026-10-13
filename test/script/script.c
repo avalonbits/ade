@@ -28,6 +28,8 @@
 #include <hub/hub.h>
 
 #include "build.h"
+#include "mode.h"
+#include "say.h"
 #include "menu.h"
 #include "windows.h"
 
@@ -555,7 +557,7 @@ static void dump_screen(const char* path) {
         mos_fwrite(fh, line, (unsigned) t);
     }
     // And the last thing a build said on the message row, which is the same.
-    const int k = sprintf(line, "said %.100s\n", build_said());
+    const int k = sprintf(line, "said %.100s\n", said_last());
     mos_fwrite(fh, line, (unsigned) k);
     mos_fclose(fh);
 }
@@ -816,7 +818,7 @@ void script_report(editor* ed) {
             mos_fwrite(ph, out, (unsigned) n);
             mos_fclose(ph);
         }
-        n = sprintf(out, "settled %s\n", build_modes_settled());
+        n = sprintf(out, "settled %s\n", mode_settled());
         const char mh = mos_fopen("/ade.mode", FA_WRITE | FA_CREATE_ALWAYS);
         if (mh != 0) {
             mos_fwrite(mh, out, (unsigned) n);

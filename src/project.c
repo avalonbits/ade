@@ -19,6 +19,7 @@
 #include "project.h"
 
 #include <agon/mos.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "ini.h"
@@ -846,4 +847,60 @@ void proj_dirs(const project* p) {
             }
         }
     }
+}
+
+// What is known of the project here between reads -- see proj_here_name.
+// `loaded` is proj_load's answer, and 2 for not read yet.
+static int loaded = 2;
+static char known_name[PROJ_NAME_MAX];
+static char known_first[PROJ_NAME_MAX];
+static char known_doc[PROJ_DOC_NAME + 1];
+
+project* proj_read(int* has, char* msg, int max) {
+    project* p = malloc(sizeof(project));
+    if (p == NULL) {
+        fail(msg, max, "No room to read " PROJ_FILE, NULL, NULL);
+        loaded = 2;
+        return NULL;
+    }
+    *has = proj_load(p, msg, max);
+    loaded = *has;
+    if (*has > 0) {
+        strcpy(known_name, p->name);
+        strcpy(known_first, p->files[0]);
+        strcpy(known_doc, p->ndocs > 0 ? p->doc : "");
+    }
+
+    return p;
+}
+
+// Reads the project here, if it has not been, for what is kept of it.
+static void know(void) {
+    if (loaded == 2) {
+        static char msg[80];
+        int has = 0;
+        free(proj_read(&has, msg, (int) sizeof(msg)));
+    }
+}
+
+const char* proj_here_name(void) {
+    know();
+
+    return loaded > 0 ? known_name : NULL;
+}
+
+const char* proj_here_first(void) {
+    know();
+
+    return loaded > 0 ? known_first : NULL;
+}
+
+const char* proj_here_doc(void) {
+    know();
+
+    return loaded > 0 ? known_doc : "";
+}
+
+void proj_forget(void) {
+    loaded = 2;
 }

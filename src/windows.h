@@ -86,6 +86,10 @@ int win_open_named(editor* ed, const char* fname);
 int win_find(editor* ed, const char* fname);
 void win_go(editor* ed, int i);
 
+// Window w with its cursor at (line, x), shown: one paint, whether it was on
+// screen already or not.
+void win_show_at(editor* ed, int w, int line, int x);
+
 // A window that was open when ade left for a build, back as it was but put
 // away: loaded when it is shown. Returns its number, or -1.
 int win_restore(editor* ed, const char* fname, int line, int x);

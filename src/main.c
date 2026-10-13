@@ -35,7 +35,13 @@
 
 #include "app.h"
 #include "banner.h"
+#include "away.h"
 #include "build.h"
+#include "errors.h"
+#include "lookup.h"
+#include "newproject.h"
+#include "project.h"
+#include "shell.h"
 #include "options.h"
 #include "editor.h"
 #include "menu.h"
@@ -87,7 +93,7 @@ static const key_binding ADE_BINDINGS[] = {
     LETTER(VK_s, VK_S, C, ed_cmd_save),
     LETTER(VK_q, VK_Q, C, win_quit),
     LETTER(VK_e, VK_E, C, ade_cmd_settings),
-    LETTER(VK_n, VK_N, C | S, build_new_project),
+    LETTER(VK_n, VK_N, C | S, new_project),
     LETTER(VK_b, VK_B, C, build),
     LETTER(VK_r, VK_R, C, build_run),
     { VK_TAB, C | S, 0, win_prev },
@@ -107,10 +113,10 @@ static const key_binding ADE_BINDINGS[] = {
     // there for Copy or Cut.
     { VK_F10, 0, KC_OWNS_SEL, menu_open },
     { VK_F5, A, 0, build_user_screen },
-    { VK_F9, A, 0, build_errors },
-    { VK_F12, C, 0, build_shell },
-    { VK_F11, C | A, 0, build_ref_contents },
-    { VK_F11, C, KC_OWNS_SEL, build_ref },
+    { VK_F9, A, 0, errors_list },
+    { VK_F12, C, 0, shell_open },
+    { VK_F11, C | A, 0, lookup_contents },
+    { VK_F11, C, KC_OWNS_SEL, lookup_word },
 };
 
 #undef LETTER
@@ -159,12 +165,12 @@ int main(int argc, char** argv) {
     // left says which files to open.
     const bool resuming = argc > 1 && strcmp(argv[1], "-resume") == 0;
     if (resuming) {
-        build_resume_screen();
+        away_screen_back();
     }
     // Started with no file in a project's directory, the project's first;
     // with none at all, the banner.
-    const char* fname = resuming ? build_first_file()
-                                 : (argc > 1 ? argv[1] : build_project_file());
+    const char* fname = resuming ? away_first_file()
+                                 : (argc > 1 ? argv[1] : proj_here_first());
     if (ed_init_for(&ed, ADE_DOC_KB, fname, &ADE) == NULL) {
         return 1;
     }
@@ -175,7 +181,7 @@ int main(int argc, char** argv) {
     ui_set_keys(&ed.ui_, script_keys(&ed, argc > 1 ? argv[1] : NULL));
 #endif
     if (resuming) {
-        build_resume(&ed);
+        away_come_back(&ed);
     }
     ed_run(&ed);
 #ifdef ADE_SCRIPT

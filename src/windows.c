@@ -380,6 +380,15 @@ int win_find(editor* ed, const char* fname) {
     return -1;
 }
 
+void win_show_at(editor* ed, int w, int line, int x) {
+    win_place(ed, w, line, x);
+    if (current != w) {
+        show(ed, w);
+    } else {
+        cmd_restore_after_modal(ed, false);
+    }
+}
+
 void win_go(editor* ed, int i) {
     if (i >= 0 && i < nwin) {
         show(ed, i);

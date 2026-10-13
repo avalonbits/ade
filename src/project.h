@@ -147,4 +147,31 @@ bool proj_list(const project* p, char* msg, int max);
 // `msg` when it cannot be written.
 bool proj_obey(const project* p, const char* err, char* msg, int max);
 
+/*
+ * The project here, between builds. Read whole, a project is some 5 KB --
+ * its files, rules and pages -- wanted only while a build is made, so it is
+ * read into the heap then and freed after (proj_read). What ade asks of it
+ * in between -- its name for the menu bar, its first file, its document's
+ * name -- is kept from the last read.
+ */
+
+// Reads PROJ_FILE into the heap, for the caller to free, with proj_load's
+// answer in *has. NULL, with why in `msg`, when there is no room to read it.
+project* proj_read(int* has, char* msg, int max);
+
+// The program's name, or NULL with no project here (or one that cannot be
+// read).
+const char* proj_here_name(void);
+
+// The project's first file, for ade started with no file named; NULL with no
+// project.
+const char* proj_here_first(void);
+
+// The name of the project's document, ref-doc/<name>.dat; "" with none.
+const char* proj_here_doc(void);
+
+// Reads the project again the next time it is asked about: after it is made
+// or renamed.
+void proj_forget(void);
+
 #endif  // _PROJECT_H_
