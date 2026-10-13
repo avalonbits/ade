@@ -1,15 +1,17 @@
 #!/bin/bash
-# Checks a release zip on the emulator: unzipped onto a fresh card -- MOS and
-# nothing else -- what ade drives must work from it alone. acc compiles and
+# Checks a release zip. ade-<version>.zip must hold ade, aed's configuration
+# and ade/, and nothing of the tools. ade-full-<version>.zip is checked on the
+# emulator: unzipped onto a fresh card -- MOS and nothing else -- what ade
+# drives must work from it alone. acc compiles and
 # links a C program that runs; zap assembles, and writes acc objects; ref
 # finds a word in both documents, and nothing for a word in neither; md2ref
 # makes a document.
 #
-# Usage: test/release.sh dist/ade-<version>.zip
+# Usage: test/release.sh dist/ade-<version>.zip | dist/ade-full-<version>.zip
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-ZIP=${1:?usage: test/release.sh dist/ade-<version>.zip}
+ZIP=${1:?usage: test/release.sh dist/ade-<version>.zip | dist/ade-full-<version>.zip}
 EMU=${AGON_EMU:-$HOME/fab-agon-emulator-1.2.4}
 status=0
 
@@ -29,6 +31,21 @@ mkdir -p "$c"
 cp -r "$EMU/sdcard/mos" "$c/"
 cp "$EMU/sdcard/MOS.bin" "$EMU/sdcard/firmware.bin" "$c/"
 unzip -oq "$ZIP" -d "$c"
+
+# The small zip: ade, aed's configuration, ade/ -- and nothing else.
+case $(basename "$ZIP") in
+    ade-full-*) ;;
+    *)
+        for f in bin/ade.bin config/aed/syntax/c.cfg config/aed/themes/dark.cfg \
+                 config/aed/unscii8.bin ade/README.md ade/COPYING ade/VERSIONS.txt; do
+            check "in the zip: $f" "$([ -s "$c/$f" ] && echo yes)" yes
+        done
+        check "  and nothing but ade in bin/, and no mos/, lib/ or config/ref/" \
+              "$(unzip -Z1 "$ZIP" | grep -E '^(bin/.|mos/|lib/|config/ref/)' | tr '\n' ' ')" \
+              "bin/ade.bin "
+        exit $status
+        ;;
+esac
 
 for f in bin/ade.bin bin/acc.bin bin/zap.bin bin/ref.bin bin/md2ref.bin bin/aed.bin \
          mos/hub.bin lib/acc/libc.a lib/acc/rt.a lib/acc/libhub.a lib/acc/include/stdio.h \

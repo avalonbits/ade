@@ -1,21 +1,23 @@
 #!/bin/bash
-# Builds ade's release: one zip to unzip at the root of an SD card, with
-# everything ade needs and uses beside it.
+# Builds ade's two release zips, each to unzip at the root of an SD card.
 #
-#   dist/ade-<version>.zip
+#   dist/ade-<version>.zip          ade, and what it reads beside itself
 #       bin/ade.bin                     ade, built here
-#       bin/acc.bin, lib/acc/...        acc, its C library and headers
-#       bin/zap.bin                     zap
-#       mos/hub.bin, lib/acc/...hub     hub, and its client library for acc
-#       bin/aed.bin, config/aed/...     aed, and the grammars, themes and
-#                                       fonts ade shares with it
-#       bin/ref.bin, bin/md2ref.bin,
-#       config/ref/docs/*.dat           ref, md2ref, and the documents
+#       config/aed/...                  the grammars, themes and fonts ade
+#                                       shares with aed
 #       ade/README.md, ade/COPYING,
 #       ade/VERSIONS.txt                what this is, and what is in it
 #
+#   dist/ade-full-<version>.zip     that, and everything ade drives
+#       bin/acc.bin, lib/acc/...        acc, its C library and headers
+#       bin/zap.bin                     zap
+#       mos/hub.bin, lib/acc/...hub     hub, and its client library for acc
+#       bin/aed.bin                     aed
+#       bin/ref.bin, bin/md2ref.bin,
+#       config/ref/docs/*.dat           ref, md2ref, and the documents
+#
 # What goes in beside ade is pinned in release.pin. Nothing is published:
-# the zip is made locally, to be checked and then attached to a release.
+# the zips are made locally, to be checked and then attached to a release.
 #
 # Usage: tools/mkrelease.sh <version>
 #   VERSION_<name>=<v>   overrides a component's pinned version, for a trial
@@ -94,6 +96,20 @@ cp bin/ade.bin "$CARD/bin/ade.bin"
 cp README.md COPYING "$CARD/ade/"
 versions ade "$VERSION" "$(git rev-parse --short HEAD)"
 
-rm -f "dist/ade-$VERSION.zip"
-(cd "$CARD" && zip -qr "$OLDPWD/dist/ade-$VERSION.zip" .)
+# The small zip: ade, aed's configuration, and ade/. Its VERSIONS.txt names
+# ade and the aed release the configuration came from.
+SMALL="$WORK/small"
+mkdir -p "$SMALL/bin" "$SMALL/config" "$SMALL/ade"
+cp "$CARD/bin/ade.bin" "$SMALL/bin/"
+cp -r "$CARD/config/aed" "$SMALL/config/"
+cp README.md COPYING "$SMALL/ade/"
+{
+    printf 'ade %s:\n\n' "$VERSION"
+    grep -E '^(ade|aed) {2,}' "$CARD/ade/VERSIONS.txt"
+} > "$SMALL/ade/VERSIONS.txt"
+
+rm -f "dist/ade-$VERSION.zip" "dist/ade-full-$VERSION.zip"
+(cd "$SMALL" && zip -qr "$OLDPWD/dist/ade-$VERSION.zip" .)
+(cd "$CARD" && zip -qr "$OLDPWD/dist/ade-full-$VERSION.zip" .)
 echo "dist/ade-$VERSION.zip"
+echo "dist/ade-full-$VERSION.zip"

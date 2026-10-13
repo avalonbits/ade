@@ -30,8 +30,10 @@ What it does:
 - **The shell**: CTRL+F12 drops you at hub's prompt, and `exit` brings you
   back to ADE as you left it.
 
-ADE's release is one zip that has everything it uses: ADE, acc, zap, hub,
-ref, AED, and their libraries, headers, configuration and documentation.
+ADE comes as two zips. `ade-<version>.zip` is ADE alone, with the syntax
+colouring, themes and fonts it shares with AED. `ade-full-<version>.zip` has
+everything it uses as well: acc, zap, hub, ref, AED, and their libraries,
+headers, configuration and documentation.
 [docs/DESIGN.md](docs/DESIGN.md) explains how ADE works inside.
 
 ## Contents
@@ -56,23 +58,27 @@ ref, AED, and their libraries, headers, configuration and documentation.
 
 - **MOS 3.0.2** and **VDP 1.04 or later**. ALT+F5 needs VDP 2.2.0 or later to
   capture the program's screen.
-- Everything else comes in the release zip:
+- Everything else comes in `ade-full-<version>.zip`. `ade-<version>.zip`
+  has only ADE and AED's configuration, for a card that already has the
+  rest:
 
 | Component | What ADE uses it for | In the zip |
 |---|---|---|
-| ADE | this | `bin/ade.bin` |
+| ADE | this | `bin/ade.bin` (in both) |
 | [hub](https://github.com/avalonbits/hub) | runs the tools and brings ADE back; ADE won't start without it | `mos/hub.bin`, and `lib/acc/libhub.a` for your own programs |
 | [acc](https://github.com/avalonbits/acc) | compiling and linking C | `bin/acc.bin`, `lib/acc/` |
 | [zap](https://github.com/avalonbits/zap) | assembling | `bin/zap.bin` |
 | ref, md2ref | documentation, and making it from Markdown | `bin/ref.bin`, `bin/md2ref.bin`, `config/ref/docs/` |
-| [AED](https://github.com/avalonbits/aed) | syntax colouring, themes and fonts, shared with AED | `bin/aed.bin`, `config/aed/` |
+| [AED](https://github.com/avalonbits/aed) | syntax colouring, themes and fonts, shared with AED | `config/aed/` (in both), `bin/aed.bin` |
 
 `ade/VERSIONS.txt` in the zip says which version of each it has.
 
 ## Installation
 
-1. Unzip `ade-<version>.zip` at the root of the SD card. Everything lands
-   where it belongs, replacing older copies of the same programs.
+1. Unzip `ade-full-<version>.zip` at the root of the SD card -- or
+   `ade-<version>.zip`, if the card already has hub, acc, zap and ref.
+   Everything lands where it belongs, replacing older copies of the same
+   programs.
 2. To have hub start at boot, make `hub` the last line of `/autoexec.txt`.
    Otherwise type `hub` at MOS's prompt before `ade`.
 3. If hub was already running, type `exit` and then `hub`, to start the new
@@ -334,12 +340,15 @@ scripted build, md2ref and the documents (`REF_BIN`, `MD2REF_BIN`,
 `release.pin` names the version of each component the release bundles.
 `src/version.h` names ADE's own.
 
-    tools/mkrelease.sh 0.1.0         # dist/ade-0.1.0.zip
+    tools/mkrelease.sh 0.1.0         # dist/ade-0.1.0.zip, dist/ade-full-0.1.0.zip
     test/release.sh dist/ade-0.1.0.zip
+    test/release.sh dist/ade-full-0.1.0.zip
 
 `tools/mkrelease.sh` downloads each pinned release, builds ref with its own
-release script, builds ADE, and zips the lot as an SD card's root.
-`test/release.sh` unzips it onto a fresh emulator card holding only MOS.
+release script, builds ADE, and zips each as an SD card's root.
+`test/release.sh` checks that the small zip holds ADE and AED's
+configuration and nothing of the tools. It unzips the full one onto a fresh
+emulator card holding only MOS.
 There it checks that acc compiles a program that runs, zap assembles and
 writes acc's objects, ref finds words in both documents, and md2ref makes a
 document.
