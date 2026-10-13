@@ -18,5 +18,5 @@
 hub   0.6.0   github:avalonbits/hub:hub-{v}.zip,hub-acc-{v}.zip
 aed   1.6.3   github:avalonbits/aed:aed-{v}.zip
 acc   0.5.0   github:avalonbits/acc:acc-{v}.zip
-zap   pending github:avalonbits/zap:zap.bin
+zap   1.2.0   github:avalonbits/zap:zap.bin
 ref   0.2.0   ref:8d3e03e
