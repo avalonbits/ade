@@ -84,6 +84,17 @@ headers, configuration and documentation.
 3. If hub was already running, type `exit` and then `hub`, to start the new
    one.
 
+### Updating one of the tools
+
+Every program in `ade-full` is its own project, with its own releases, and
+each of their zips is laid out the same way, from the card's root. To move
+to a newer acc, zap, hub, ref or AED than your ade bundle has, unzip that
+project's release over the card, the same way. Nothing else needs to change.
+For example, `acc-0.6.0.zip` replaces `bin/acc.bin`, its library and headers,
+and `config/ref/docs/acc.dat`. hub comes as two zips, `hub-<version>.zip` and
+`hub-acc-<version>.zip` for its library: unzip both. ade's next release bundles the newest of each,
+and `ade/VERSIONS.txt` says what yours has.
+
 ## Running ADE
 
 At hub's prompt:
